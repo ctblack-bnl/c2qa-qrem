@@ -532,6 +532,11 @@ async function buildDatabase() {
     if (d.ok) {
       setStageStatus('build', 'done', 'Complete ✓');
       document.getElementById('buildOutput').style.color = 'var(--green)';
+      // Show link to Materials Explorer
+      const link = document.createElement('div');
+      link.style.cssText = 'margin-top:16px;font-family:"IBM Plex Mono",monospace;font-size:13px;';
+      link.innerHTML = '<a href="materials_explorer.html" style="color:var(--accent);text-decoration:none;font-size:14px;">→ Open Materials Explorer</a>';
+      document.getElementById('stage-build').querySelector('.stage-body').appendChild(link);
     } else {
       setStageStatus('build', 'review', 'Error');
       document.getElementById('buildOutput').style.color = 'var(--orange)';

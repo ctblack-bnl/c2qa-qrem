@@ -97,6 +97,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     if before != len(records):
         print(f"  Filtered {before - len(records)} duplicate record(s)")
 
+    # De-duplicate same filename appearing multiple times in JSONL.
+    # This can happen from development experiments or re-processing.
+    # Keep the LAST record for each filename (most recent ingestion).
+    seen = {}
+    for r in records:
+        seen[r.get("filename")] = r  # last one wins
+    if len(seen) < len(records):
+        print(f"  De-duplicated {len(records) - len(seen)} repeated filename(s) — keeping latest record")
+    records = list(seen.values())
+
     # --- Connect to SQLite ---
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)

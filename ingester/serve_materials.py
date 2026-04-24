@@ -189,6 +189,9 @@ def find_duplicate_pairs(threshold: float = 0.85) -> list:
             key = tuple(sorted([a["filename"], b["filename"]]))
             if key in decided_pairs:
                 continue
+            # Never flag a paper as a duplicate of itself
+            if a["filename"] == b["filename"]:
+                continue
             sim = title_similarity(a["title"], b["title"])
             if sim >= threshold:
                 pairs.append({
