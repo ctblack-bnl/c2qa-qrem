@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baby QREM — Quantum Resource Estimator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #0a0e14;
+    --bg2:        #111820;
+    --bg3:        #1a2332;
+    --border:     #1e3a5f;
+    --accent:     #00d4ff;
+    --accent2:    #0099bb;
+    --warn:       #ff6b35;
+    --green:      #00ff88;
+    --mono:       'IBM Plex Mono', monospace;
+    --sans:       'IBM Plex Sans', sans-serif;
+    --text:       #ffffff;
+    --text-dim:   #a0c0d0;
+    --text-label: #c8dde8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  header {
+    position: relative;
+    z-index: 10;
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    background: rgba(10,14,20,0.9);
+    backdrop-filter: blur(8px);
+  }
+
+  .header-title {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .header-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .header-platform {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 2px;
+  }
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  .layout {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    grid-template-rows: auto 1fr;
+    min-height: calc(100vh - 57px);
+  }
+
+  /* ── Left panel — controls ───────────────────────────────── */
+  .panel-controls {
+    grid-row: 1 / 3;
+    border-right: 1px solid var(--border);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    background: rgba(17,24,32,0.6);
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* circuit selector */
+  select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px 10px;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a7a9a'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  select:focus { border-color: var(--accent2); }
+
+  /* fidelity slider */
+  .slider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+
+  .slider-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-label);
+  }
+
+  .slider-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 8px rgba(0,212,255,0.5);
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 16px rgba(0,212,255,0.8);
+  }
+
+  .slider-ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* run button */
+  button#run-btn {
+    width: 100%;
+    padding: 11px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  button#run-btn:hover {
+    background: rgba(0,212,255,0.08);
+    box-shadow: 0 0 20px rgba(0,212,255,0.2);
+  }
+
+  button#run-btn.running {
+    color: var(--text-dim);
+    border-color: var(--border);
+    cursor: wait;
+  }
+
+  button#run-btn.running::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.15), transparent);
+    animation: shimmer 1s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+
+  /* assumptions section */
+  .assumptions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .assumption-item {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    padding-left: 10px;
+    border-left: 2px solid var(--border);
+    line-height: 1.5;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .assumption-item.visible { opacity: 1; }
+  
+  .analysis-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .analysis-table td {
+    padding: 4px 0;
+    color: var(--text-dim);
+    vertical-align: top;
+  }
+  .analysis-table td:last-child {
+    text-align: right;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ── Top right — metric cards ────────────────────────────── */
+  .panel-metrics {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+
+  .metric-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px 14px 12px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.4s, transform 0.4s, border-color 0.3s;
+  }
+
+  .metric-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.4;
+  }
+
+  .metric-card.highlight::before { opacity: 1; }
+  .metric-card.warn::before { background: var(--warn); opacity: 1; }
+  .metric-card.good::before { background: var(--green); opacity: 1; }
+
+  .metric-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+    transition: color 0.3s;
+  }
+
+  .metric-card.highlight .metric-value { color: var(--accent); }
+  .metric-card.warn .metric-value { color: var(--warn); }
+  .metric-card.good .metric-value { color: var(--green); }
+
+  .metric-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ── Bottom right — chart ────────────────────────────────── */
+  .panel-chart {
+    padding: 24px 32px 28px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .chart-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-label);
+  }
+
+  .chart-subtitle {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .chart-wrap {
+    flex: 1;
+    position: relative;
+    min-height: 260px;
+  }
+
+  canvas#chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ── Status bar ──────────────────────────────────────────── */
+  .status-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(10,14,20,0.95);
+    border-top: 1px solid var(--border);
+    padding: 6px 32px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 24px;
+    z-index: 100;
+  }
+
+  .status-item { display: flex; gap: 6px; }
+  .status-key { color: var(--text-dim); }
+  .status-val { color: var(--text-label); }
+  .status-val.ok { color: var(--green); }
+  .status-val.warn { color: var(--warn); }
+
+  /* error display */
+  .error-banner {
+    display: none;
+    background: rgba(255,107,53,0.1);
+    border: 1px solid var(--warn);
+    color: var(--warn);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 10px 14px;
+    border-radius: 2px;
+    margin-top: 8px;
+  }
+
+  .empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">Baby QREM</div>
+  <div class="header-sub">Quantum Resource Estimator — C2QA</div>
+  <div class="header-platform" id="platform-badge">superconducting</div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Left: Controls ── -->
+  <aside class="panel-controls">
+
+    <div>
+      <div class="section-label">Circuit</div>
+      <select id="circuit-select">
+        <option value="">Loading circuits…</option>
+      </select>
+    </div>
+
+    <div>
+      <div class="section-label">Two-Qubit Gate Fidelity</div>
+      <div class="slider-row">
+        <span class="slider-label">Fidelity</span>
+        <span class="slider-value" id="fidelity-display">99.90%</span>
+      </div>
+      <input type="range" id="fidelity-slider"
+             min="99.0" max="99.99" step="0.01" value="99.90">
+      <div class="slider-ticks">
+        <span>99.0%</span>
+        <span>99.5%</span>
+        <span>99.99%</span>
+      </div>
+    </div>
+
+    <div>
+      <button id="run-btn">▶ Run Estimation</button>
+      <div class="error-banner" id="error-banner"></div>
+    </div>
+
+    <div id="circuit-analysis" style="display:none">
+      <div class="section-label">Circuit Analysis</div>
+      <table class="analysis-table">
+        <tr><td>Single-qubit gates</td><td id="ca-sq">—</td></tr>
+        <tr><td>Two-qubit gates</td><td id="ca-tq">—</td></tr>
+        <tr><td>Measurements</td><td id="ca-meas">—</td></tr>
+        <tr><td>Locality score</td><td id="ca-locality">—</td></tr>
+        <tr><td>Hub qubits</td><td id="ca-hubs">—</td></tr>
+      </table>
+    </div>
+
+    <div style="flex:1">
+      <div class="section-label">Simplifying Assumptions</div>>
+      <div class="assumptions-list" id="assumptions-list">
+        <div class="assumption-item" style="opacity:0.4; border-color: #1e3a5f">
+          Run an estimation to see assumptions
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Top right: Metric cards ── -->
+  <div class="panel-metrics">
+    <div class="metrics-grid" id="metrics-grid">
+      <div class="metric-card" id="card-code-dist">
+        <div class="metric-label">Code Distance</div>
+        <div class="metric-value" id="val-code-dist">—</div>
+        <div class="metric-sub">surface code d</div>
+      </div>
+      <div class="metric-card" id="card-phys-logical">
+        <div class="metric-label">Phys / Logical</div>
+        <div class="metric-value" id="val-phys-logical">—</div>
+        <div class="metric-sub">= 2d² − 1</div>
+      </div>
+      <div class="metric-card" id="card-logical">
+        <div class="metric-label">Logical Qubits</div>
+        <div class="metric-value" id="val-logical">—</div>
+        <div class="metric-sub">from circuit</div>
+      </div>
+      <div class="metric-card" id="card-total">
+        <div class="metric-label">Total Physical</div>
+        <div class="metric-value" id="val-total">—</div>
+        <div class="metric-sub">qubits</div>
+      </div>
+      <div class="metric-card" id="card-modules">
+        <div class="metric-label">Modules</div>
+        <div class="metric-value" id="val-modules">—</div>
+        <div class="metric-sub" id="sub-modules">needed</div>
+      </div>
+      <div class="metric-card" id="card-intermodule">
+        <div class="metric-label">Inter-Module</div>
+        <div class="metric-value" id="val-intermodule">—</div>
+        <div class="metric-sub">of 2q gates</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bottom right: Staircase chart ── -->
+  <div class="panel-chart">
+    <div class="chart-header">
+      <div class="chart-title">Fidelity → Module Count</div>
+      <div class="chart-subtitle">staircase curve — marker shows current estimate</div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chart"></canvas>
+      <div class="empty-state" id="empty-state">
+        Select a circuit and run estimation to see the curve
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="status-bar">
+  <div class="status-item">
+    <span class="status-key">status</span>
+    <span class="status-val" id="status-feasible">—</span>
+  </div>
+  <div class="status-item">
+    <span class="status-key">error rate</span>
+    <span class="status-val" id="status-error-rate">—</span>
+  </div>
+  <div class="status-item">
+    <span class="status-key">logical error rate</span>
+    <span class="status-val" id="status-logical-err">—</span>
+  </div>
+  <div class="status-item">
+    <span class="status-key">platform</span>
+    <span class="status-val">superconducting / surface code</span>
+  </div>
+  <div class="status-item" style="margin-left:auto">
+    <span class="status-key">C2QA Baby QREM</span>
+    <span class="status-val">v0.3 — April 2026</span>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────
+let lastResult = null;
+let curveData  = null;   // [{fidelity, modules}, ...] sweep results
+
+// ─────────────────────────────────────────────────────────────
+// Boot: load circuit list
+// ─────────────────────────────────────────────────────────────
+async function loadCircuits() {
+  try {
+    const resp = await fetch('/api/circuits', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({})
+    });
+    const data = await resp.json();
+    const sel = document.getElementById('circuit-select');
+    sel.innerHTML = '';
+    (data.circuits || []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    document.getElementById('circuit-select').innerHTML =
+      '<option>Could not load circuits</option>';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Slider
+// ─────────────────────────────────────────────────────────────
+const slider  = document.getElementById('fidelity-slider');
+const display = document.getElementById('fidelity-display');
+
+slider.addEventListener('input', () => {
+  display.textContent = parseFloat(slider.value).toFixed(2) + '%';
+});
+
+// ─────────────────────────────────────────────────────────────
+// Run estimation (single point)
+// ─────────────────────────────────────────────────────────────
+async function runEstimation(fidelity, circuit) {
+  const resp = await fetch('/api/estimate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      circuit,
+      profile_overrides: {
+        gates: { two_qubit_fidelity_pct: parseFloat(fidelity) }
+      }
+    })
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'Unknown error');
+  return data.result;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sweep fidelity range to build staircase curve
+// ─────────────────────────────────────────────────────────────
+async function sweepCurve(circuit) {
+  const points = [];
+  const steps = 40;
+  for (let i = 0; i <= steps; i++) {
+    const f = Math.round((99.00 + i * (0.99 / steps)) * 1000) / 1000;
+    const r = await runEstimation(f, circuit);
+    if (r.code_distance <= 50) {
+      points.push({ fidelity: f, modules: r.num_modules, code_distance: r.code_distance });
+    }
+  }
+  return points;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Update metric cards
+// ─────────────────────────────────────────────────────────────
+function updateCards(result) {
+  const fmtNum = n => n >= 1000 ? n.toLocaleString() : String(n);
+
+  const set = (id, val, cardId, cls) => {
+    document.getElementById(id).textContent = val;
+    const card = document.getElementById(cardId);
+    card.classList.remove('highlight','warn','good');
+    if (cls) card.classList.add(cls);
+    card.classList.add('visible');
+  };
+
+  set('val-code-dist',    result.code_distance,              'card-code-dist',    'highlight');
+  set('val-phys-logical', fmtNum(result.physical_qubits_per_logical), 'card-phys-logical', 'highlight');
+  set('val-logical',      result.num_logical_qubits,         'card-logical',      '');
+  set('val-total',        fmtNum(result.total_physical_qubits), 'card-total',     '');
+
+  const modCard = document.getElementById('card-modules');
+  set('val-modules', result.num_modules, 'card-modules',
+      result.num_modules <= 2 ? 'good' : result.num_modules >= 10 ? 'warn' : '');
+
+  const pct = (result.intermodule_fraction * 100).toFixed(1) + '%';
+  set('val-intermodule', pct, 'card-intermodule',
+      result.intermodule_fraction > 0.4 ? 'warn' : '');
+
+  // status bar
+  const feasEl = document.getElementById('status-feasible');
+  feasEl.textContent = result.feasible ? 'FEASIBLE' : 'NOT FEASIBLE';
+  feasEl.className = 'status-val ' + (result.feasible ? 'ok' : 'warn');
+
+  document.getElementById('status-error-rate').textContent =
+    (result.physical_error_rate * 100).toFixed(3) + '%';
+
+  const ler = result.logical_error_rate_achieved;
+  document.getElementById('status-logical-err').textContent =
+    ler === null ? 'n/a (above threshold)' :
+    ler < 0.001 ? ler.toExponential(2) : ler.toFixed(6);
+
+    // Circuit analysis panel
+  document.getElementById('ca-sq').textContent = result.num_single_qubit_gates;
+  document.getElementById('ca-tq').textContent = result.num_two_qubit_gates_circuit;
+  document.getElementById('ca-meas').textContent = result.num_measurements;
+  document.getElementById('ca-locality').textContent = parseFloat(result.locality_score).toFixed(2);
+  document.getElementById('ca-hubs').textContent = result.hub_qubits.length > 0
+    ? result.hub_qubits.join(', ')
+    : 'none';
+  document.getElementById('circuit-analysis').style.display = 'block';
+
+  // assumptions
+  const list = document.getElementById('assumptions-list');
+  list.innerHTML = '';
+  (result.assumptions || []).forEach((a, i) => {
+    const div = document.createElement('div');
+    div.className = 'assumption-item';
+    div.textContent = a;
+    list.appendChild(div);
+    setTimeout(() => div.classList.add('visible'), i * 60);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Draw staircase chart
+// ─────────────────────────────────────────────────────────────
+function drawChart(points, currentFidelity, currentModules) {
+  const canvas = document.getElementById('chart');
+  const wrap   = canvas.parentElement;
+  if (wrap.clientWidth === 0 || wrap.clientHeight === 0) return;
+  const dpr    = window.devicePixelRatio || 1;
+
+  canvas.width  = wrap.clientWidth  * dpr;
+  canvas.height = wrap.clientHeight * dpr;
+  canvas.style.width  = wrap.clientWidth  + 'px';
+  canvas.style.height = wrap.clientHeight + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  const pad = { top: 16, right: 24, bottom: 40, left: 58 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top  - pad.bottom;
+
+  // ── Auto-scale x: trim boring flat region on the left ──
+  const maxModules = Math.max(...points.map(p => p.modules));
+  const firstDrop  = points.find(p => p.modules < maxModules);
+  const xMin = firstDrop ? Math.max(99.0, firstDrop.fidelity - 0.1) : 99.0;
+  const xMax = 99.99;
+
+  // ── Auto-scale y: dynamic nice tick interval ──
+  const yMax = maxModules;
+  const yMin = 0;
+
+  function niceInterval(range) {
+    if (range === 0) return 1;
+    const rough     = range / 6;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+    const normalized = rough / magnitude;
+    if (normalized < 2) return magnitude;
+    if (normalized < 5) return 2 * magnitude;
+    return 5 * magnitude;
+  }
+
+  const interval = niceInterval(yMax);
+  const yTicks = [];
+  for (let t = 0; t <= yMax + interval; t += interval) yTicks.push(t);
+
+  // ── Coordinate transforms ──
+  const toX = f => pad.left + (f - xMin) / (xMax - xMin) * cw;
+  const toY = m => pad.top  + ch - (m - yMin) / (yMax - yMin + interval * 0.5) * ch;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // grid lines (y) — only at nice tick positions
+  ctx.strokeStyle = 'rgba(30,58,95,0.6)';
+  ctx.lineWidth = 1;
+  yTicks.forEach(m => {
+    const y = toY(m);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cw, y);
+    ctx.stroke();
+  });
+
+  // axes
+  ctx.strokeStyle = 'rgba(90,122,154,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top + ch);
+  ctx.lineTo(pad.left + cw, pad.top + ch);
+  ctx.stroke();
+
+  // y-axis labels
+  ctx.fillStyle = '#5a7a9a';
+  ctx.font = '9px IBM Plex Mono, monospace';
+  ctx.textAlign = 'right';
+  yTicks.forEach(m => {
+    ctx.fillText(m + ' mod', pad.left - 6, toY(m) + 3);
+  });
+
+  // x-axis labels — only show ticks within visible range
+  ctx.textAlign = 'center';
+  [99.0, 99.1, 99.2, 99.3, 99.4, 99.5, 99.6, 99.7, 99.8, 99.9, 99.99].forEach(f => {
+    if (f >= xMin - 0.01) {
+      ctx.fillText(f.toFixed(2) + '%', toX(f), pad.top + ch + 14);
+    }
+  });
+
+  // x-axis title
+  ctx.fillStyle = '#3a5a7a';
+  ctx.font = '9px IBM Plex Mono, monospace';
+  ctx.fillText('two-qubit gate fidelity', pad.left + cw / 2, pad.top + ch + 30);
+
+  // staircase fill
+  ctx.beginPath();
+  ctx.moveTo(toX(Math.max(points[0].fidelity, xMin)), toY(0));
+  points.forEach((p, i) => {
+    if (p.fidelity < xMin) return;
+    const x1 = toX(Math.max(p.fidelity, xMin));
+    const x2 = i < points.length - 1 ? toX(points[i+1].fidelity) : toX(xMax);
+    ctx.lineTo(x1, toY(p.modules));
+    ctx.lineTo(x2, toY(p.modules));
+  });
+  ctx.lineTo(toX(xMax), toY(0));
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+  grad.addColorStop(0, 'rgba(0,212,255,0.12)');
+  grad.addColorStop(1, 'rgba(0,212,255,0.01)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // staircase line
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(0,212,255,0.7)';
+  ctx.lineWidth = 1.5;
+  let started = false;
+  points.forEach((p, i) => {
+    if (p.fidelity < xMin) return;
+    const x1 = toX(Math.max(p.fidelity, xMin));
+    const x2 = i < points.length - 1 ? toX(points[i+1].fidelity) : toX(xMax);
+    if (!started) { ctx.moveTo(x1, toY(p.modules)); started = true; }
+    ctx.lineTo(x1, toY(p.modules));
+    ctx.lineTo(x2, toY(p.modules));
+  });
+  ctx.stroke();
+
+  // current position marker — only draw if in visible range
+  if (currentFidelity >= xMin) {
+    const mx = toX(currentFidelity);
+    const my = toY(currentModules);
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(0,212,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,4]);
+    ctx.moveTo(mx, pad.top + ch);
+    ctx.lineTo(mx, my);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(mx, my, 6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,212,255,0.15)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(mx, my, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#00d4ff';
+    ctx.fill();
+
+    // keep label from running off right edge
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '10px IBM Plex Mono, monospace';
+    const label = `${currentModules} mod @ ${currentFidelity.toFixed(2)}%`;
+    const labelW = ctx.measureText(label).width;
+    const labelX = (mx + 10 + labelW > W - pad.right) ? mx - labelW - 10 : mx + 10;
+    ctx.textAlign = 'left';
+    ctx.fillText(label, labelX, my - 4);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Main run handler
+// ─────────────────────────────────────────────────────────────
+const runBtn = document.getElementById('run-btn');
+const errBanner = document.getElementById('error-banner');
+
+runBtn.addEventListener('click', async () => {
+  const circuit  = document.getElementById('circuit-select').value;
+  const fidelity = parseFloat(slider.value);
+
+  if (!circuit) { showError('Please select a circuit.'); return; }
+
+  runBtn.classList.add('running');
+  runBtn.textContent = 'Running…';
+  errBanner.style.display = 'none';
+  document.getElementById('empty-state').style.display = 'none';
+
+  try {
+    // Run the single-point estimate first (fast — updates cards immediately)
+    const result = await runEstimation(fidelity, circuit);
+    lastResult = result;
+    updateCards(result);
+
+    // Then sweep the full curve (slower — ~40 API calls)
+    runBtn.textContent = 'Sweeping curve…';
+    curveData = await sweepCurve(circuit);
+    console.log('curve points:', curveData.length, 'chart size:', document.getElementById('chart').parentElement.clientWidth, document.getElementById('chart').parentElement.clientHeight);
+    drawChart(curveData, fidelity, result.num_modules);
+
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    runBtn.classList.remove('running');
+    runBtn.textContent = '▶ Run Estimation';
+  }
+});
+
+function showError(msg) {
+  errBanner.textContent = msg;
+  errBanner.style.display = 'block';
+}
+
+// Redraw chart on resize
+window.addEventListener('resize', () => {
+  if (curveData && lastResult) {
+    drawChart(curveData, parseFloat(slider.value), lastResult.num_modules);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────
+loadCircuits();
+</script>
+</body>
+</html>

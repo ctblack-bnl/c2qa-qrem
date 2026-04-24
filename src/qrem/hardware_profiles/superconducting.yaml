@@ -1,0 +1,123 @@
+# superconducting.yaml
+# Hardware profile for superconducting qubit systems
+# Used by Stage 3 (Model) of the QREM pipeline
+#
+# Values represent realistic current state-of-the-art (2025-2026)
+# for high-quality superconducting transmon qubit systems.
+# Sources: recent literature, IBM/Google published benchmarks, C2QA materials schema.
+#
+# To model a different device, copy this file and adjust the values.
+# The pipeline code never changes — only the profile data does.
+
+platform: superconducting
+description: "State-of-the-art transmon qubit system, 2025-2026 baseline"
+
+# =============================================================================
+# QUBIT COHERENCE
+# These determine the physical error rate, which drives code distance selection.
+# Longer coherence = lower error rate = smaller code distance = fewer physical qubits.
+# =============================================================================
+
+coherence:
+  T1_us: 200          # Energy relaxation time in microseconds.
+                      # How long before a qubit spontaneously loses its energy state.
+                      # Current best labs: 100-500 us. We use 200 as a solid baseline.
+
+  T2_us: 300          # Dephasing time in microseconds.
+                      # How long before a qubit loses its phase coherence.
+                      # T2 is often the more limiting factor for gate fidelity.
+                      # Typically T2 <= 2*T1. 300 us is achievable with good materials.
+
+# =============================================================================
+# GATE PERFORMANCE
+# Gate fidelity and speed together determine how many errors occur per operation.
+# Fidelity: closer to 100% is better. Time: faster is better (more gates fit in coherence window).
+# =============================================================================
+
+gates:
+  single_qubit_fidelity_pct: 99.9    # Fidelity of single-qubit gates (H, X, Z, etc.)
+                                      # 99.9% means 1 error per 1000 gates.
+                                      # Current best: 99.9-99.99%. 99.9 is a solid baseline.
+
+  single_qubit_gate_time_ns: 20      # Time to execute a single-qubit gate, in nanoseconds.
+                                      # Typical range: 10-50 ns.
+
+  two_qubit_fidelity_pct: 99.9       # Fidelity of two-qubit gates (CNOT, CZ, etc.)
+                                      # This is the dominant error source in most circuits.
+                                      # Current best: 99.0-99.7%. 99.5 is ambitious but achievable.
+
+  two_qubit_gate_time_ns: 200        # Time to execute a two-qubit gate, in nanoseconds.
+                                      # Typical range: 100-500 ns. Much slower than single-qubit.
+
+  readout_fidelity_pct: 99.5         # Fidelity of qubit measurement.
+                                      # Critical for error correction syndrome measurements.
+                                      # Current best: 99.0-99.9%.
+
+  readout_time_ns: 500               # Time to measure a qubit, in nanoseconds.
+                                      # This contributes significantly to error correction cycle time.
+
+# =============================================================================
+# MODULE ARCHITECTURE
+# How many qubits fit in one module, and how modules connect to each other.
+# These are the parameters most specific to modular architectures.
+# =============================================================================
+
+module:
+  physical_qubits_per_module: 1000   # How many physical qubits fit on one chip/module.
+                                      # Current devices: 100-1000+ qubits.
+                                      # 1000 is representative of near-term large devices.
+
+  connectivity: nearest_neighbor      # How qubits connect within a module.
+                                      # 'nearest_neighbor': each qubit connects to adjacent ones only (grid).
+                                      # This is typical for superconducting chips.
+
+# =============================================================================
+# INTER-MODULE LINKS
+# The cost of operations that cross module boundaries.
+# This is the most novel part of the profile — most tools don't model this at all.
+# =============================================================================
+
+intermodule:
+  link_type: microwave_photonic       # Physical mechanism for inter-module communication.
+                                      # Superconducting systems typically use microwave photons
+                                      # converted to optical photons for longer distances.
+
+  link_fidelity_pct: 85.0            # Fidelity of an inter-module entangling operation.
+                                      # Much lower than local gates — this is the key challenge.
+                                      # Conservative baseline: current demonstrated in good lab conditions.
+                                      # Near-term target: 92.0% (optimistic but plausible, 2-3 years)
+                                      # Aspirational: 99.0% (what the field needs for practical advantage)
+                                      # Use sensitivity analysis to show what improvements buy in module count.
+
+  entanglement_rate_Hz: 1000         # How many Bell pairs (entangled qubit pairs) can be
+                                      # generated per second across a module link.
+                                      # Current demonstrated: 100-10000 Hz.
+                                      # This directly limits inter-module communication throughput.
+
+  link_latency_us: 10                # Time delay for classical signals to travel between modules
+                                      # for error syndrome coordination, in microseconds.
+                                      # Includes signal travel time and processing overhead.
+
+  transduction_efficiency_pct: 50.0  # Efficiency of converting microwave to optical photons
+                                      # and back, for longer-distance links.
+                                      # Current state of the art: 10-70%. 50% is optimistic near-term.
+
+# =============================================================================
+# ERROR CORRECTION PARAMETERS
+# These tell Stage 3 how to compute code distance and physical qubit overhead.
+# =============================================================================
+
+error_correction:
+  code: surface_code                  # Which error correction code to use.
+                                      # Surface code is the leading candidate for superconducting qubits.
+
+  target_logical_error_rate: 1.0e-6  # How reliable we need each logical operation to be.
+                                      # 1 in a million errors per logical gate.
+                                      # Standard target for fault-tolerant quantum computing.
+
+  threshold: 0.01                    # The surface code error threshold.
+                                      # Physical error rates below this can be corrected.
+                                      # Above this, adding more qubits makes things worse, not better.
+                                      # Surface code threshold: approximately 1% (0.01).
+                                      # Our gate fidelities are well below this — we are in the
+                                      # correctable regime.

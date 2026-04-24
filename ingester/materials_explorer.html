@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C2QA Materials Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #21262d;
+    --accent:    #58a6ff;
+    --accent2:   #3fb950;
+    --accent3:   #f78166;
+    --accent4:   #d2a8ff;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --card:      #1c2128;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+  header .subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .coverage-pills {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .pill span { color: var(--text); font-weight: 500; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    height: calc(100vh - 57px);
+  }
+
+  sidebar {
+    display: block;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    overflow-y: auto;
+  }
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    margin-top: 20px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  select, .filter-input {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    margin-bottom: 8px;
+    appearance: none;
+  }
+  select:focus, .filter-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color 0.15s;
+    line-height: 1.3;
+  }
+  .checkbox-group label:hover { color: var(--text); }
+  .checkbox-group input[type=checkbox] {
+    accent-color: var(--accent);
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+  }
+  .checkbox-group label.checked { color: var(--text); }
+  .color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 20px;
+  }
+  .tab {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* shared plot area */
+  .plot-area {
+    flex: 1;
+    padding: 20px;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+  }
+  .plot-area.active { display: flex; }
+
+  .plot-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .control-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .control-group select {
+    width: auto;
+    margin-bottom: 0;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  .chart-wrapper {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+  }
+
+  /* table */
+  .table-area {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+    display: none;
+  }
+  .table-area.active { display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+  th {
+    text-align: left; padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-weight: 500; position: sticky; top: 0; background: var(--bg);
+  }
+  td { padding: 7px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:hover td { background: var(--surface); }
+  .null-val { color: var(--muted); font-style: italic; }
+  .conf-high { color: var(--accent2); }
+  .conf-medium { color: var(--accent); }
+  .conf-low { color: var(--accent3); }
+
+  /* catchall */
+  .catchall-area {
+    flex: 1; overflow: auto; padding: 20px; display: none;
+  }
+  .catchall-area.active { display: flex; gap: 16px; flex-direction: column; }
+  .catchall-filter { display: flex; gap: 8px; margin-bottom: 4px; }
+  .catchall-filter select { width: auto; margin-bottom: 0; font-size: 12px; padding: 5px 10px; }
+  .catchall-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px 16px;
+    display: grid; grid-template-columns: 180px 1fr; gap: 8px 16px;
+  }
+  .catchall-item:hover { border-color: var(--accent); }
+  .catchall-meta { display: flex; flex-direction: column; gap: 4px; }
+  .catchall-display-name { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); }
+  .catchall-type { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; }
+  .catchall-paper { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .catchall-description { font-weight: 500; margin-bottom: 4px; }
+  .catchall-value { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--accent2); margin-bottom: 4px; }
+  .catchall-notes { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  .status-bar {
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 6px 20px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--muted); display: flex; gap: 20px;
+  }
+  .status-bar span { color: var(--text); }
+  .loading {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>C2QA // Materials Explorer</h1>
+    <div class="subtitle">Superconducting qubit materials characterization database</div>
+  </div>
+  <div class="coverage-pills" id="coveragePills">
+    <div class="pill">Loading...</div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <sidebar>
+    <div class="section-label">Filter by material</div>
+    <div class="checkbox-group" id="materialFilters">
+      <div style="color:var(--muted);font-size:12px;">Loading...</div>
+    </div>
+
+    <div class="section-label">Filter by substrate</div>
+    <select id="substrateFilter">
+      <option value="">All substrates</option>
+    </select>
+
+    <div class="section-label">Filter by confidence</div>
+    <select id="confidenceFilter">
+      <option value="">All confidence levels</option>
+      <option value="high">High only</option>
+      <option value="high,medium">High + Medium</option>
+    </select>
+
+    <div class="section-label">Search display name</div>
+    <input type="text" class="filter-input" id="nameFilter" placeholder="e.g. Bahrami_2026...">
+  </sidebar>
+
+  <main>
+    <div class="tabs">
+      <div class="tab active" data-tab="strip">By Material</div>
+      <div class="tab" data-tab="scatter">Scatter Plot</div>
+      <div class="tab" data-tab="table">Data Table</div>
+      <div class="tab" data-tab="catchall">Catchall Corpus</div>
+    </div>
+
+    <!-- BY MATERIAL (strip plot) — default tab -->
+    <div class="plot-area active" id="tab-strip">
+      <div class="plot-controls">
+        <div class="control-group">
+          <span class="control-label">Measurement</span>
+          <select id="stripField"><option value="">Loading...</option></select>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Group by</span>
+          <select id="stripGroupBy">
+            <option value="film_material">Film material</option>
+            <option value="substrate_material">Substrate</option>
+            <option value="deposition_method">Deposition method</option>
+          </select>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="stripChart"></canvas>
+      </div>
+    </div>
+
+    <!-- SCATTER PLOT -->
+    <div class="plot-area" id="tab-scatter">
+      <div class="plot-controls">
+        <div class="control-group">
+          <span class="control-label">X axis</span>
+          <select id="xField"><option value="">Loading...</option></select>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Y axis</span>
+          <select id="yField"><option value="">Loading...</option></select>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Color by</span>
+          <select id="colorBy">
+            <option value="film_material">Film material</option>
+            <option value="substrate_material">Substrate</option>
+            <option value="deposition_method">Deposition method</option>
+          </select>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="scatterChart"></canvas>
+      </div>
+    </div>
+
+    <!-- DATA TABLE -->
+    <div class="table-area" id="tab-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Sample</th>
+            <th>Material</th>
+            <th>Substrate</th>
+            <th>Tc (K)</th>
+            <th>RRR</th>
+            <th>Qi internal</th>
+            <th>T1 (µs)</th>
+            <th>2Q fidelity (%)</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="8" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- CATCHALL CORPUS -->
+    <div class="catchall-area" id="tab-catchall">
+      <div class="catchall-filter">
+        <span class="control-label" style="line-height:30px;">Show:</span>
+        <select id="catchallTypeFilter">
+          <option value="">All types</option>
+          <option value="correlation">Correlations (author-stated)</option>
+          <option value="schema_candidate">Schema candidates</option>
+          <option value="additional_measurement">Additional measurements</option>
+          <option value="anomalous_observation">Anomalous observations</option>
+        </select>
+      </div>
+      <div id="catchallItems">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div>Samples shown: <span id="statusCount">—</span></div>
+      <div>Total in corpus: <span id="statusTotal">—</span></div>
+      <div id="statusHover" style="margin-left:auto;"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const PALETTE = [
+  '#58a6ff','#3fb950','#f78166','#d2a8ff',
+  '#ffa657','#79c0ff','#56d364','#ff7b72',
+  '#bc8cff','#ffb86c','#e3b341','#89ddff'
+];
+
+const FIELD_LABELS = {
+  Tc_K: 'Tc (K)', RRR: 'RRR',
+  Qi_internal: 'Qi internal', Qi_single_photon: 'Qi single photon',
+  T1_us: 'T1 (µs)', T2_echo_us: 'T2 echo (µs)',
+  gate_2q_fidelity_pct: '2Q gate fidelity (%)',
+  annealing_temperature_C: 'Annealing temperature (°C)',
+  surface_oxide_nm: 'Surface oxide thickness (nm)',
+  sheet_resistance_Ohm_sq: 'Sheet resistance (Ω/□)',
+};
+
+let allSamples = [];
+let allCatchall = [];
+let colorMap = {};
+let scatterChart = null;
+let stripChart = null;
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+async function boot() {
+  await Promise.all([loadFields(), loadCatchall(), loadCoverage()]);
+}
+
+async function loadFields() {
+  try {
+    const r = await fetch('/api/fields');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    const fields = d.fields;
+
+    // Build FIELD_LABELS from server response
+    fields.forEach(f => { FIELD_LABELS[f.field] = f.label; });
+
+    // Populate all three dropdowns with fields that have data
+    // stripField — default to Tc_K
+    populateSelect('stripField', fields, 'Tc_K');
+    // xField — default to RRR
+    populateSelect('xField', fields, 'RRR');
+    // yField — default to Qi_internal
+    populateSelect('yField', fields, 'Qi_internal');
+
+    // Now load samples and render
+    await loadSamples();
+  } catch(e) { console.error('Fields load failed', e); }
+}
+
+function populateSelect(id, fields, defaultField) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = fields.map(f =>
+    `<option value="${f.field}" ${f.field === defaultField ? 'selected' : ''}>${f.label} (${f.count})</option>`
+  ).join('');
+}
+
+async function loadCoverage() {
+  try {
+    const r = await fetch('/api/coverage');
+    const d = await r.json();
+    if (!d.ok) return;
+    const c = d.coverage;
+    document.getElementById('coveragePills').innerHTML = [
+      `<div class="pill">${c.total_samples} samples</div>`,
+      `<div class="pill">Tc <span>${c.has_Tc}</span></div>`,
+      `<div class="pill">RRR <span>${c.has_RRR}</span></div>`,
+      `<div class="pill">Qi <span>${c.has_Qi}</span></div>`,
+      `<div class="pill">T1 <span>${c.has_T1}</span></div>`,
+    ].join('');
+    document.getElementById('statusTotal').textContent = c.total_samples;
+  } catch(e) { console.error('Coverage load failed', e); }
+}
+
+async function loadSamples() {
+  try {
+    const r = await fetch('/api/samples');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    allSamples = d.samples;
+    buildMaterialFilters();
+    buildSubstrateFilter();
+    renderTable(allSamples);
+    renderStripChart();
+    renderScatterChart();
+  } catch(e) { console.error('Samples load failed', e); }
+}
+
+async function loadCatchall() {
+  try {
+    const r = await fetch('/api/catchall');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    allCatchall = d.items;
+    renderCatchall(allCatchall);
+  } catch(e) { console.error('Catchall load failed', e); }
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────
+function getFilteredSamples() {
+  const checkedMaterials = Array.from(
+    document.querySelectorAll('#materialFilters input:checked')
+  ).map(el => el.value);
+  const substrate  = document.getElementById('substrateFilter').value;
+  const confidence = document.getElementById('confidenceFilter').value;
+  const nameSearch = document.getElementById('nameFilter').value.toLowerCase();
+
+  return allSamples.filter(s => {
+    if (checkedMaterials.length && !checkedMaterials.includes(s.film_material || '')) return false;
+    if (substrate && s.substrate_material !== substrate) return false;
+    if (nameSearch && !(s.display_name || '').toLowerCase().includes(nameSearch)) return false;
+    if (confidence === 'high') {
+      if (!['high'].includes(s.Tc_confidence) && !['high'].includes(s.RRR_confidence) &&
+          !['high'].includes(s.Qi_confidence) && !['high'].includes(s.T1_confidence)) return false;
+    }
+    if (confidence === 'high,medium') {
+      if (!['high','medium'].includes(s.Tc_confidence) && !['high','medium'].includes(s.RRR_confidence) &&
+          !['high','medium'].includes(s.Qi_confidence) && !['high','medium'].includes(s.T1_confidence)) return false;
+    }
+    return true;
+  });
+}
+
+function buildMaterialFilters() {
+  const materials = [...new Set(allSamples.map(s => s.film_material).filter(Boolean))].sort();
+  materials.forEach((m, i) => { colorMap[m] = PALETTE[i % PALETTE.length]; });
+  const container = document.getElementById('materialFilters');
+  container.innerHTML = materials.map(m => `
+    <label class="checked">
+      <input type="checkbox" value="${m}" checked onchange="onFilterChange()">
+      <span class="color-dot" style="background:${colorMap[m]}"></span>
+      ${m}
+    </label>
+  `).join('');
+}
+
+function buildSubstrateFilter() {
+  const substrates = [...new Set(allSamples.map(s => s.substrate_material).filter(Boolean))].sort();
+  const sel = document.getElementById('substrateFilter');
+  substrates.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    sel.appendChild(opt);
+  });
+}
+
+function onFilterChange() {
+  document.querySelectorAll('#materialFilters label').forEach(label => {
+    label.classList.toggle('checked', label.querySelector('input').checked);
+  });
+  const filtered = getFilteredSamples();
+  renderStripChart(filtered);
+  renderScatterChart(filtered);
+  renderTable(filtered);
+  document.getElementById('statusCount').textContent = filtered.length;
+}
+
+// ── Label truncation helper ───────────────────────────────────────────────
+function trunc(str, maxLen=22) {
+  if (!str) return str;
+  // If it contains parentheses with a symbol e.g. 'Tantalum (Ta)', extract the symbol
+  const symMatch = str.match(/\(([A-Z][a-zA-Z0-9\-]*)\)$/);
+  if (symMatch && symMatch[1].length <= 8) return symMatch[1];
+  return str.length > maxLen ? str.slice(0, maxLen).trimEnd() + '…' : str;
+}
+
+// ── Strip Chart (By Material) ──────────────────────────────────────────────
+function renderStripChart(samples) {
+  samples = samples || getFilteredSamples();
+  const field    = document.getElementById('stripField').value;
+  const groupBy  = document.getElementById('stripGroupBy').value;
+
+  // Group samples by the groupBy field
+  const groups = {};
+  samples.forEach(s => {
+    const key = s[groupBy] || 'Unknown';
+    const val = s[field];
+    if (val != null) {
+      if (!groups[key]) groups[key] = [];
+      groups[key].push({ y: val, label: s.display_name, sample: s });
+    }
+  });
+
+  const labels = Object.keys(groups).sort();
+
+  // Build one dataset per group — each point gets a jittered X position
+  // We use a bubble chart trick: x = category index + small random jitter
+  // Chart.js scatter with numeric x where x = label index + jitter
+  const datasets = labels.map((label, i) => {
+    const color = groupBy === 'film_material'
+      ? (colorMap[label] || PALETTE[i % PALETTE.length])
+      : PALETTE[i % PALETTE.length];
+    return {
+      label: trunc(label),
+      data: groups[label].map(pt => ({
+        x: i + (Math.random() - 0.5) * 0.4,
+        y: pt.y,
+        displayName: pt.label,
+        sample: pt.sample,
+      })),
+      backgroundColor: color + 'cc',
+      borderColor: color,
+      pointRadius: 7,
+      pointHoverRadius: 10,
+    };
+  });
+
+  if (stripChart) stripChart.destroy();
+
+  const ctx = document.getElementById('stripChart').getContext('2d');
+  stripChart = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: {
+            color: '#8b949e',
+            font: { family: 'IBM Plex Mono', size: 11 },
+            boxWidth: 12,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#1c2128',
+          borderColor: '#21262d',
+          borderWidth: 1,
+          titleColor: '#58a6ff',
+          bodyColor: '#e6edf3',
+          titleFont: { family: 'IBM Plex Mono', size: 12 },
+          bodyFont: { family: 'IBM Plex Sans', size: 12 },
+          callbacks: {
+            title: (items) => items[0].raw.displayName,
+            label: (item) => {
+              const s = item.raw.sample;
+              return [
+                `${FIELD_LABELS[field] || field}: ${item.raw.y}`,
+                `Material: ${s.film_material || '—'}`,
+                `Paper: ${s.authors || '—'}`,
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          min: -0.6,
+          max: labels.length - 0.4,
+          ticks: {
+            color: '#8b949e',
+            font: { family: 'IBM Plex Mono', size: 10 },
+            stepSize: 1,
+            callback: (val) => {
+              const i = Math.round(val);
+              return (i >= 0 && i < labels.length) ? trunc(labels[i]) : '';
+            },
+            maxRotation: 30,
+          },
+          grid: { color: '#21262d' },
+        },
+        y: {
+          title: {
+            display: true,
+            text: FIELD_LABELS[field] || field,
+            color: '#8b949e',
+            font: { family: 'IBM Plex Mono', size: 11 },
+          },
+          grid: { color: '#21262d' },
+          ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } },
+        }
+      }
+    }
+  });
+
+  document.getElementById('statusCount').textContent = samples.length;
+}
+
+// ── Scatter Chart ──────────────────────────────────────────────────────────
+function renderScatterChart(samples) {
+  samples = samples || getFilteredSamples();
+  const xField  = document.getElementById('xField').value;
+  const yField  = document.getElementById('yField').value;
+  const colorBy = document.getElementById('colorBy').value;
+
+  const groups = {};
+  samples.forEach(s => {
+    const key = s[colorBy] || 'Unknown';
+    const x = s[xField], y = s[yField];
+    if (x != null && y != null) {
+      if (!groups[key]) groups[key] = [];
+      groups[key].push({ x, y, label: s.display_name, sample: s });
+    }
+  });
+
+  const datasets = Object.entries(groups).map(([key, points], i) => ({
+    label: key,
+    data: points,
+    backgroundColor: (colorBy === 'film_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length]) + 'cc',
+    borderColor: colorBy === 'film_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length],
+    pointRadius: 7,
+    pointHoverRadius: 10,
+  }));
+
+  if (scatterChart) scatterChart.destroy();
+  const ctx = document.getElementById('scatterChart').getContext('2d');
+  scatterChart = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          backgroundColor: '#1c2128', borderColor: '#21262d', borderWidth: 1,
+          titleColor: '#58a6ff', bodyColor: '#e6edf3',
+          titleFont: { family: 'IBM Plex Mono', size: 12 },
+          bodyFont: { family: 'IBM Plex Sans', size: 12 },
+          callbacks: {
+            title: (items) => items[0].raw.label,
+            label: (item) => {
+              const s = item.raw.sample;
+              return [
+                `${FIELD_LABELS[xField] || xField}: ${item.raw.x}`,
+                `${FIELD_LABELS[yField] || yField}: ${item.raw.y}`,
+                `Material: ${s.film_material || '—'}`,
+                `Paper: ${s.authors || '—'}`,
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: FIELD_LABELS[xField] || xField, color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } },
+          grid: { color: '#21262d' },
+          ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }
+        },
+        y: {
+          title: { display: true, text: FIELD_LABELS[yField] || yField, color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } },
+          grid: { color: '#21262d' },
+          ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+// ── Table ──────────────────────────────────────────────────────────────────
+function renderTable(samples) {
+  const tbody = document.getElementById('tableBody');
+  if (!samples.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--muted);padding:20px;text-align:center;">No samples match current filters</td></tr>';
+    return;
+  }
+  const fmt = (val, conf) => {
+    if (val == null) return '<span class="null-val">—</span>';
+    const cls = conf ? `conf-${conf}` : '';
+    return `<span class="${cls}">${typeof val === 'number' ? val.toLocaleString() : val}</span>`;
+  };
+  tbody.innerHTML = samples.map(s => `
+    <tr title="${s.title || ''}">
+      <td style="color:var(--accent)">${s.display_name || s.sample_id}</td>
+      <td>${s.film_material || '<span class="null-val">—</span>'}</td>
+      <td>${s.substrate_material || '<span class="null-val">—</span>'}</td>
+      <td>${fmt(s.Tc_K, s.Tc_confidence)}</td>
+      <td>${fmt(s.RRR, s.RRR_confidence)}</td>
+      <td>${fmt(s.Qi_internal, s.Qi_confidence)}</td>
+      <td>${fmt(s.T1_us, s.T1_confidence)}</td>
+      <td>${fmt(s.gate_2q_fidelity_pct, null)}</td>
+    </tr>
+  `).join('');
+}
+
+// ── Catchall ───────────────────────────────────────────────────────────────
+function renderCatchall(items) {
+  const container = document.getElementById('catchallItems');
+  if (!items.length) { container.innerHTML = '<div style="color:var(--muted);">No items found.</div>'; return; }
+  const typeColors = {
+    correlation: '#58a6ff', schema_candidate: '#d2a8ff',
+    additional_measurement: '#3fb950', anomalous_observation: '#f78166',
+  };
+  container.innerHTML = items.map(item => `
+    <div class="catchall-item">
+      <div class="catchall-meta">
+        <div class="catchall-display-name">${item.display_name || '—'}</div>
+        <div class="catchall-type" style="color:${typeColors[item.item_type] || 'var(--muted)'}">
+          ${item.item_type.replace(/_/g,' ')}
+        </div>
+        <div class="catchall-paper">${item.authors || ''}</div>
+      </div>
+      <div class="catchall-content">
+        <div class="catchall-description">${item.description || '—'}</div>
+        ${item.value ? `<div class="catchall-value">${item.value}</div>` : ''}
+        ${item.notes ? `<div class="catchall-notes">${item.notes}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.plot-area, .table-area, .catchall-area').forEach(a => a.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+    if (tab.dataset.tab === 'strip') renderStripChart();
+    if (tab.dataset.tab === 'scatter') renderScatterChart();
+  });
+});
+
+// ── Control listeners ──────────────────────────────────────────────────────
+document.getElementById('stripField').addEventListener('change', () => renderStripChart());
+document.getElementById('stripGroupBy').addEventListener('change', () => renderStripChart());
+document.getElementById('xField').addEventListener('change', () => renderScatterChart());
+document.getElementById('yField').addEventListener('change', () => renderScatterChart());
+document.getElementById('colorBy').addEventListener('change', () => renderScatterChart());
+document.getElementById('substrateFilter').addEventListener('change', onFilterChange);
+document.getElementById('confidenceFilter').addEventListener('change', onFilterChange);
+document.getElementById('nameFilter').addEventListener('input', onFilterChange);
+document.getElementById('catchallTypeFilter').addEventListener('change', function() {
+  const type = this.value;
+  renderCatchall(type ? allCatchall.filter(i => i.item_type === type) : allCatchall);
+});
+
+boot();
+</script>
+</body>
+</html>
