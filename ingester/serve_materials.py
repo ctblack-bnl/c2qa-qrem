@@ -44,6 +44,12 @@ ALL_NUMERIC_FIELDS = [
     ('annealing_temperature_C','Anneal temp (°C)'),
     ('annealing_duration_s',  'Anneal duration (s)'),
     ('film_thickness_nm',     'Film thickness (nm)'),
+
+    # Derived quantities
+    ('derived_resistivity_uOhm_cm',      'Resistivity derived (µΩ·cm)'),
+    ('derived_BCS_gap_meV',              'BCS gap derived (meV)'),
+    ('derived_coherence_length_nm',      'Coherence length derived (nm)'),
+    ('derived_kinetic_inductance_pH_sq', 'Kinetic inductance derived (pH/□)'),
 ]
 
 

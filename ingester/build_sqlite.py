@@ -22,6 +22,7 @@ import re
 import sqlite3
 import argparse
 from pathlib import Path
+from derive import derive_all, get_derived_value
 
 
 def make_display_name(authors: str, sample_id: str) -> str:
@@ -138,6 +139,13 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             Qi_confidence           TEXT,
             T1_confidence           TEXT,
 
+            -- Derived quantities (computed by build_sqlite.py from extracted fields)
+            derived_resistivity_uOhm_cm      REAL,
+            derived_BCS_gap_meV              REAL,
+            derived_coherence_length_nm      REAL,
+            derived_kinetic_inductance_pH_sq REAL,
+            derived_json                     TEXT,  -- full derived quantities JSON
+
             -- Full sample JSON for reference
             sample_json             TEXT
         );
@@ -221,6 +229,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             def gf(field):
                 return get_field(sample, field)
 
+            # Compute derived quantities from extracted fields
+            derived = derive_all(sample)
+
             cur.execute("""
                 INSERT INTO samples (
                     paper_id, filename, sample_id, display_name,
@@ -236,6 +247,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     gate_1q_fidelity_pct, gate_2q_fidelity_pct,
                     Tc_confidence, RRR_confidence,
                     Qi_confidence, T1_confidence,
+                    derived_resistivity_uOhm_cm,
+                    derived_BCS_gap_meV,
+                    derived_coherence_length_nm,
+                    derived_kinetic_inductance_pH_sq,
+                    derived_json,
                     sample_json
                 ) VALUES (
                     ?, ?, ?, ?,
@@ -243,6 +259,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
                     ?
                 )
             """, (
@@ -274,6 +291,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("RRR")[1],
                 gf("Qi_internal_quality_factor")[1],
                 gf("T1_us")[1],
+                get_derived_value(derived, "derived_resistivity_uOhm_cm"),
+                get_derived_value(derived, "derived_BCS_gap_meV"),
+                get_derived_value(derived, "derived_coherence_length_nm"),
+                get_derived_value(derived, "derived_kinetic_inductance_pH_sq"),
+                json.dumps(derived) if derived else None,
                 json.dumps(sample),
             ))
             samples_inserted += 1
