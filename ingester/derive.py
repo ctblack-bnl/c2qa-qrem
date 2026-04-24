@@ -233,6 +233,78 @@ def _derive_kinetic_inductance(sample: dict) -> dict:
     return {'derived_kinetic_inductance_pH_sq': entry} if entry else {}
 
 
+def _derive_RRR_from_RvT(sample: dict) -> dict:
+    """
+    RRR from R vs T curve if not directly reported.
+    RRR = R(300K) / R(Tc+)
+    Requires: room_temperature_resistance_Ohm AND normal_state_resistance_Ohm
+    Skip if: RRR already reported
+    """
+    if is_already_reported(sample, 'RRR'):
+        return {}
+
+    R300 = get_value(sample, 'room_temperature_resistance_Ohm')
+    Rn   = get_value(sample, 'normal_state_resistance_Ohm')
+
+    if R300 is None or Rn is None or Rn == 0:
+        return {}
+
+    value = R300 / Rn
+
+    # Sanity check — RRR should be > 1 and typically < 1000 for SC films
+    if not (1.0 <= value <= 1000.0):
+        return {
+            'derived_RRR_from_RvT': {
+                'value': None,
+                'confidence': 'derived',
+                'derived_from': ['room_temperature_resistance_Ohm', 'normal_state_resistance_Ohm'],
+                'formula': 'RRR = R(300K) / R(Tc+)',
+                'note': f'SANITY FAIL: computed RRR={value:.2f} outside expected range [1, 1000]',
+            }
+        }
+
+    entry = make_derived(
+        value=value,
+        field='derived_RRR_from_RvT',
+        derived_from=['room_temperature_resistance_Ohm', 'normal_state_resistance_Ohm'],
+        formula='RRR = R(300K) / R(Tc+)',
+        note='Derived from R vs T curve — use reported RRR if available',
+    )
+    return {'derived_RRR_from_RvT': entry} if entry else {}
+
+
+def _derive_sheet_resistance_from_RvT(sample: dict) -> dict:
+    """
+    Sheet resistance from normal state resistance and device geometry.
+    Rs = Rn × (width / length)  [Ω/□]
+    Requires: normal_state_resistance_Ohm AND measured_structure_width_um
+              AND measured_structure_length_um
+    Skip if: sheet_resistance_Ohm_sq already reported
+    """
+    if is_already_reported(sample, 'sheet_resistance_Ohm_sq'):
+        return {}
+
+    Rn = get_value(sample, 'normal_state_resistance_Ohm')
+    w  = get_value(sample, 'measured_structure_width_um')
+    L  = get_value(sample, 'measured_structure_length_um')
+
+    if Rn is None or w is None or L is None or L == 0:
+        return {}
+
+    Rs = Rn * (w / L)
+
+    entry = make_derived(
+        value=Rs,
+        field='derived_sheet_resistance_Ohm_sq',
+        derived_from=['normal_state_resistance_Ohm',
+                      'measured_structure_width_um',
+                      'measured_structure_length_um'],
+        formula='Rs = Rn × (width / length)  [Ω/□]',
+        note='Derived from R vs T curve and device geometry',
+    )
+    return {'derived_sheet_resistance_Ohm_sq': entry} if entry else {}
+
+
 # ── Main entry point ───────────────────────────────────────────────────────
 
 def derive_all(sample: dict) -> dict:
@@ -255,6 +327,8 @@ def derive_all(sample: dict) -> dict:
     derived.update(_derive_bcs_gap(sample))
     derived.update(_derive_coherence_length(sample))
     derived.update(_derive_kinetic_inductance(sample))
+    derived.update(_derive_RRR_from_RvT(sample))
+    derived.update(_derive_sheet_resistance_from_RvT(sample))
     return derived
 
 

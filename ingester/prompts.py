@@ -331,6 +331,49 @@ These errors have been observed in testing — be especially careful:
   less precise than tabular extraction.
 
 ---
+R vs T CURVES — EXTRACT THESE IF PRESENT
+---
+
+Many papers report resistance vs temperature (R vs T) curves but do not explicitly
+state the derived intrinsic properties we need. If an R vs T curve or table is present,
+extract the following and include them in the sample record:
+
+normal_state_resistance_Ohm:
+  The resistance just above Tc (in the normal state, before the superconducting transition).
+  Confidence: medium (read from figure) or high (stated in text/table).
+  Source: cite the figure number and approximate temperature read point.
+  Note: for patterned devices, this is the total measured resistance of the structure.
+
+room_temperature_resistance_Ohm:
+  The resistance at or near room temperature (~300K).
+  Confidence: medium (read from figure) or high (stated in text/table).
+  Source: cite the figure number.
+  Note: used to compute RRR = R(300K) / R(Tc+) if RRR not directly reported.
+
+measured_structure_width_um:
+  Width of the patterned structure used for the resistance measurement, in microns.
+  Required to convert measured resistance to sheet resistance.
+  Source: methods section, figure caption, or fabrication table.
+
+measured_structure_length_um:
+  Length of the patterned structure used for the resistance measurement, in microns.
+  Required to convert measured resistance to sheet resistance.
+  Source: methods section, figure caption, or fabrication table.
+
+WHY THESE MATTER:
+  Sheet resistance Rs = R_normal × (width / length)   [Ω/□]
+  RRR = R(300K) / R(Tc+)                              [dimensionless]
+  Resistivity ρ = Rs × film_thickness_nm × 0.1        [µΩ·cm]
+
+These are the intrinsic material properties that allow comparison across samples
+with different device geometries. Always prefer directly reported sheet resistance
+or RRR if available — only extract R vs T values if those are not reported.
+
+Include these fields directly in the sample record alongside other measurements.
+If you can clearly read both R(300K) and R(Tc+) from a figure, extract both even
+if the paper does not explicitly state RRR — our derive module will compute it.
+
+---
 CATCHALL RULES — READ CAREFULLY
 ---
 

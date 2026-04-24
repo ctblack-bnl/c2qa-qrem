@@ -1,0 +1,12 @@
+{
+  "decisions": [
+    {
+      "paper_a": "2025-arXiv-Yang.pdf",
+      "paper_b": "2026-PNAS-Yang.pdf",
+      "decision": "duplicate",
+      "keep": "2026-PNAS-Yang.pdf",
+      "decided_at": "2026-04-23",
+      "note": "Title changed significantly between arXiv and publication"
+    }
+  ]
+}

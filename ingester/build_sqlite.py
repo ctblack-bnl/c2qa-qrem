@@ -68,6 +68,35 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
 
     print(f"Loaded {len(records)} records")
 
+    # --- Load deduplication decisions ---
+    # Papers marked as duplicates are excluded from the SQLite view.
+    # The JSONL always retains the full record — deduplication only affects SQLite.
+    dedup_path = jsonl_path.parent / "deduplication.json"
+    skip_filenames = set()
+    if dedup_path.exists():
+        try:
+            dedup = json.loads(dedup_path.read_text())
+            for decision in dedup.get("decisions", []):
+                if decision.get("decision") == "duplicate":
+                    keep = decision.get("keep")
+                    paper_a = decision.get("paper_a")
+                    paper_b = decision.get("paper_b")
+                    # Skip whichever one we are NOT keeping
+                    if keep == paper_a:
+                        skip_filenames.add(paper_b)
+                    elif keep == paper_b:
+                        skip_filenames.add(paper_a)
+            if skip_filenames:
+                print(f"Deduplication: skipping {len(skip_filenames)} duplicate(s): {skip_filenames}")
+        except Exception as e:
+            print(f"  Warning: could not load deduplication.json: {e}")
+
+    # Filter out duplicates
+    before = len(records)
+    records = [r for r in records if r.get("filename") not in skip_filenames]
+    if before != len(records):
+        print(f"  Filtered {before - len(records)} duplicate record(s)")
+
     # --- Connect to SQLite ---
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
@@ -133,6 +162,12 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             gate_1q_fidelity_pct    TEXT,
             gate_2q_fidelity_pct    TEXT,
 
+            -- R vs T derived fields
+            normal_state_resistance_Ohm     TEXT,
+            room_temperature_resistance_Ohm TEXT,
+            measured_structure_width_um     TEXT,
+            measured_structure_length_um    TEXT,
+
             -- Confidence flags (high/medium/low for key fields)
             Tc_confidence           TEXT,
             RRR_confidence          TEXT,
@@ -144,6 +179,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             derived_BCS_gap_meV              REAL,
             derived_coherence_length_nm      REAL,
             derived_kinetic_inductance_pH_sq REAL,
+            derived_RRR_from_RvT              REAL,
+            derived_sheet_resistance_Ohm_sq  REAL,
             derived_json                     TEXT,  -- full derived quantities JSON
 
             -- Full sample JSON for reference
@@ -245,12 +282,18 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     TLS_density, Qi_internal, Qi_single_photon,
                     surface_oxide_nm, T1_us, T2_echo_us,
                     gate_1q_fidelity_pct, gate_2q_fidelity_pct,
+                    normal_state_resistance_Ohm,
+                    room_temperature_resistance_Ohm,
+                    measured_structure_width_um,
+                    measured_structure_length_um,
                     Tc_confidence, RRR_confidence,
                     Qi_confidence, T1_confidence,
                     derived_resistivity_uOhm_cm,
                     derived_BCS_gap_meV,
                     derived_coherence_length_nm,
                     derived_kinetic_inductance_pH_sq,
+                    derived_RRR_from_RvT,
+                    derived_sheet_resistance_Ohm_sq,
                     derived_json,
                     sample_json
                 ) VALUES (
@@ -259,7 +302,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
+                    ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
+                    ?, ?,
                     ?
                 )
             """, (
@@ -287,6 +332,10 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("T2_echo_us")[0],
                 gf("single_qubit_gate_fidelity_pct")[0],
                 gf("two_qubit_gate_fidelity_pct")[0],
+                gf("normal_state_resistance_Ohm")[0],
+                gf("room_temperature_resistance_Ohm")[0],
+                gf("measured_structure_width_um")[0],
+                gf("measured_structure_length_um")[0],
                 gf("Tc_K")[1],
                 gf("RRR")[1],
                 gf("Qi_internal_quality_factor")[1],
@@ -295,6 +344,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 get_derived_value(derived, "derived_BCS_gap_meV"),
                 get_derived_value(derived, "derived_coherence_length_nm"),
                 get_derived_value(derived, "derived_kinetic_inductance_pH_sq"),
+                get_derived_value(derived, "derived_RRR_from_RvT"),
+                get_derived_value(derived, "derived_sheet_resistance_Ohm_sq"),
                 json.dumps(derived) if derived else None,
                 json.dumps(sample),
             ))

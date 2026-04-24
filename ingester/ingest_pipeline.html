@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C2QA // Ingestion Pipeline</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:      #0d1117;
+    --surface: #161b22;
+    --border:  #21262d;
+    --accent:  #58a6ff;
+    --green:   #3fb950;
+    --orange:  #f78166;
+    --purple:  #d2a8ff;
+    --text:    #e6edf3;
+    --muted:   #8b949e;
+    --card:    #1c2128;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 32px;
+  }
+
+  header {
+    margin-bottom: 32px;
+  }
+  header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  header p {
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  header a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 12px;
+    margin-left: 16px;
+  }
+
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 900px;
+  }
+
+  /* ── Stage card ── */
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .stage-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stage-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--card);
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+  .stage-title {
+    font-weight: 500;
+    font-size: 15px;
+  }
+  .stage-status {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+  }
+  .status-waiting  { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+  .status-running  { background: #1f3a5f; color: var(--accent); border: 1px solid var(--accent); }
+  .status-done     { background: #1a3a1a; color: var(--green); border: 1px solid var(--green); }
+  .status-review   { background: #3a2a1a; color: var(--orange); border: 1px solid var(--orange); }
+
+  .stage-body {
+    padding: 20px;
+  }
+
+  /* ── Directory input ── */
+  .dir-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .dir-input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+  .dir-input:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 9px 20px;
+    border-radius: 5px;
+    border: none;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-primary  { background: var(--accent); color: #0d1117; }
+  .btn-success  { background: var(--green);  color: #0d1117; }
+  .btn-warning  { background: var(--orange); color: #0d1117; }
+  .btn:not(:disabled):hover { opacity: 0.85; }
+
+  /* ── Progress log ── */
+  .log {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    height: 220px;
+    overflow-y: auto;
+    line-height: 1.6;
+    display: none;
+  }
+  .log.visible { display: block; }
+  .log-line { color: var(--muted); }
+  .log-line.ok      { color: var(--green); }
+  .log-line.skip    { color: var(--muted); }
+  .log-line.fail    { color: var(--orange); }
+  .log-line.current { color: var(--text); }
+  .log-line.summary { color: var(--accent); font-weight: 500; }
+
+  /* ── Stats row ── */
+  .stats-row {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    display: none;
+  }
+  .stats-row.visible { display: flex; }
+  .stat {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stat span { color: var(--text); font-weight: 500; }
+
+  /* ── Duplicate pairs ── */
+  .dup-pair {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .dup-pair:hover { border-color: var(--accent); }
+  .dup-similarity {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--orange);
+    margin-bottom: 10px;
+  }
+  .dup-papers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .dup-paper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+  }
+  .dup-filename {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .dup-title {
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  .dup-meta {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .dup-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .dup-actions .btn {
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
+  .no-dups {
+    color: var(--green);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 16px 0;
+  }
+
+  /* ── Build output ── */
+  .build-output {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--green);
+    white-space: pre;
+    display: none;
+    margin-top: 12px;
+  }
+  .build-output.visible { display: block; }
+
+  /* ── Connector arrow ── */
+  .connector {
+    text-align: center;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>C2QA // Ingestion Pipeline</h1>
+  <p>Ingest papers → review duplicates → build database
+    <a href="materials_explorer.html">→ Open Materials Explorer</a>
+  </p>
+</header>
+
+<div class="pipeline">
+
+  <!-- ── Stage 1: Ingest ── -->
+  <div class="stage" id="stage-ingest">
+    <div class="stage-header">
+      <span class="stage-num">STAGE 1</span>
+      <span class="stage-title">Ingest Publications</span>
+      <span class="stage-status status-waiting" id="ingest-status-badge">Waiting</span>
+    </div>
+    <div class="stage-body">
+      <div class="dir-row">
+        <input type="text" class="dir-input" id="papersDir"
+               value="../data/papers"
+               placeholder="Path to papers directory">
+        <button class="btn btn-primary" id="btnIngest" onclick="startIngestion()">
+          Start Ingestion
+        </button>
+      </div>
+      <div class="log" id="ingestLog"></div>
+      <div class="stats-row" id="ingestStats">
+        <div class="stat">Ingested: <span id="statSuccess">0</span></div>
+        <div class="stat">Skipped: <span id="statSkipped">0</span></div>
+        <div class="stat">Failed: <span id="statFailed">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector">↓</div>
+
+  <!-- ── Stage 2: Deduplicate ── -->
+  <div class="stage" id="stage-dedup">
+    <div class="stage-header">
+      <span class="stage-num">STAGE 2</span>
+      <span class="stage-title">Review Potential Duplicates</span>
+      <span class="stage-status status-waiting" id="dedup-status-badge">Waiting</span>
+    </div>
+    <div class="stage-body">
+      <div id="dupContent">
+        <button class="btn btn-primary" id="btnCheckDups"
+                onclick="loadDuplicates()" disabled>
+          Check for Duplicates
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector">↓</div>
+
+  <!-- ── Stage 3: Build ── -->
+  <div class="stage" id="stage-build">
+    <div class="stage-header">
+      <span class="stage-num">STAGE 3</span>
+      <span class="stage-title">Build Database</span>
+      <span class="stage-status status-waiting" id="build-status-badge">Waiting</span>
+    </div>
+    <div class="stage-body">
+      <button class="btn btn-success" id="btnBuild"
+              onclick="buildDatabase()" disabled>
+        Build Database
+      </button>
+      <div class="build-output" id="buildOutput"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let pollInterval = null;
+let dupPairs = [];
+let decidedCount = 0;
+
+// ── Stage 1 — Ingestion ───────────────────────────────────────────────────
+
+async function startIngestion() {
+  const papersDir = document.getElementById('papersDir').value.trim();
+  document.getElementById('btnIngest').disabled = true;
+  document.getElementById('ingestLog').classList.add('visible');
+  document.getElementById('ingestStats').classList.add('visible');
+  setStageStatus('ingest', 'running', 'Running...');
+
+  try {
+    const r = await fetch('/api/ingest/start', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({papers_dir: papersDir})
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      appendLog('ERROR: ' + d.error, 'fail');
+      return;
+    }
+  } catch(e) {
+    appendLog('ERROR: ' + e, 'fail');
+    return;
+  }
+
+  // Start polling
+  let lastLen = 0;
+  pollInterval = setInterval(async () => {
+    try {
+      const r = await fetch('/api/ingest/status');
+      const d = await r.json();
+      if (!d.ok) return;
+      const state = d.state;
+
+      // Append new log lines
+      const lines = state.progress || [];
+      for (let i = lastLen; i < lines.length; i++) {
+        const line = lines[i];
+        let cls = 'log-line';
+        if (line.includes('[OK]')) cls += ' ok';
+        else if (line.includes('Skipping')) cls += ' skip';
+        else if (line.includes('FAILED')) cls += ' fail';
+        else if (line.includes('===')) cls += ' summary';
+        else if (line.startsWith('[')) cls += ' current';
+        appendLog(line, cls.replace('log-line ', '').replace('log-line', ''));
+      }
+      lastLen = lines.length;
+
+      // Update stats
+      document.getElementById('statSuccess').textContent = state.success;
+      document.getElementById('statSkipped').textContent = state.skipped;
+      document.getElementById('statFailed').textContent  = state.failed;
+
+      // Done?
+      if (state.done && !state.running) {
+        clearInterval(pollInterval);
+        setStageStatus('ingest', 'done', 'Complete');
+        // Enable duplicate check
+        document.getElementById('btnCheckDups').disabled = false;
+        setStageStatus('dedup', 'review', 'Ready');
+        loadDuplicates();
+      }
+    } catch(e) { /* ignore poll errors */ }
+  }, 1500);
+}
+
+function appendLog(text, cls) {
+  const log = document.getElementById('ingestLog');
+  const div = document.createElement('div');
+  div.className = 'log-line' + (cls ? ' ' + cls : '');
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── Stage 2 — Duplicates ──────────────────────────────────────────────────
+
+async function loadDuplicates() {
+  document.getElementById('btnCheckDups').disabled = true;
+  setStageStatus('dedup', 'running', 'Checking...');
+
+  try {
+    const r = await fetch('/api/duplicates');
+    const d = await r.json();
+    if (!d.ok) return;
+
+    dupPairs = d.pairs;
+    decidedCount = 0;
+    renderDuplicates();
+  } catch(e) {
+    console.error('Dup check failed', e);
+  }
+}
+
+function renderDuplicates() {
+  const container = document.getElementById('dupContent');
+
+  if (dupPairs.length === 0) {
+    container.innerHTML = '<div class="no-dups">✓ No potential duplicates found</div>';
+    setStageStatus('dedup', 'done', 'No duplicates');
+    enableBuild();
+    return;
+  }
+
+  let html = `<div style="color:var(--muted);font-size:12px;margin-bottom:12px;">
+    Found ${dupPairs.length} potential duplicate pair(s) — review each before building the database.
+  </div>`;
+
+  dupPairs.forEach((pair, i) => {
+    const a = pair.paper_a;
+    const b = pair.paper_b;
+    const sim = Math.round(pair.similarity * 100);
+
+    html += `
+    <div class="dup-pair" id="dup-${i}">
+      <div class="dup-similarity">Title similarity: ${sim}%</div>
+      <div class="dup-papers">
+        <div class="dup-paper">
+          <div class="dup-filename">${a.filename}</div>
+          <div class="dup-title">${a.title || '—'}</div>
+          <div class="dup-meta">${a.authors || ''} · ${a.journal || 'unknown journal'} · ${a.num_samples} samples</div>
+        </div>
+        <div class="dup-paper">
+          <div class="dup-filename">${b.filename}</div>
+          <div class="dup-title">${b.title || '—'}</div>
+          <div class="dup-meta">${b.authors || ''} · ${b.journal || 'unknown journal'} · ${b.num_samples} samples</div>
+        </div>
+      </div>
+      <div class="dup-actions">
+        <button class="btn btn-primary" onclick="decideDup(${i}, 'duplicate', '${a.filename}')">
+          Keep ${a.filename.replace('.pdf','')}
+        </button>
+        <button class="btn btn-primary" onclick="decideDup(${i}, 'duplicate', '${b.filename}')">
+          Keep ${b.filename.replace('.pdf','')}
+        </button>
+        <button class="btn btn-warning" onclick="decideDup(${i}, 'not_duplicate', null)">
+          Not a duplicate
+        </button>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+  setStageStatus('dedup', 'review', `${dupPairs.length} to review`);
+}
+
+async function decideDup(i, decision, keep) {
+  const pair = dupPairs[i];
+  try {
+    await fetch('/api/duplicates/decide', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        paper_a:  pair.paper_a.filename,
+        paper_b:  pair.paper_b.filename,
+        decision: decision,
+        keep:     keep,
+      })
+    });
+
+    // Fade out decided pair
+    const el = document.getElementById(`dup-${i}`);
+    el.style.opacity = '0.3';
+    el.style.pointerEvents = 'none';
+
+    decidedCount++;
+    if (decidedCount >= dupPairs.length) {
+      setStageStatus('dedup', 'done', 'All reviewed');
+      enableBuild();
+    }
+  } catch(e) {
+    console.error('Decision failed', e);
+  }
+}
+
+// ── Stage 3 — Build ───────────────────────────────────────────────────────
+
+function enableBuild() {
+  document.getElementById('btnBuild').disabled = false;
+  setStageStatus('build', 'review', 'Ready');
+}
+
+async function buildDatabase() {
+  document.getElementById('btnBuild').disabled = true;
+  setStageStatus('build', 'running', 'Building...');
+  document.getElementById('buildOutput').classList.add('visible');
+  document.getElementById('buildOutput').textContent = 'Building database...';
+
+  try {
+    const r = await fetch('/api/build', {method: 'POST'});
+    const d = await r.json();
+    document.getElementById('buildOutput').textContent = d.output || 'Done.';
+    if (d.ok) {
+      setStageStatus('build', 'done', 'Complete ✓');
+      document.getElementById('buildOutput').style.color = 'var(--green)';
+    } else {
+      setStageStatus('build', 'review', 'Error');
+      document.getElementById('buildOutput').style.color = 'var(--orange)';
+    }
+  } catch(e) {
+    document.getElementById('buildOutput').textContent = 'Error: ' + e;
+    setStageStatus('build', 'review', 'Error');
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function setStageStatus(stage, type, text) {
+  const badge = document.getElementById(`${stage}-status-badge`);
+  badge.className = `stage-status status-${type}`;
+  badge.textContent = text;
+}
+</script>
+</body>
+</html>
