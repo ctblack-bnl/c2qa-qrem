@@ -21,6 +21,13 @@
       "decision": "duplicate",
       "keep": "2026-Vacuum-Chattaraj.pdf",
       "decided_at": "2026-04-24"
+    },
+    {
+      "paper_a": "2026-NanoLett-Nanayakkara.pdf",
+      "paper_b": "2026-NanoLett-SI-Nanayakkara.pdf",
+      "decision": "not_duplicate",
+      "keep": null,
+      "decided_at": "2026-04-24"
     }
   ]
 }

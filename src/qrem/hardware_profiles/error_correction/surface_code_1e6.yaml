@@ -1,0 +1,33 @@
+# error_correction/surface_code_1e6.yaml
+# Error correction profile — surface code, 10^-6 logical error rate target.
+# Standard target for fault-tolerant quantum computing.
+#
+# This file captures which QEC code is used and what logical error rate
+# we're targeting. These parameters drive code distance selection in Stage 3.
+#
+# Current implementation uses an analytical approximation, not full Stim simulation.
+# Code distance formula: logical_error_rate ≈ (physical_error_rate / threshold)^((d+1)/2)
+# Physical qubits per logical qubit: 2d² - 1
+#
+# Future: HetArch or Stim integration would replace the analytical approximation.
+
+profile_type: error_correction
+name: surface_code_1e6
+description: "Surface code, 10⁻⁶ logical error rate target"
+source: "Standard fault-tolerant quantum computing target"
+
+error_correction:
+  code: surface_code                  # Leading QEC candidate for superconducting qubits.
+  target_logical_error_rate: 1.0e-6  # 1 error per million logical operations.
+                                      # Standard fault-tolerant target.
+  threshold: 0.01                    # Surface code error threshold (~1%).
+                                      # Physical error rates below this are correctable.
+                                      # Above this, more qubits make things worse.
+                                      # Our gate fidelities are well below threshold —
+                                      # we are in the correctable regime.
+
+  # Notes on the analytical approximation (current implementation):
+  # - Uniform code distance assumed across all gates (local and inter-module)
+  # - Inter-module gates may require higher code distance in practice
+  # - Magic state factory model is simplified (1 factory if T gates present, else 0)
+  # - Full Stim simulation would give more accurate results

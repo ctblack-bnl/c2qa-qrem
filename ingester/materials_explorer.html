@@ -254,16 +254,188 @@
     font-size: 11px; color: var(--muted); display: flex; gap: 20px;
   }
   .status-bar span { color: var(--text); }
-  .loading {
-    display: flex; align-items: center; justify-content: center;
-    height: 100%; color: var(--muted);
-    font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+  /* ── Sample detail panel ── */
+  .detail-panel {
+    position: fixed;
+    top: 57px;
+    right: 0;
+    bottom: 32px;  /* above status bar */
+    width: 380px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 100;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .detail-panel.open {
+    transform: translateX(0);
+  }
+  .detail-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+  }
+  .detail-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    flex: 1;
+    line-height: 1.4;
+  }
+  .detail-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .detail-close:hover { color: var(--text); }
+  .detail-body { padding: 16px 20px; flex: 1; }
+  .detail-section {
+    margin-bottom: 20px;
+  }
+  .detail-section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .detail-field {
+    display: flex;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .detail-field:last-child { border-bottom: none; }
+  .detail-field-name {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    min-width: 140px;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+  .detail-field-value { color: var(--text); }
+  .detail-field-value.conf-high   { color: var(--green); }
+  .detail-field-value.conf-medium { color: var(--accent); }
+  .detail-field-value.conf-low    { color: var(--orange); }
+  .detail-catchall-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+  .detail-catchall-type {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .detail-catchall-desc { color: var(--text); margin-bottom: 3px; font-weight: 500; }
+  .detail-catchall-value { color: var(--green); font-family: 'IBM Plex Mono', monospace; margin-bottom: 3px; }
+  .detail-catchall-notes { color: var(--muted); line-height: 1.4; }
+  .detail-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+  }
+  .detail-overlay.open { display: block; }
+
+  .rank-badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 24px;
+    text-align: right;
+  }
+  .ranked-row { cursor: pointer; }
+  .ranked-row:hover td { background: var(--surface); }
+  .ranked-row:hover .ranked-sample-name { color: var(--accent2); }
+  .ranked-sample-name {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--accent);
+    transition: color 0.15s;
+  }
+  .ranked-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .generate-profile-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: transparent;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .generate-profile-btn:hover {
+    background: rgba(63,185,80,0.08);
+    box-shadow: 0 0 12px rgba(63,185,80,0.2);
+  }
+  .generate-profile-btn:disabled {
+    opacity: 0.4;
+    cursor: wait;
+  }
+  .profile-result {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    display: none;
+  }
+  .profile-result.success {
+    background: rgba(63,185,80,0.08);
+    border: 1px solid rgba(63,185,80,0.3);
+    color: var(--accent2);
+    display: block;
+  }
+  .profile-result.error {
+    background: rgba(247,129,102,0.08);
+    border: 1px solid rgba(247,129,102,0.3);
+    color: var(--accent3);
+    display: block;
   }
 </style>
 </head>
 <body>
 
 <header>
+  <img src="/static/C2QA_logo.png" alt="C2QA" style="height:32px;opacity:0.85;flex-shrink:0;mix-blend-mode:lighten;">
+  <div style="width:1px;height:28px;background:var(--border);flex-shrink:0;"></div>
   <div>
     <h1>C2QA // Materials Explorer</h1>
     <div class="subtitle">Superconducting qubit materials characterization database</div>
@@ -302,6 +474,7 @@
       <div class="tab active" data-tab="strip">By Material</div>
       <div class="tab" data-tab="scatter">Scatter Plot</div>
       <div class="tab" data-tab="table">Data Table</div>
+      <div class="tab" data-tab="ranked">Ranked List</div>
       <div class="tab" data-tab="catchall">Catchall Corpus</div>
     </div>
 
@@ -372,6 +545,42 @@
       </table>
     </div>
 
+    <!-- RANKED LIST -->
+    <div class="table-area" id="tab-ranked">
+      <div class="plot-controls" style="padding:16px 20px 0 20px;margin-bottom:0;">
+        <div class="control-group">
+          <span class="control-label">Rank by</span>
+          <select id="rankedField"><option value="">Loading...</option></select>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Order</span>
+          <select id="rankedOrder">
+            <option value="desc">Highest first</option>
+            <option value="asc">Lowest first</option>
+          </select>
+        </div>
+        <div style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);line-height:30px;">
+          <span id="rankedCount">—</span> samples with this measurement
+        </div>
+      </div>
+      <table style="margin-top:12px;">
+        <thead>
+          <tr>
+            <th style="width:32px;">#</th>
+            <th>Sample</th>
+            <th>Material</th>
+            <th>Substrate</th>
+            <th id="rankedValueHeader">Value</th>
+            <th>Confidence</th>
+            <th>Authors</th>
+          </tr>
+        </thead>
+        <tbody id="rankedBody">
+          <tr><td colspan="7" class="loading">Select a measurement above</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- CATCHALL CORPUS -->
     <div class="catchall-area" id="tab-catchall">
       <div class="catchall-filter">
@@ -389,7 +598,20 @@
       </div>
     </div>
 
-    <div class="status-bar">
+
+  <!-- ── Sample detail slide-in panel ── -->
+  <div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-header">
+      <div class="detail-title" id="detailTitle">—</div>
+      <button class="detail-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="detail-body" id="detailBody">
+      <div style="color:var(--muted);font-size:12px;">Loading...</div>
+    </div>
+  </div>
+
+  <div class="status-bar" style="position:relative;z-index:101;">
       <div>Samples shown: <span id="statusCount">—</span></div>
       <div>Total in corpus: <span id="statusTotal">—</span></div>
       <div id="statusHover" style="margin-left:auto;"></div>
@@ -420,6 +642,185 @@ let colorMap = {};
 let scatterChart = null;
 let stripChart = null;
 
+// ── Sample detail panel ──────────────────────────────────────────────────────
+
+const MEASUREMENT_FIELDS = [
+  ['Tc_K', 'Tc (K)', 'Tc_confidence'],
+  ['RRR', 'RRR', 'RRR_confidence'],
+  ['sheet_resistance_Ohm_sq', 'Sheet resistance (Ω/□)', null],
+  ['Qi_internal', 'Qi internal', 'Qi_confidence'],
+  ['Qi_single_photon', 'Qi single photon', null],
+  ['T1_us', 'T1 (µs)', 'T1_confidence'],
+  ['T2_echo_us', 'T2 echo (µs)', null],
+  ['gate_1q_fidelity_pct', '1Q fidelity (%)', null],
+  ['gate_2q_fidelity_pct', '2Q fidelity (%)', null],
+  ['surface_oxide_nm', 'Surface oxide (nm)', null],
+  ['loss_tangent_substrate', 'Loss tangent substrate', null],
+  ['annealing_temperature_C', 'Anneal temp (°C)', null],
+  ['film_thickness_nm', 'Film thickness (nm)', null],
+  ['normal_state_resistance_Ohm', 'Normal state R (Ω)', null],
+  ['room_temperature_resistance_Ohm', 'Room temp R (Ω)', null],
+  ['derived_resistivity_uOhm_cm', 'Resistivity (µΩ·cm) ⚙', null],
+  ['derived_BCS_gap_meV', 'BCS gap (meV) ⚙', null],
+  ['derived_RRR_from_RvT', 'RRR from R vs T ⚙', null],
+];
+
+const CATCHALL_COLORS = {
+  additional_measurement: '#3fb950',
+  anomalous_observation:  '#f78166',
+  correlation:            '#58a6ff',
+  schema_candidate:       '#d2a8ff',
+};
+
+async function openDetail(displayName) {
+  // Show panel immediately with loading state
+  document.getElementById('detailTitle').textContent = displayName;
+  document.getElementById('detailBody').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Loading...</div>';
+  document.getElementById('detailPanel').classList.add('open');
+  document.getElementById('detailOverlay').classList.add('open');
+
+  try {
+    const r = await fetch(`/api/sample/${encodeURIComponent(displayName)}`);
+    const d = await r.json();
+    if (!d.ok) return;
+    renderDetail(d.sample, d.catchall, displayName);
+  } catch(e) {
+    document.getElementById('detailBody').innerHTML = `<div style="color:var(--orange)">Error loading sample: ${e}</div>`;
+  }
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('open');
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+
+function renderDetail(sample, catchall, displayName) {
+  const body = document.getElementById('detailBody');
+  let html = '';
+
+  // ── Sample description ──
+  html += '<div class="detail-section">';
+  html += '<div class="detail-section-label">Sample Description</div>';
+  const descFields = [
+    ['film_material', 'Material'],
+    ['film_crystal_phase', 'Crystal phase'],
+    ['substrate_material', 'Substrate'],
+    ['substrate_orientation', 'Orientation'],
+    ['deposition_method', 'Deposition'],
+    ['deposition_temperature_C', 'Deposition temp (°C)'],
+    ['annealing_temperature_C', 'Anneal temp (°C)'],
+    ['annealing_duration_s', 'Anneal duration (s)'],
+    ['film_thickness_nm', 'Thickness (nm)'],
+  ];
+  descFields.forEach(([field, label]) => {
+    const val = sample[field];
+    if (val != null && val !== '') {
+      html += `<div class="detail-field">
+        <span class="detail-field-name">${label}</span>
+        <span class="detail-field-value">${val}</span>
+      </div>`;
+    }
+  });
+  html += '</div>';
+
+  // ── Paper reference ──
+  html += '<div class="detail-section">';
+  html += '<div class="detail-section-label">Reference</div>';
+  html += `<div class="detail-field"><span class="detail-field-name">Authors</span><span class="detail-field-value">${sample.authors || '—'}</span></div>`;
+  html += `<div class="detail-field"><span class="detail-field-name">Journal</span><span class="detail-field-value">${sample.journal || '—'}</span></div>`;
+  if (sample.doi) {
+    html += `<div class="detail-field"><span class="detail-field-name">DOI</span><span class="detail-field-value"><a href="https://doi.org/${sample.doi}" target="_blank" style="color:var(--accent)">${sample.doi}</a></span></div>`;
+  }
+  html += '</div>';
+
+  // ── Measurements ──
+  const measWithValues = MEASUREMENT_FIELDS.filter(([field]) => sample[field] != null);
+  if (measWithValues.length > 0) {
+    html += '<div class="detail-section">';
+    html += '<div class="detail-section-label">Measurements <span style="color:var(--muted);font-weight:normal">⚙ = derived</span></div>';
+    measWithValues.forEach(([field, label, confField]) => {
+      const val = sample[field];
+      const conf = confField ? sample[confField] : null;
+      const confClass = conf ? `conf-${conf}` : '';
+      const confBadge = conf ? ` <span style="font-size:10px;color:var(--muted)">(${conf})</span>` : '';
+      html += `<div class="detail-field">
+        <span class="detail-field-name">${label}</span>
+        <span class="detail-field-value ${confClass}">${typeof val === 'number' ? val.toLocaleString() : val}${confBadge}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // ── Catchall ──
+  if (catchall && catchall.length > 0) {
+    html += '<div class="detail-section">';
+    html += `<div class="detail-section-label">Additional Data (${catchall.length} items)</div>`;
+    catchall.forEach(item => {
+      const color = CATCHALL_COLORS[item.item_type] || 'var(--muted)';
+      html += `<div class="detail-catchall-item">
+        <div class="detail-catchall-type" style="color:${color}">${item.item_type.replace(/_/g,' ')}</div>
+        <div class="detail-catchall-desc">${item.description || '—'}</div>
+        ${item.value ? `<div class="detail-catchall-value">${item.value}</div>` : ''}
+        ${item.notes ? `<div class="detail-catchall-notes">${item.notes}</div>` : ''}
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // ── Generate Profile button ──
+  const safeDisplayName = displayName.replace(/'/g, "\\'");
+  html += `
+    <div class="detail-section">
+      <div class="detail-section-label">QREM Hardware Profile</div>
+      <button class="generate-profile-btn" id="generateProfileBtn"
+              onclick="generateProfile('${safeDisplayName}')">
+        ⚙ Generate Qubit Profile
+      </button>
+      <div class="profile-result" id="profileResult"></div>
+    </div>
+  `;
+
+  body.innerHTML = html;
+}
+
+// ── Generate Qubit Profile ────────────────────────────────────────────────
+async function generateProfile(displayName) {
+  const btn = document.getElementById('generateProfileBtn');
+  const result = document.getElementById('profileResult');
+  if (!btn || !result) return;
+
+  btn.disabled = true;
+  btn.textContent = '⚙ Generating…';
+  result.className = 'profile-result';
+  result.style.display = 'none';
+
+  try {
+    const url = `/api/generate_profile?display_name=${encodeURIComponent(displayName)}&save=true`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+
+    const measCount = d.measured_fields.length;
+    const assumedCount = d.assumed_fields.length;
+
+    result.className = 'profile-result success';
+    result.innerHTML =
+      `✓ Saved: <strong>${d.filename}</strong><br>` +
+      `Measured (${measCount}): ${measCount > 0 ? d.measured_fields.join(', ') : '<em>none — all defaults</em>'}<br>` +
+      `Assumed (${assumedCount}): ${d.assumed_fields.slice(0,3).join(', ')}${assumedCount > 3 ? '…' : ''}<br>` +
+      `<span style="color:var(--muted);margin-top:4px;display:block;">` +
+      `Now available in Baby QREM qubit dropdown.</span>`;
+    btn.disabled = false;
+    btn.style.cursor = 'default';
+    btn.textContent = '✓ Profile Generated';
+  } catch(e) {
+    result.className = 'profile-result error';
+    result.textContent = `Error: ${e.message}`;
+    btn.disabled = false;
+    btn.textContent = '⚙ Generate Qubit Profile';
+  }
+}
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 async function boot() {
   await Promise.all([loadFields(), loadCatchall(), loadCoverage()]);
@@ -442,6 +843,8 @@ async function loadFields() {
     populateSelect('xField', fields, 'RRR');
     // yField — default to Qi_internal
     populateSelect('yField', fields, 'Qi_internal');
+    // rankedField — default to Tc_K
+    populateSelect('rankedField', fields, 'Tc_K');
 
     // Now load samples and render
     await loadSamples();
@@ -552,6 +955,7 @@ function onFilterChange() {
   renderStripChart(filtered);
   renderScatterChart(filtered);
   renderTable(filtered);
+  renderRankedList(filtered);
   document.getElementById('statusCount').textContent = filtered.length;
 }
 
@@ -594,7 +998,8 @@ function renderStripChart(samples) {
       label: trunc(label),
       data: groups[label].map(pt => ({
         x: i + (Math.random() - 0.5) * 0.4,
-        y: pt.y,
+        y: pt.y + (Math.random() - 0.5) * pt.y * 0.02,
+        originalY: pt.y,  // store unmodified value for tooltip
         displayName: pt.label,
         sample: pt.sample,
       })),
@@ -614,6 +1019,13 @@ function renderStripChart(samples) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: (evt, elements) => {
+        if (elements.length > 0) {
+          const el = elements[0];
+          const raw = stripChart.data.datasets[el.datasetIndex].data[el.index];
+          if (raw && raw.displayName) openDetail(raw.displayName);
+        }
+      },
       plugins: {
         legend: {
           labels: {
@@ -623,6 +1035,8 @@ function renderStripChart(samples) {
           }
         },
         tooltip: {
+          mode: 'nearest',
+          intersect: true,
           backgroundColor: '#1c2128',
           borderColor: '#21262d',
           borderWidth: 1,
@@ -635,7 +1049,7 @@ function renderStripChart(samples) {
             label: (item) => {
               const s = item.raw.sample;
               return [
-                `${FIELD_LABELS[field] || field}: ${item.raw.y}`,
+                `${FIELD_LABELS[field] || field}: ${item.raw.originalY ?? item.raw.y}`,
                 `Material: ${s.film_material || '—'}`,
                 `Paper: ${s.authors || '—'}`,
               ];
@@ -800,6 +1214,67 @@ function renderCatchall(items) {
   `).join('');
 }
 
+// ── Ranked List ────────────────────────────────────────────────────────────
+function renderRankedList(samples) {
+  samples = samples || getFilteredSamples();
+  const field = document.getElementById('rankedField').value;
+  const order = document.getElementById('rankedOrder').value;
+  const tbody = document.getElementById('rankedBody');
+
+  if (!field) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px;text-align:center;">Select a measurement to rank by</td></tr>';
+    return;
+  }
+
+  // Filter to samples that have a value for this field, skip nulls
+  const ranked = samples
+    .filter(s => s[field] != null)
+    .sort((a, b) => order === 'desc' ? b[field] - a[field] : a[field] - b[field]);
+
+  document.getElementById('rankedCount').textContent = ranked.length;
+
+  // Update the value column header to show the field label
+  const fieldLabel = FIELD_LABELS[field] || field;
+  document.getElementById('rankedValueHeader').textContent = fieldLabel;
+
+  if (!ranked.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px;text-align:center;">No samples have this measurement</td></tr>';
+    return;
+  }
+
+  // Confidence field — try common patterns
+  const confField = field + '_confidence' in ranked[0] ? field + '_confidence'
+    : field === 'Tc_K' ? 'Tc_confidence'
+    : field === 'RRR' ? 'RRR_confidence'
+    : field === 'Qi_internal' || field === 'Qi_single_photon' ? 'Qi_confidence'
+    : field === 'T1_us' ? 'T1_confidence'
+    : null;
+
+  tbody.innerHTML = ranked.map((s, i) => {
+    const val = s[field];
+    const conf = confField ? s[confField] : null;
+    const confClass = conf ? `conf-${conf}` : '';
+    const confText = conf
+      ? `<span class="${confClass}">${conf}</span>`
+      : '<span class="null-val">—</span>';
+    const dispVal = typeof val === 'number'
+      ? (val >= 1000 ? val.toLocaleString() : val % 1 === 0 ? val : val.toPrecision(4))
+      : val;
+    const material = s.film_material || '—';
+    const matColor = colorMap[material] || 'var(--muted)';
+
+    return `<tr class="ranked-row" onclick="openDetail('${(s.display_name || s.sample_id).replace(/'/g,"\\'")}')">
+      <td><span class="rank-badge">${i + 1}</span></td>
+      <td><span class="ranked-sample-name">${s.display_name || s.sample_id}</span></td>
+      <td><span style="color:${matColor};font-family:'IBM Plex Mono',monospace;font-size:12px;">${material}</span></td>
+      <td style="color:var(--muted);font-size:12px;">${s.substrate_material || '—'}</td>
+      <td><span class="ranked-value">${dispVal}</span></td>
+      <td style="font-size:12px;">${confText}</td>
+      <td style="color:var(--muted);font-size:11px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.authors || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
 // ── Tab switching ──────────────────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -809,6 +1284,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
     if (tab.dataset.tab === 'strip') renderStripChart();
     if (tab.dataset.tab === 'scatter') renderScatterChart();
+    if (tab.dataset.tab === 'ranked') renderRankedList();
   });
 });
 
@@ -818,6 +1294,8 @@ document.getElementById('stripGroupBy').addEventListener('change', () => renderS
 document.getElementById('xField').addEventListener('change', () => renderScatterChart());
 document.getElementById('yField').addEventListener('change', () => renderScatterChart());
 document.getElementById('colorBy').addEventListener('change', () => renderScatterChart());
+document.getElementById('rankedField').addEventListener('change', () => renderRankedList());
+document.getElementById('rankedOrder').addEventListener('change', () => renderRankedList());
 document.getElementById('substrateFilter').addEventListener('change', onFilterChange);
 document.getElementById('confidenceFilter').addEventListener('change', onFilterChange);
 document.getElementById('nameFilter').addEventListener('input', onFilterChange);

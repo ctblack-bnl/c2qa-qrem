@@ -1,0 +1,85 @@
+# interconnects/microwave_photonic_85pct.yaml
+# Inter-module link profile — microwave photonic, conservative baseline.
+# Represents current demonstrated performance in good lab conditions (2025-2026).
+#
+# Three tiers exist for sensitivity analysis:
+#   85pct — conservative baseline (this file)
+#   92pct — near-term target (optimistic but plausible, 2-3 years)
+#   99pct — aspirational (what the field needs for practical advantage)
+#
+# Key insight: the jump from 85% to 92% (eliminating one purification round)
+# reduces the slowdown factor by ~5×. More impactful than 92% to 99%.
+
+profile_type: interconnect
+name: microwave_photonic_85pct
+description: "Microwave photonic link — conservative baseline (85% raw fidelity)"
+source: "Current demonstrated in good lab conditions, 2025-2026"
+
+intermodule:
+  link_type: microwave_photonic
+
+  # ── Raw link parameters ──────────────────────────────────────
+  # What the hardware actually delivers before any purification.
+  link_fidelity_pct: 85.0           # Raw Bell pair fidelity off the transducer.
+                                     # Below surface code threshold (~99%) —
+                                     # purification required before use in QEC.
+  entanglement_rate_Hz: 1000        # Raw Bell pairs generated per second.
+                                     # Current demonstrations: 100-10,000 Hz.
+                                     # Derived: bell_pair_time = 1,000,000 / rate = 1000µs
+  transduction_efficiency_pct: 50.0 # Microwave-to-optical conversion efficiency.
+                                     # Affects effective attempt rate and loss.
+                                     # Current state of the art: 10-70%.
+  link_latency_us: 10               # One-way classical signal travel time, µs.
+                                     # Sets minimum round-trip for heralding (~20µs).
+
+  # ── Purification model ───────────────────────────────────────
+  # Entanglement purification boosts raw fidelity at the cost of consuming
+  # multiple raw pairs and adding latency.
+  # Protocol: DEJMPS (Deutsch et al.) — standard two-way purification.
+  # Formula (idealized, perfect local gates):
+  #   F_out = F² / (F² + (1-F)²)
+  #   Round 1: 85.0% → 97.0%
+  #   Round 2: 97.0% → 99.7%
+  # WARNING: Real implementations do worse — local gate errors during
+  # purification circuit reduce achievable fidelity. Treat as upper bound.
+  purification_rounds: 2            # Rounds needed to reach usable fidelity.
+  purification_pairs_consumed: 4    # Raw pairs consumed per output pair (2^rounds).
+  fidelity_after_purification_pct: 99.7  # Idealized output fidelity after 2 rounds.
+                                          # Real value likely 98-99.5% in practice.
+  purification_latency_us: 40       # Latency added by purification:
+                                     # 2 rounds × ~20µs per round
+                                     # (classical comms between modules + local gates).
+
+  # ── Derived effective parameters ─────────────────────────────
+  # What the QEC / logical layer actually sees after purification.
+  # These feed into the resource estimator.
+  #
+  # Derivations:
+  #   effective_rate      = raw_rate / pairs_consumed = 1000 / 4 = 250 Hz
+  #   effective_gate_time = (1,000,000 / raw_rate) + purification_latency_us
+  #                       = 1000µs + 40µs = 1040µs
+  #   slowdown_factor     = effective_gate_time_us / local_gate_time_us
+  #                       = 1040µs / 0.2µs = 5200
+  effective_entanglement_rate_Hz: 250
+  effective_gate_time_us: 1040
+  inter_module_slowdown_factor: 5200  # One inter-module gate consumes the runtime
+                                       # equivalent of ~5,200 local two-qubit gates.
+                                       # Primary cost metric for circuit runtime impact.
+
+  # ── Communication qubit overhead ─────────────────────────────
+  communication_qubits_per_link: 8  # Physical qubits reserved at each module boundary
+                                     # for purification operations.
+                                     # Small relative to module size (1000q) but
+                                     # reduces available compute budget per link added.
+
+  # ── Modeling notes ───────────────────────────────────────────
+  modeling_status: placeholder
+  notes: >
+    Purification fidelity formula is idealized (DEJMPS, perfect local gates).
+    Real fidelity after purification will be somewhat lower.
+    Entanglement rate is highly uncertain — current demonstrations span 100-10,000 Hz.
+    Slowdown factor is the primary cost metric: one inter-module gate consumes
+    the runtime equivalent of ~5,200 local two-qubit gates.
+    Space-time cost modestly increases logical error probability for long circuits
+    but is second-order for small circuits currently modeled.
+    Full runtime impact requires circuit depth analysis (Stage 4 — not yet implemented).

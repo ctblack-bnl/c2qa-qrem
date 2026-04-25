@@ -1,0 +1,63 @@
+# interconnects/microwave_photonic_99pct.yaml
+# Inter-module link profile — microwave photonic, aspirational target.
+# Represents what the field needs for practical quantum advantage at scale.
+# No demonstrated path to this yet — use for upper-bound sensitivity analysis.
+#
+# Key difference from lower tiers: NO purification needed.
+# Raw fidelity is already above the surface code threshold (~99%).
+# The link can be used directly by the QEC layer.
+# Remaining slowdown is from Bell pair generation time alone.
+
+profile_type: interconnect
+name: microwave_photonic_99pct
+description: "Microwave photonic link — aspirational (99% raw fidelity)"
+source: "Aspirational target — no demonstrated path yet. Upper bound for sensitivity analysis."
+
+intermodule:
+  link_type: microwave_photonic
+
+  # ── Raw link parameters ──────────────────────────────────────
+  link_fidelity_pct: 99.0           # Raw Bell pair fidelity — above surface code
+                                     # threshold. No purification required.
+  entanglement_rate_Hz: 10000       # High-rate entanglement needed to keep pace
+                                     # with local gate speeds.
+                                     # Derived: bell_pair_time = 1,000,000 / 10000 = 100µs
+  transduction_efficiency_pct: 90.0 # Near-ideal transduction — aspirational.
+  link_latency_us: 5                # Optimistic classical latency.
+
+  # ── Purification model ───────────────────────────────────────
+  # No purification needed — raw fidelity already above threshold.
+  # Remaining latency is classical heralding round-trip only.
+  purification_rounds: 0
+  purification_pairs_consumed: 1    # No pairs consumed — direct use.
+  fidelity_after_purification_pct: 99.0  # Same as raw — no purification applied.
+  purification_latency_us: 0        # No purification latency.
+
+  # ── Derived effective parameters ─────────────────────────────
+  # Derivations:
+  #   effective_rate      = 10000 / 1 = 10000 Hz
+  #   effective_gate_time = 100µs (generation) + 10µs (classical round-trip) = 110µs
+  #   slowdown_factor     = 110µs / 0.2µs = 550
+  effective_entanglement_rate_Hz: 10000
+  effective_gate_time_us: 110
+  inter_module_slowdown_factor: 550   # Still 550× slower than local gates —
+                                       # even ideal links have fundamental latency
+                                       # from Bell pair generation and classical
+                                       # heralding. This floor cannot be eliminated
+                                       # without a fundamentally different approach.
+
+  # ── Communication qubit overhead ─────────────────────────────
+  communication_qubits_per_link: 2  # Minimal — just heralding qubits, no
+                                     # purification ancillas needed.
+
+  # ── Modeling notes ───────────────────────────────────────────
+  modeling_status: placeholder
+  notes: >
+    No purification required at this fidelity — raw link usable directly by QEC.
+    Even at 99% raw fidelity and 10,000 Hz rate, inter-module gates are still
+    550× slower than local gates due to fundamental Bell pair generation and
+    classical heralding latency. This floor exists for any photonic link approach.
+    The 550× slowdown vs 5200× at 85pct illustrates the enormous impact of
+    eliminating purification entirely — a ~10× system-level improvement.
+    Aspirational — no current experimental demonstration at this level.
+    Full runtime impact requires circuit depth analysis (Stage 4 — not yet implemented).

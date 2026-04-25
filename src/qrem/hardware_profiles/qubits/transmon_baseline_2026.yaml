@@ -1,0 +1,68 @@
+# qubits/transmon_baseline_2026.yaml
+# Qubit coherence and gate performance profile.
+# Represents state-of-the-art transmon qubit systems, 2025-2026.
+# Sources: recent literature, IBM/Google published benchmarks, C2QA materials schema.
+#
+# This file captures everything intrinsic to the qubit device itself.
+# For module architecture, see modules/. For inter-module links, see interconnects/.
+#
+# To model a specific device from the materials database, generate a new file
+# in this folder using the Hardware Profile Updater (planned).
+
+profile_type: qubits
+name: transmon_baseline_2026
+description: "State-of-the-art transmon qubit, 2025-2026 baseline"
+source: "Literature baseline — not derived from a specific sample"
+
+# =============================================================================
+# COHERENCE
+# These determine the physical error rate, which drives code distance selection.
+# Longer coherence = lower error rate = smaller code distance = fewer physical qubits.
+# =============================================================================
+coherence:
+  T1_us: 200          # Energy relaxation time in microseconds.
+                      # How long before a qubit spontaneously loses its energy state.
+                      # Current best labs: 100-500 us. 200 is a solid baseline.
+  T2_us: 300          # Dephasing time in microseconds.
+                      # How long before a qubit loses phase coherence.
+                      # Typically T2 <= 2*T1. 300 us is achievable with good materials.
+
+# =============================================================================
+# GATE PERFORMANCE
+# Fidelity and speed together determine how many errors occur per operation.
+# Fidelity: closer to 100% is better. Time: faster is better.
+# =============================================================================
+gates:
+  single_qubit_fidelity_pct: 99.9    # Fidelity of single-qubit gates (H, X, Z, etc.)
+                                      # 99.9% = 1 error per 1000 gates.
+                                      # Current best: 99.9-99.99%.
+  single_qubit_gate_time_ns: 20      # Time to execute a single-qubit gate, nanoseconds.
+                                      # Typical range: 10-50 ns.
+  two_qubit_fidelity_pct: 99.9       # Fidelity of two-qubit gates (CNOT, CZ, etc.)
+                                      # Dominant error source in most circuits.
+                                      # Current best: 99.0-99.7%.
+  two_qubit_gate_time_ns: 200        # Time to execute a two-qubit gate, nanoseconds.
+                                      # Typical range: 100-500 ns.
+  readout_fidelity_pct: 99.5         # Fidelity of qubit measurement.
+                                      # Critical for error correction syndrome measurements.
+                                      # Current best: 99.0-99.9%.
+  readout_time_ns: 500               # Time to measure a qubit, nanoseconds.
+                                      # Contributes significantly to QEC cycle time.
+
+# =============================================================================
+# PROVENANCE
+# For corpus-derived profiles, this section records which sample and fields
+# were measured vs assumed. Generated profiles populate this automatically.
+# =============================================================================
+provenance:
+  derived_from_sample: null           # e.g. "Bahrami_2026_D3" — null for hand-tuned profiles
+  measured_fields: []                 # Fields taken directly from the database
+  assumed_fields:                     # Fields set to defaults
+    - T1_us
+    - T2_us
+    - single_qubit_fidelity_pct
+    - single_qubit_gate_time_ns
+    - two_qubit_fidelity_pct
+    - two_qubit_gate_time_ns
+    - readout_fidelity_pct
+    - readout_time_ns

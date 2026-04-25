@@ -1,0 +1,63 @@
+# interconnects/microwave_photonic_92pct.yaml
+# Inter-module link profile — microwave photonic, near-term target.
+# Represents optimistic but plausible performance in 2-3 years.
+#
+# Key difference from 85pct: only ONE purification round needed.
+# This eliminates half the latency and halves pairs consumed,
+# giving a ~5× improvement in slowdown factor despite only 7% fidelity gain.
+# This non-obvious threshold effect is one of the key insights this model surfaces.
+
+profile_type: interconnect
+name: microwave_photonic_92pct
+description: "Microwave photonic link — near-term target (92% raw fidelity)"
+source: "Near-term target, optimistic but plausible 2-3 year horizon"
+
+intermodule:
+  link_type: microwave_photonic
+
+  # ── Raw link parameters ──────────────────────────────────────
+  link_fidelity_pct: 92.0           # Raw Bell pair fidelity.
+                                     # One purification round sufficient to reach
+                                     # usable fidelity for QEC.
+  entanglement_rate_Hz: 5000        # Higher rate expected alongside fidelity improvements.
+                                     # Derived: bell_pair_time = 1,000,000 / 5000 = 200µs
+  transduction_efficiency_pct: 65.0 # Expected improvement with better transducer materials.
+  link_latency_us: 8                # Modest reduction from better classical control.
+
+  # ── Purification model ───────────────────────────────────────
+  # Protocol: DEJMPS, one round sufficient at 92% input fidelity.
+  # Formula (idealized):
+  #   F_out = F² / (F² + (1-F)²)
+  #   Round 1: 92.0% → 99.3%
+  # One round gets above surface code threshold — no second round needed.
+  purification_rounds: 1
+  purification_pairs_consumed: 2    # 2^1 = 2 raw pairs per output pair.
+  fidelity_after_purification_pct: 99.3
+  purification_latency_us: 20       # 1 round × ~20µs per round.
+
+  # ── Derived effective parameters ─────────────────────────────
+  # Derivations:
+  #   effective_rate      = 5000 / 2 = 2500 Hz
+  #   effective_gate_time = 200µs + 20µs = 220µs
+  #   slowdown_factor     = 220µs / 0.2µs = 1100
+  effective_entanglement_rate_Hz: 2500
+  effective_gate_time_us: 220
+  inter_module_slowdown_factor: 1100  # ~5× better than 85pct tier despite
+                                       # only 7% improvement in raw fidelity.
+                                       # Threshold effect from eliminating one
+                                       # purification round.
+
+  # ── Communication qubit overhead ─────────────────────────────
+  communication_qubits_per_link: 4  # One purification round requires fewer
+                                     # communication qubits than two rounds.
+
+  # ── Modeling notes ───────────────────────────────────────────
+  modeling_status: placeholder
+  notes: >
+    Purification fidelity formula is idealized (DEJMPS, perfect local gates).
+    Real fidelity after purification will be somewhat lower.
+    The 5× improvement over 85pct comes almost entirely from eliminating
+    one purification round — not from the fidelity improvement itself.
+    This threshold effect illustrates why raw link fidelity targets matter
+    disproportionately near purification round boundaries.
+    Full runtime impact requires circuit depth analysis (Stage 4 — not yet implemented).

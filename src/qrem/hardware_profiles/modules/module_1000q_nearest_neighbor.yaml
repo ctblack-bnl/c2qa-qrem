@@ -1,0 +1,29 @@
+# modules/module_1000q_nearest_neighbor.yaml
+# Module architecture profile — 1000-qubit chip, nearest-neighbor connectivity.
+# Representative of near-term large superconducting devices.
+#
+# This file captures how qubits are arranged and connected within a single module.
+# For inter-module links, see interconnects/. For qubit properties, see qubits/.
+#
+# Note: perfect intra-module connectivity is currently assumed by the QREM estimator.
+# SWAP routing overhead is not yet modeled — physical qubit counts are lower bounds.
+# This is a known limitation documented in every estimator output.
+
+profile_type: module
+name: module_1000q_nearest_neighbor
+description: "1000-qubit module, nearest-neighbor grid connectivity"
+source: "Representative of near-term large superconducting devices"
+
+module:
+  physical_qubits_per_module: 1000   # How many physical qubits fit on one chip/module.
+                                      # Current devices: 100-1000+ qubits.
+                                      # 1000 is representative of near-term large devices.
+  connectivity: nearest_neighbor      # How qubits connect within a module.
+                                      # nearest_neighbor: each qubit connects to adjacent
+                                      # ones only (grid). Typical for superconducting chips.
+
+  # Future fields (not yet used by estimator):
+  # layout: grid                      # Physical arrangement of qubits
+  # grid_rows: 32                     # For a ~1000-qubit square grid
+  # grid_cols: 32
+  # swap_overhead_factor: 1.0         # Placeholder for future SWAP routing model

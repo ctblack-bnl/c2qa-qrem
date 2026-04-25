@@ -28,6 +28,7 @@ import threading
 import time
 from pathlib import Path
 from difflib import SequenceMatcher
+from generate_qubit_profile import generate_profile, save_profile, fetch_sample_from_db
 
 PORT      = 8001
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -35,6 +36,7 @@ DB_PATH   = REPO_ROOT / "data" / "ingested" / "records.db"
 JSONL_PATH = REPO_ROOT / "data" / "ingested" / "records.jsonl"
 DEDUP_PATH = REPO_ROOT / "data" / "ingested" / "deduplication.json"
 SERVE_DIR = Path(__file__).resolve().parent
+PROFILES_DIR = REPO_ROOT / "src" / "qrem" / "hardware_profiles"
 
 # All numeric fields the Explorer knows about — in display order.
 ALL_NUMERIC_FIELDS = [
@@ -327,6 +329,46 @@ def fetch_coverage():
     return dict(row)
 
 
+def fetch_sample_detail(display_name: str) -> dict:
+    """
+    Return full details for a single sample — all fields plus catchall items.
+    Called when user clicks a point in the Explorer.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Get full sample row
+    cur.execute("""
+        SELECT s.*, p.title, p.authors, p.doi, p.journal
+        FROM samples s
+        JOIN papers p ON s.paper_id = p.id
+        WHERE s.display_name = ?
+        LIMIT 1
+    """, (display_name,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return None
+
+    sample = dict(row)
+    # Remove large JSON blobs — not needed in detail view
+    sample.pop('sample_json', None)
+    sample.pop('derived_json', None)
+    sample.pop('extraction_json', None)
+
+    # Get catchall items for this sample
+    cur.execute("""
+        SELECT item_type, description, value, source, notes
+        FROM catchall_items
+        WHERE display_name = ?
+        ORDER BY item_type, description
+    """, (display_name,))
+    catchall = [dict(r) for r in cur.fetchall()]
+
+    conn.close()
+    return {"sample": sample, "catchall": catchall}
+
+
 # ── HTTP Handler ──────────────────────────────────────────────────────────
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -355,6 +397,45 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif self.path == "/api/duplicates":
             pairs = find_duplicate_pairs()
             self._json(200, {"ok": True, "pairs": pairs, "count": len(pairs)})
+        elif self.path.startswith("/api/sample/"):
+            try:
+                import urllib.parse
+                raw = self.path[len("/api/sample/"):]
+                display_name = urllib.parse.unquote(raw, encoding='utf-8')
+                detail = fetch_sample_detail(display_name)
+                if detail:
+                    self._json(200, {"ok": True, **detail})
+                else:
+                    self._json(404, {"ok": False, "error": f"Sample not found: {display_name}"})
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
+        elif self.path.startswith("/api/generate_profile"):
+            import urllib.parse
+            params = {}
+            if "?" in self.path:
+                params = dict(urllib.parse.parse_qsl(self.path.split("?", 1)[1]))
+            display_name = params.get("display_name", "")
+            do_save = params.get("save", "false").lower() == "true"
+            if not display_name:
+                self._json(400, {"ok": False, "error": "display_name required"})
+                return
+            try:
+                sample = fetch_sample_from_db(display_name, str(DB_PATH))
+                result = generate_profile(sample, str(PROFILES_DIR))
+                if do_save:
+                    save_profile(result, str(PROFILES_DIR))
+                self._json(200, {
+                    "ok":              True,
+                    "filename":        result["filename"],
+                    "measured_fields": result["measured_fields"],
+                    "assumed_fields":  result["assumed_fields"],
+                    "yaml_preview":    result["yaml_str"],
+                    "saved":           do_save,
+                })
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                self._json(500, {"ok": False, "error": str(e)})
         else:
             super().do_GET()
 
