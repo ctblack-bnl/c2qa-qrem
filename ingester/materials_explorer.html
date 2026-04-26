@@ -7,30 +7,28 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
-
   :root {
-    --bg:        #0d1117;
-    --surface:   #161b22;
-    --border:    #21262d;
-    --accent:    #58a6ff;
-    --accent2:   #3fb950;
-    --accent3:   #f78166;
-    --accent4:   #d2a8ff;
-    --text:      #e6edf3;
-    --muted:     #8b949e;
-    --card:      #1c2128;
+    --bg:      #0d1117;
+    --surface: #161b22;
+    --border:  #30363d;
+    --accent:  #79b8ff;
+    --accent2: #56d364;
+    --accent3: #ff7b72;
+    --accent4: #d2a8ff;
+    --text:    #f0f6fc;
+    --muted:   #adbac7;
+    --card:    #1c2128;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
     background: var(--bg);
     color: var(--text);
     font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 14px;
+    font-size: 15px;
     min-height: 100vh;
   }
 
+  /* ── Header ── */
   header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -41,38 +39,33 @@
   }
   header h1 {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 500;
     color: var(--accent);
     letter-spacing: 0.02em;
   }
   header .subtitle {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--muted);
     font-family: 'IBM Plex Mono', monospace;
   }
-  .coverage-pills {
-    margin-left: auto;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
+  .coverage-pills { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
   .pill {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    padding: 3px 8px;
+    font-size: 12px;
+    padding: 4px 10px;
     border-radius: 3px;
     border: 1px solid var(--border);
     color: var(--muted);
   }
   .pill span { color: var(--text); font-weight: 500; }
 
+  /* ── Layout ── */
   .layout {
     display: grid;
     grid-template-columns: 260px 1fr;
     height: calc(100vh - 57px);
   }
-
   sidebar {
     display: block;
     background: var(--surface);
@@ -82,7 +75,7 @@
   }
   .section-label {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--muted);
     text-transform: uppercase;
@@ -91,60 +84,34 @@
     margin-top: 20px;
   }
   .section-label:first-child { margin-top: 0; }
-
   select, .filter-input {
     width: 100%;
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 7px 10px;
+    padding: 8px 10px;
     border-radius: 4px;
     font-family: 'IBM Plex Sans', sans-serif;
     font-size: 13px;
     margin-bottom: 8px;
     appearance: none;
   }
-  select:focus, .filter-input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
-  .checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
+  select:focus, .filter-input:focus { outline: none; border-color: var(--accent); }
+  .checkbox-group { display: flex; flex-direction: column; gap: 6px; }
   .checkbox-group label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    cursor: pointer;
-    color: var(--muted);
-    transition: color 0.15s;
-    line-height: 1.3;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; cursor: pointer; color: var(--muted);
+    transition: color 0.15s; line-height: 1.3;
   }
   .checkbox-group label:hover { color: var(--text); }
-  .checkbox-group input[type=checkbox] {
-    accent-color: var(--accent);
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
-  }
+  .checkbox-group input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; flex-shrink: 0; }
   .checkbox-group label.checked { color: var(--text); }
-  .color-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
+  .color-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
-  main {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+  /* ── Main ── */
+  main { display: flex; flex-direction: column; overflow: hidden; }
 
+  /* ── Top-level tabs ── */
   .tabs {
     display: flex;
     border-bottom: 1px solid var(--border);
@@ -153,8 +120,8 @@
   }
   .tab {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    padding: 12px 16px;
+    font-size: 13px;
+    padding: 12px 18px;
     cursor: pointer;
     color: var(--muted);
     border-bottom: 2px solid transparent;
@@ -164,16 +131,41 @@
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  /* shared plot area */
-  .plot-area {
-    flex: 1;
-    padding: 20px;
-    overflow: hidden;
-    display: none;
-    flex-direction: column;
+  /* ── Sub-toggle (used inside Explore and Search tabs) ── */
+  .sub-toggle {
+    display: flex;
+    gap: 2px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px;
   }
-  .plot-area.active { display: flex; }
+  .sub-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 5px 14px;
+    border-radius: 3px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .sub-btn:hover { color: var(--text); }
+  .sub-btn.active {
+    background: var(--surface);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
 
+  /* ── Tab pane areas ── */
+  .tab-pane { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+  .tab-pane.active { display: flex; }
+
+  /* ── Plot area (charts) ── */
+  .plot-area { flex: 1; padding: 20px; overflow: hidden; display: none; flex-direction: column; }
+  .plot-area.active { display: flex; }
   .plot-controls {
     display: flex;
     gap: 12px;
@@ -181,57 +173,163 @@
     align-items: center;
     flex-wrap: wrap;
   }
-  .control-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .control-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-  .control-group select {
-    width: auto;
-    margin-bottom: 0;
-    padding: 5px 10px;
-    font-size: 12px;
-  }
-  .chart-wrapper {
-    flex: 1;
-    position: relative;
-    min-height: 0;
-  }
+  .control-group { display: flex; align-items: center; gap: 8px; }
+  .control-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .control-group select { width: auto; margin-bottom: 0; padding: 5px 10px; font-size: 12px; }
+  .chart-wrapper { flex: 1; position: relative; min-height: 0; }
 
-  /* table */
-  .table-area {
-    flex: 1;
-    overflow: auto;
-    padding: 20px;
-    display: none;
-  }
+  /* ── Table / ranked area ── */
+  .table-area { flex: 1; overflow: auto; display: none; }
   .table-area.active { display: block; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+  .table-controls { padding: 16px 20px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: 'IBM Plex Mono', monospace; }
   th {
-    text-align: left; padding: 8px 12px;
+    text-align: left; padding: 10px 14px;
     border-bottom: 1px solid var(--border);
-    color: var(--muted); font-size: 10px;
+    color: var(--muted); font-size: 11px;
     text-transform: uppercase; letter-spacing: 0.06em;
     font-weight: 500; position: sticky; top: 0; background: var(--bg);
   }
-  td { padding: 7px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
   tr:hover td { background: var(--surface); }
   .null-val { color: var(--muted); font-style: italic; }
-  .conf-high { color: var(--accent2); }
+  .conf-high   { color: var(--accent2); }
   .conf-medium { color: var(--accent); }
-  .conf-low { color: var(--accent3); }
+  .conf-low    { color: var(--accent3); }
 
-  /* catchall */
-  .catchall-area {
-    flex: 1; overflow: auto; padding: 20px; display: none;
+  /* ── Similarity search area ── */
+  .similar-area { flex: 1; overflow: auto; display: none; flex-direction: column; }
+  .similar-area.active { display: flex; }
+  .similar-controls {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
-  .catchall-area.active { display: flex; gap: 16px; flex-direction: column; }
+  .similar-query-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .similar-run-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 7px 16px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .similar-run-btn:hover { background: rgba(88,166,255,0.08); }
+  .similar-run-btn:disabled { opacity: 0.4; cursor: wait; }
+  .similar-options {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .similar-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .similar-checkbox-label input { accent-color: var(--accent); }
+  .similar-checkbox-label:hover { color: var(--text); }
+  .similar-results { flex: 1; overflow: auto; padding: 16px 20px; }
+  .similar-empty {
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 32px 0;
+    text-align: center;
+  }
+  .similar-result-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .similar-result-row:hover { border-color: var(--accent); }
+  .similar-result-top {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .similar-rank {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 24px;
+  }
+  .similar-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    flex: 1;
+  }
+  .similar-material {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+  }
+  .similar-score {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .similar-authors {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    padding-left: 34px;
+  }
+  .similar-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    padding-left: 34px;
+  }
+  .similar-field-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    border-width: 1px;
+    border-style: solid;
+  }
+  .similar-field-name { color: var(--muted); }
+  .similar-field-values { color: var(--text); font-weight: 500; }
+  .similar-field-proximity { font-size: 11px; font-style: italic; }
+  /* Chip border + proximity label color by match quality */
+  .chip-good  { border-color: var(--accent2); }
+  .chip-ok    { border-color: var(--accent); }
+  .chip-poor  { border-color: var(--border); }
+  .similar-field-dist-good  { color: var(--accent2); }
+  .similar-field-dist-ok    { color: var(--accent); }
+  .similar-field-dist-poor  { color: var(--muted); }
+
+  /* ── Catchall ── */
+  .catchall-area { flex: 1; overflow: auto; padding: 20px; display: none; flex-direction: column; gap: 16px; }
+  .catchall-area.active { display: flex; }
   .catchall-filter { display: flex; gap: 8px; margin-bottom: 4px; }
   .catchall-filter select { width: auto; margin-bottom: 0; font-size: 12px; padding: 5px 10px; }
   .catchall-item {
@@ -241,194 +339,107 @@
   }
   .catchall-item:hover { border-color: var(--accent); }
   .catchall-meta { display: flex; flex-direction: column; gap: 4px; }
-  .catchall-display-name { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); }
-  .catchall-type { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; }
-  .catchall-paper { font-size: 11px; color: var(--muted); margin-top: 4px; }
-  .catchall-description { font-weight: 500; margin-bottom: 4px; }
-  .catchall-value { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--accent2); margin-bottom: 4px; }
-  .catchall-notes { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .catchall-display-name { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--accent); }
+  .catchall-type { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .catchall-paper { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .catchall-description { font-weight: 500; margin-bottom: 4px; font-size: 14px; }
+  .catchall-value { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent2); margin-bottom: 4px; }
+  .catchall-notes { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
+  /* ── Status bar ── */
   .status-bar {
-    background: var(--surface); border-top: 1px solid var(--border);
-    padding: 6px 20px; font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px; color: var(--muted); display: flex; gap: 20px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 6px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    gap: 20px;
+    position: relative;
+    z-index: 101;
   }
   .status-bar span { color: var(--text); }
-  /* ── Sample detail panel ── */
+
+  /* ── Detail panel ── */
   .detail-panel {
-    position: fixed;
-    top: 57px;
-    right: 0;
-    bottom: 32px;  /* above status bar */
-    width: 380px;
-    background: var(--surface);
+    position: fixed; top: 57px; right: 0; bottom: 32px;
+    width: 380px; background: var(--surface);
     border-left: 1px solid var(--border);
-    z-index: 100;
-    transform: translateX(100%);
+    z-index: 100; transform: translateX(100%);
     transition: transform 0.25s ease;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
+    overflow-y: auto; display: flex; flex-direction: column;
   }
-  .detail-panel.open {
-    transform: translateX(0);
-  }
+  .detail-panel.open { transform: translateX(0); }
   .detail-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    position: sticky;
-    top: 0;
-    background: var(--surface);
-    z-index: 1;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 12px;
+    position: sticky; top: 0; background: var(--surface); z-index: 1;
   }
-  .detail-title {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--accent);
-    flex: 1;
-    line-height: 1.4;
-  }
-  .detail-close {
-    background: none;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    font-size: 18px;
-    padding: 0;
-    line-height: 1;
-    flex-shrink: 0;
-  }
+  .detail-title { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent); flex: 1; line-height: 1.4; }
+  .detail-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; padding: 0; line-height: 1; flex-shrink: 0; }
   .detail-close:hover { color: var(--text); }
   .detail-body { padding: 16px 20px; flex: 1; }
-  .detail-section {
-    margin-bottom: 20px;
-  }
+  .detail-section { margin-bottom: 20px; }
   .detail-section-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 8px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
   }
-  .detail-field {
-    display: flex;
-    gap: 8px;
-    padding: 5px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-  }
+  .detail-field { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .detail-field:last-child { border-bottom: none; }
-  .detail-field-name {
-    font-family: 'IBM Plex Mono', monospace;
-    color: var(--muted);
-    min-width: 140px;
-    flex-shrink: 0;
-    font-size: 11px;
-  }
+  .detail-field-name { font-family: 'IBM Plex Mono', monospace; color: var(--muted); min-width: 150px; flex-shrink: 0; font-size: 12px; }
   .detail-field-value { color: var(--text); }
-  .detail-field-value.conf-high   { color: var(--green); }
-  .detail-field-value.conf-medium { color: var(--accent); }
-  .detail-field-value.conf-low    { color: var(--orange); }
-  .detail-catchall-item {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 8px 10px;
-    margin-bottom: 6px;
-    font-size: 11px;
-  }
-  .detail-catchall-type {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    margin-bottom: 3px;
-  }
+  .detail-catchall-item { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; margin-bottom: 6px; font-size: 11px; }
+  .detail-catchall-type { font-family: 'IBM Plex Mono', monospace; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; }
   .detail-catchall-desc { color: var(--text); margin-bottom: 3px; font-weight: 500; }
-  .detail-catchall-value { color: var(--green); font-family: 'IBM Plex Mono', monospace; margin-bottom: 3px; }
+  .detail-catchall-value { color: var(--accent2); font-family: 'IBM Plex Mono', monospace; margin-bottom: 3px; }
   .detail-catchall-notes { color: var(--muted); line-height: 1.4; }
-  .detail-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 99;
-  }
+  .detail-overlay { display: none; position: fixed; inset: 0; z-index: 99; }
   .detail-overlay.open { display: block; }
-
-  .rank-badge {
-    display: inline-block;
+  .find-similar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    min-width: 24px;
-    text-align: right;
+    font-size: 11px;
+    color: var(--accent4);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: text-decoration-color 0.15s;
   }
+  .find-similar-link:hover { text-decoration-color: var(--accent4); }
+
+  /* ── Ranked ── */
+  .rank-badge { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); min-width: 24px; text-align: right; }
   .ranked-row { cursor: pointer; }
   .ranked-row:hover td { background: var(--surface); }
   .ranked-row:hover .ranked-sample-name { color: var(--accent2); }
-  .ranked-sample-name {
-    font-family: 'IBM Plex Mono', monospace;
-    color: var(--accent);
-    transition: color 0.15s;
-  }
-  .ranked-value {
-    font-family: 'IBM Plex Mono', monospace;
-    font-weight: 500;
-    color: var(--text);
-  }
+  .ranked-sample-name { font-family: 'IBM Plex Mono', monospace; color: var(--accent); transition: color 0.15s; }
+  .ranked-value { font-family: 'IBM Plex Mono', monospace; font-weight: 500; color: var(--text); }
 
+  /* ── Generate Profile button ── */
   .generate-profile-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    margin-top: 16px;
-    padding: 10px 14px;
-    background: transparent;
-    border: 1px solid var(--accent2);
-    color: var(--accent2);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    border-radius: 4px;
-    cursor: pointer;
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    margin-top: 16px; padding: 10px 14px;
+    background: transparent; border: 1px solid var(--accent2);
+    color: var(--accent2); font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; border-radius: 4px; cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s;
   }
-  .generate-profile-btn:hover {
-    background: rgba(63,185,80,0.08);
-    box-shadow: 0 0 12px rgba(63,185,80,0.2);
-  }
-  .generate-profile-btn:disabled {
-    opacity: 0.4;
-    cursor: wait;
-  }
+  .generate-profile-btn:hover { background: rgba(63,185,80,0.08); box-shadow: 0 0 12px rgba(63,185,80,0.2); }
+  .generate-profile-btn:disabled { opacity: 0.4; cursor: wait; }
   .profile-result {
-    margin-top: 10px;
-    padding: 10px 12px;
-    border-radius: 4px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    line-height: 1.6;
-    display: none;
+    margin-top: 10px; padding: 10px 12px; border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.6; display: none;
   }
-  .profile-result.success {
-    background: rgba(63,185,80,0.08);
-    border: 1px solid rgba(63,185,80,0.3);
-    color: var(--accent2);
-    display: block;
-  }
-  .profile-result.error {
-    background: rgba(247,129,102,0.08);
-    border: 1px solid rgba(247,129,102,0.3);
-    color: var(--accent3);
-    display: block;
-  }
+  .profile-result.success { background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.3); color: var(--accent2); display: block; }
+  .profile-result.error   { background: rgba(247,129,102,0.08); border: 1px solid rgba(247,129,102,0.3); color: var(--accent3); display: block; }
 </style>
 </head>
 <body>
@@ -446,172 +457,218 @@
 </header>
 
 <div class="layout">
-
   <sidebar>
     <div class="section-label">Filter by material</div>
     <div class="checkbox-group" id="materialFilters">
       <div style="color:var(--muted);font-size:12px;">Loading...</div>
     </div>
-
     <div class="section-label">Filter by substrate</div>
     <select id="substrateFilter">
       <option value="">All substrates</option>
     </select>
-
     <div class="section-label">Filter by confidence</div>
     <select id="confidenceFilter">
       <option value="">All confidence levels</option>
       <option value="high">High only</option>
       <option value="high,medium">High + Medium</option>
     </select>
-
     <div class="section-label">Search display name</div>
     <input type="text" class="filter-input" id="nameFilter" placeholder="e.g. Bahrami_2026...">
   </sidebar>
 
   <main>
+    <!-- ── Top-level tabs ── -->
     <div class="tabs">
-      <div class="tab active" data-tab="strip">By Material</div>
-      <div class="tab" data-tab="scatter">Scatter Plot</div>
-      <div class="tab" data-tab="table">Data Table</div>
-      <div class="tab" data-tab="ranked">Ranked List</div>
-      <div class="tab" data-tab="catchall">Catchall Corpus</div>
+      <div class="tab active" data-tab="explore">Explore</div>
+      <div class="tab" data-tab="search">Search</div>
+      <div class="tab" data-tab="catchall">Catchall</div>
     </div>
 
-    <!-- BY MATERIAL (strip plot) — default tab -->
-    <div class="plot-area active" id="tab-strip">
-      <div class="plot-controls">
-        <div class="control-group">
-          <span class="control-label">Measurement</span>
-          <select id="stripField"><option value="">Loading...</option></select>
+    <!-- ══ EXPLORE tab ══ -->
+    <div class="tab-pane active" id="tab-explore">
+      <!-- Sub-toggle: Strip / Scatter -->
+      <div style="padding: 12px 20px 0; background: var(--surface); border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:12px;">
+        <div class="sub-toggle">
+          <button class="sub-btn active" data-explore="strip">Strip</button>
+          <button class="sub-btn" data-explore="scatter">Scatter</button>
         </div>
-        <div class="control-group">
-          <span class="control-label">Group by</span>
-          <select id="stripGroupBy">
-            <option value="film_material">Film material</option>
-            <option value="substrate_material">Substrate</option>
-            <option value="deposition_method">Deposition method</option>
+      </div>
+
+      <!-- Strip plot -->
+      <div class="plot-area active" id="explore-strip">
+        <div class="plot-controls">
+          <div class="control-group">
+            <span class="control-label">Measurement</span>
+            <select id="stripField"><option value="">Loading...</option></select>
+          </div>
+          <div class="control-group">
+            <span class="control-label">Group by</span>
+            <select id="stripGroupBy">
+              <option value="film_material">Film material</option>
+              <option value="substrate_material">Substrate</option>
+              <option value="deposition_method">Deposition method</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="stripChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Scatter plot -->
+      <div class="plot-area" id="explore-scatter">
+        <div class="plot-controls">
+          <div class="control-group">
+            <span class="control-label">X axis</span>
+            <select id="xField"><option value="">Loading...</option></select>
+          </div>
+          <div class="control-group">
+            <span class="control-label">Y axis</span>
+            <select id="yField"><option value="">Loading...</option></select>
+          </div>
+          <div class="control-group">
+            <span class="control-label">Color by</span>
+            <select id="colorBy">
+              <option value="film_material">Film material</option>
+              <option value="substrate_material">Substrate</option>
+              <option value="deposition_method">Deposition method</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="scatterChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SEARCH tab ══ -->
+    <div class="tab-pane" id="tab-search">
+      <!-- Sub-toggle: Table / Ranked / Similar -->
+      <div style="padding: 12px 20px 0; background: var(--surface); border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:12px;">
+        <div class="sub-toggle">
+          <button class="sub-btn active" data-search="table">Table</button>
+          <button class="sub-btn" data-search="ranked">Ranked</button>
+          <button class="sub-btn" data-search="similar">Similar</button>
+        </div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="table-area active" id="search-table">
+        <table style="margin-top:0;">
+          <thead>
+            <tr>
+              <th>Sample</th>
+              <th>Material</th>
+              <th>Substrate</th>
+              <th>Tc (K)</th>
+              <th>RRR</th>
+              <th>Qi internal</th>
+              <th>T1 (µs)</th>
+              <th>2Q fidelity (%)</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="8" class="loading">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Ranked List -->
+      <div class="table-area" id="search-ranked">
+        <div class="table-controls">
+          <div class="control-group">
+            <span class="control-label">Rank by</span>
+            <select id="rankedField"><option value="">Loading...</option></select>
+          </div>
+          <div class="control-group">
+            <span class="control-label">Order</span>
+            <select id="rankedOrder">
+              <option value="desc">Highest first</option>
+              <option value="asc">Lowest first</option>
+            </select>
+          </div>
+          <div style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);line-height:30px;">
+            <span id="rankedCount">—</span> samples with this measurement
+          </div>
+        </div>
+        <table style="margin-top:12px;">
+          <thead>
+            <tr>
+              <th style="width:32px;">#</th>
+              <th>Sample</th>
+              <th>Material</th>
+              <th>Substrate</th>
+              <th id="rankedValueHeader">Value</th>
+              <th>Confidence</th>
+              <th>Authors</th>
+            </tr>
+          </thead>
+          <tbody id="rankedBody">
+            <tr><td colspan="7" class="loading">Select a measurement above</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Similarity Search -->
+      <div class="similar-area" id="search-similar">
+        <!-- Controls bar — only visible when a search is active -->
+        <div class="similar-controls" id="similarControls" style="display:none;">
+          <div class="similar-query-row">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;">
+              Similar to:
+            </span>
+            <span id="similarQueryLabel" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);flex:1;"></span>
+            <label class="similar-checkbox-label" style="margin-left:16px;">
+              <input type="checkbox" id="samePubCheckbox" onchange="rerunSimilarSearch()">
+              Include same publication
+            </label>
+            <button class="similar-run-btn" onclick="clearSimilarSearch()"
+                    style="border-color:var(--muted);color:var(--muted);margin-left:8px;">
+              × Clear
+            </button>
+          </div>
+        </div>
+        <div class="similar-results" id="similarResults">
+          <div class="similar-empty">
+            Open any sample from <strong>Explore</strong>, <strong>Table</strong>, or <strong>Ranked</strong>
+            and click <em>Find similar</em> to compare across the corpus.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CATCHALL tab ══ -->
+    <div class="tab-pane" id="tab-catchall">
+      <div class="catchall-area active" id="catchall-inner">
+        <div class="catchall-filter">
+          <span class="control-label" style="line-height:30px;">Show:</span>
+          <select id="catchallTypeFilter">
+            <option value="">All types</option>
+            <option value="correlation">Correlations (author-stated)</option>
+            <option value="schema_candidate">Schema candidates</option>
+            <option value="additional_measurement">Additional measurements</option>
+            <option value="anomalous_observation">Anomalous observations</option>
           </select>
         </div>
-      </div>
-      <div class="chart-wrapper">
-        <canvas id="stripChart"></canvas>
-      </div>
-    </div>
-
-    <!-- SCATTER PLOT -->
-    <div class="plot-area" id="tab-scatter">
-      <div class="plot-controls">
-        <div class="control-group">
-          <span class="control-label">X axis</span>
-          <select id="xField"><option value="">Loading...</option></select>
-        </div>
-        <div class="control-group">
-          <span class="control-label">Y axis</span>
-          <select id="yField"><option value="">Loading...</option></select>
-        </div>
-        <div class="control-group">
-          <span class="control-label">Color by</span>
-          <select id="colorBy">
-            <option value="film_material">Film material</option>
-            <option value="substrate_material">Substrate</option>
-            <option value="deposition_method">Deposition method</option>
-          </select>
+        <div id="catchallItems">
+          <div class="loading">Loading...</div>
         </div>
       </div>
-      <div class="chart-wrapper">
-        <canvas id="scatterChart"></canvas>
+    </div>
+
+    <!-- ── Detail slide-in panel ── -->
+    <div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-header">
+        <div class="detail-title" id="detailTitle">—</div>
+        <button class="detail-close" onclick="closeDetail()">✕</button>
+      </div>
+      <div class="detail-body" id="detailBody">
+        <div style="color:var(--muted);font-size:12px;">Loading...</div>
       </div>
     </div>
 
-    <!-- DATA TABLE -->
-    <div class="table-area" id="tab-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Sample</th>
-            <th>Material</th>
-            <th>Substrate</th>
-            <th>Tc (K)</th>
-            <th>RRR</th>
-            <th>Qi internal</th>
-            <th>T1 (µs)</th>
-            <th>2Q fidelity (%)</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody">
-          <tr><td colspan="8" class="loading">Loading...</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- RANKED LIST -->
-    <div class="table-area" id="tab-ranked">
-      <div class="plot-controls" style="padding:16px 20px 0 20px;margin-bottom:0;">
-        <div class="control-group">
-          <span class="control-label">Rank by</span>
-          <select id="rankedField"><option value="">Loading...</option></select>
-        </div>
-        <div class="control-group">
-          <span class="control-label">Order</span>
-          <select id="rankedOrder">
-            <option value="desc">Highest first</option>
-            <option value="asc">Lowest first</option>
-          </select>
-        </div>
-        <div style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);line-height:30px;">
-          <span id="rankedCount">—</span> samples with this measurement
-        </div>
-      </div>
-      <table style="margin-top:12px;">
-        <thead>
-          <tr>
-            <th style="width:32px;">#</th>
-            <th>Sample</th>
-            <th>Material</th>
-            <th>Substrate</th>
-            <th id="rankedValueHeader">Value</th>
-            <th>Confidence</th>
-            <th>Authors</th>
-          </tr>
-        </thead>
-        <tbody id="rankedBody">
-          <tr><td colspan="7" class="loading">Select a measurement above</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- CATCHALL CORPUS -->
-    <div class="catchall-area" id="tab-catchall">
-      <div class="catchall-filter">
-        <span class="control-label" style="line-height:30px;">Show:</span>
-        <select id="catchallTypeFilter">
-          <option value="">All types</option>
-          <option value="correlation">Correlations (author-stated)</option>
-          <option value="schema_candidate">Schema candidates</option>
-          <option value="additional_measurement">Additional measurements</option>
-          <option value="anomalous_observation">Anomalous observations</option>
-        </select>
-      </div>
-      <div id="catchallItems">
-        <div class="loading">Loading...</div>
-      </div>
-    </div>
-
-
-  <!-- ── Sample detail slide-in panel ── -->
-  <div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
-  <div class="detail-panel" id="detailPanel">
-    <div class="detail-header">
-      <div class="detail-title" id="detailTitle">—</div>
-      <button class="detail-close" onclick="closeDetail()">✕</button>
-    </div>
-    <div class="detail-body" id="detailBody">
-      <div style="color:var(--muted);font-size:12px;">Loading...</div>
-    </div>
-  </div>
-
-  <div class="status-bar" style="position:relative;z-index:101;">
+    <div class="status-bar">
       <div>Samples shown: <span id="statusCount">—</span></div>
       <div>Total in corpus: <span id="statusTotal">—</span></div>
       <div id="statusHover" style="margin-left:auto;"></div>
@@ -625,7 +682,6 @@ const PALETTE = [
   '#ffa657','#79c0ff','#56d364','#ff7b72',
   '#bc8cff','#ffb86c','#e3b341','#89ddff'
 ];
-
 const FIELD_LABELS = {
   Tc_K: 'Tc (K)', RRR: 'RRR',
   Qi_internal: 'Qi internal', Qi_single_photon: 'Qi single photon',
@@ -642,7 +698,52 @@ let colorMap = {};
 let scatterChart = null;
 let stripChart = null;
 
-// ── Sample detail panel ──────────────────────────────────────────────────────
+// ── Sub-toggle logic ──────────────────────────────────────────────────────
+
+document.querySelectorAll('[data-explore]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-explore]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const which = btn.dataset.explore;
+    document.getElementById('explore-strip').classList.toggle('active', which === 'strip');
+    document.getElementById('explore-scatter').classList.toggle('active', which === 'scatter');
+    if (which === 'strip')   renderStripChart();
+    if (which === 'scatter') renderScatterChart();
+  });
+});
+
+document.querySelectorAll('[data-search]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-search]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const which = btn.dataset.search;
+    document.getElementById('search-table').classList.toggle('active',   which === 'table');
+    document.getElementById('search-ranked').classList.toggle('active',  which === 'ranked');
+    document.getElementById('search-similar').classList.toggle('active', which === 'similar');
+    if (which === 'ranked') renderRankedList();
+  });
+});
+
+// ── Top-level tab switching ───────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+    if (tab.dataset.tab === 'explore') {
+      // Re-render whichever explore sub is active
+      if (document.getElementById('explore-strip').classList.contains('active')) renderStripChart();
+      else renderScatterChart();
+    }
+    if (tab.dataset.tab === 'search') {
+      if (document.getElementById('search-ranked').classList.contains('active')) renderRankedList();
+    }
+  });
+});
+
+// ── Sample detail panel ───────────────────────────────────────────────────
 
 const MEASUREMENT_FIELDS = [
   ['Tc_K', 'Tc (K)', 'Tc_confidence'],
@@ -673,19 +774,17 @@ const CATCHALL_COLORS = {
 };
 
 async function openDetail(displayName) {
-  // Show panel immediately with loading state
   document.getElementById('detailTitle').textContent = displayName;
   document.getElementById('detailBody').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Loading...</div>';
   document.getElementById('detailPanel').classList.add('open');
   document.getElementById('detailOverlay').classList.add('open');
-
   try {
     const r = await fetch(`/api/sample/${encodeURIComponent(displayName)}`);
     const d = await r.json();
     if (!d.ok) return;
     renderDetail(d.sample, d.catchall, displayName);
   } catch(e) {
-    document.getElementById('detailBody').innerHTML = `<div style="color:var(--orange)">Error loading sample: ${e}</div>`;
+    document.getElementById('detailBody').innerHTML = `<div style="color:var(--accent3)">Error: ${e}</div>`;
   }
 }
 
@@ -694,25 +793,36 @@ function closeDetail() {
   document.getElementById('detailOverlay').classList.remove('open');
 }
 
+function launchSimilar(displayName) {
+  closeDetail();
+  // Switch to Search tab → Similar sub
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-tab="search"]').classList.add('active');
+  document.getElementById('tab-search').classList.add('active');
+  document.querySelectorAll('[data-search]').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-search="similar"]').classList.add('active');
+  document.getElementById('search-table').classList.remove('active');
+  document.getElementById('search-ranked').classList.remove('active');
+  document.getElementById('search-similar').classList.add('active');
+  // Run search with this sample
+  runSimilarSearch(displayName);
+}
+
 function renderDetail(sample, catchall, displayName) {
   const body = document.getElementById('detailBody');
   let html = '';
 
-  // ── Sample description ──
+  // Description
   html += '<div class="detail-section">';
   html += '<div class="detail-section-label">Sample Description</div>';
-  const descFields = [
-    ['film_material', 'Material'],
-    ['film_crystal_phase', 'Crystal phase'],
-    ['substrate_material', 'Substrate'],
-    ['substrate_orientation', 'Orientation'],
-    ['deposition_method', 'Deposition'],
-    ['deposition_temperature_C', 'Deposition temp (°C)'],
-    ['annealing_temperature_C', 'Anneal temp (°C)'],
-    ['annealing_duration_s', 'Anneal duration (s)'],
+  [
+    ['film_material', 'Material'], ['film_crystal_phase', 'Crystal phase'],
+    ['substrate_material', 'Substrate'], ['substrate_orientation', 'Orientation'],
+    ['deposition_method', 'Deposition'], ['deposition_temperature_C', 'Deposition temp (°C)'],
+    ['annealing_temperature_C', 'Anneal temp (°C)'], ['annealing_duration_s', 'Anneal duration (s)'],
     ['film_thickness_nm', 'Thickness (nm)'],
-  ];
-  descFields.forEach(([field, label]) => {
+  ].forEach(([field, label]) => {
     const val = sample[field];
     if (val != null && val !== '') {
       html += `<div class="detail-field">
@@ -723,7 +833,7 @@ function renderDetail(sample, catchall, displayName) {
   });
   html += '</div>';
 
-  // ── Paper reference ──
+  // Reference
   html += '<div class="detail-section">';
   html += '<div class="detail-section-label">Reference</div>';
   html += `<div class="detail-field"><span class="detail-field-name">Authors</span><span class="detail-field-value">${sample.authors || '—'}</span></div>`;
@@ -733,25 +843,24 @@ function renderDetail(sample, catchall, displayName) {
   }
   html += '</div>';
 
-  // ── Measurements ──
+  // Measurements
   const measWithValues = MEASUREMENT_FIELDS.filter(([field]) => sample[field] != null);
   if (measWithValues.length > 0) {
     html += '<div class="detail-section">';
     html += '<div class="detail-section-label">Measurements <span style="color:var(--muted);font-weight:normal">⚙ = derived</span></div>';
     measWithValues.forEach(([field, label, confField]) => {
-      const val = sample[field];
+      const val  = sample[field];
       const conf = confField ? sample[confField] : null;
-      const confClass = conf ? `conf-${conf}` : '';
       const confBadge = conf ? ` <span style="font-size:10px;color:var(--muted)">(${conf})</span>` : '';
       html += `<div class="detail-field">
         <span class="detail-field-name">${label}</span>
-        <span class="detail-field-value ${confClass}">${typeof val === 'number' ? val.toLocaleString() : val}${confBadge}</span>
+        <span class="detail-field-value conf-${conf || ''}">${typeof val === 'number' ? val.toLocaleString() : val}${confBadge}</span>
       </div>`;
     });
     html += '</div>';
   }
 
-  // ── Catchall ──
+  // Catchall
   if (catchall && catchall.length > 0) {
     html += '<div class="detail-section">';
     html += `<div class="detail-section-label">Additional Data (${catchall.length} items)</div>`;
@@ -767,16 +876,18 @@ function renderDetail(sample, catchall, displayName) {
     html += '</div>';
   }
 
-  // ── Generate Profile button ──
-  const safeDisplayName = displayName.replace(/'/g, "\\'");
+  // QREM Profile + Find Similar
+  const safe = displayName.replace(/'/g, "\\'");
   html += `
     <div class="detail-section">
-      <div class="detail-section-label">QREM Hardware Profile</div>
-      <button class="generate-profile-btn" id="generateProfileBtn"
-              onclick="generateProfile('${safeDisplayName}')">
+      <div class="detail-section-label">Actions</div>
+      <button class="generate-profile-btn" id="generateProfileBtn" onclick="generateProfile('${safe}')">
         ⚙ Generate Qubit Profile
       </button>
       <div class="profile-result" id="profileResult"></div>
+      <button class="find-similar-link" onclick="launchSimilar('${safe}')">
+        ⬡ Find similar samples →
+      </button>
     </div>
   `;
 
@@ -784,34 +895,28 @@ function renderDetail(sample, catchall, displayName) {
 }
 
 // ── Generate Qubit Profile ────────────────────────────────────────────────
+
 async function generateProfile(displayName) {
-  const btn = document.getElementById('generateProfileBtn');
+  const btn    = document.getElementById('generateProfileBtn');
   const result = document.getElementById('profileResult');
   if (!btn || !result) return;
-
   btn.disabled = true;
   btn.textContent = '⚙ Generating…';
   result.className = 'profile-result';
   result.style.display = 'none';
-
   try {
-    const url = `/api/generate_profile?display_name=${encodeURIComponent(displayName)}&save=true`;
-    const r = await fetch(url);
+    const r = await fetch(`/api/generate_profile?display_name=${encodeURIComponent(displayName)}&save=true`);
     const d = await r.json();
     if (!d.ok) throw new Error(d.error);
-
-    const measCount = d.measured_fields.length;
+    const measCount   = d.measured_fields.length;
     const assumedCount = d.assumed_fields.length;
-
     result.className = 'profile-result success';
     result.innerHTML =
       `✓ Saved: <strong>${d.filename}</strong><br>` +
-      `Measured (${measCount}): ${measCount > 0 ? d.measured_fields.join(', ') : '<em>none — all defaults</em>'}<br>` +
+      `Measured (${measCount}): ${measCount > 0 ? d.measured_fields.join(', ') : '<em>none</em>'}<br>` +
       `Assumed (${assumedCount}): ${d.assumed_fields.slice(0,3).join(', ')}${assumedCount > 3 ? '…' : ''}<br>` +
-      `<span style="color:var(--muted);margin-top:4px;display:block;">` +
-      `Now available in Baby QREM qubit dropdown.</span>`;
+      `<span style="color:var(--muted);margin-top:4px;display:block;">Now available in Baby QREM qubit dropdown.</span>`;
     btn.disabled = false;
-    btn.style.cursor = 'default';
     btn.textContent = '✓ Profile Generated';
   } catch(e) {
     result.className = 'profile-result error';
@@ -821,7 +926,131 @@ async function generateProfile(displayName) {
   }
 }
 
-// ── Boot ───────────────────────────────────────────────────────────────────
+// ── Similarity Search ─────────────────────────────────────────────────────
+
+let _currentSimilarQuery = null;  // tracks the active query name
+
+async function runSimilarSearch(queryName) {
+  // queryName is always passed explicitly from launchSimilar() or rerunSimilarSearch()
+  const samePub   = document.getElementById('samePubCheckbox').checked;
+  const resultsEl = document.getElementById('similarResults');
+  const controls  = document.getElementById('similarControls');
+  const label     = document.getElementById('similarQueryLabel');
+
+  _currentSimilarQuery = queryName;
+  controls.style.display = 'block';
+  label.textContent = queryName;
+  resultsEl.innerHTML = '<div class="similar-empty">Searching…</div>';
+
+  try {
+    const url = `/api/similar?display_name=${encodeURIComponent(queryName)}&n=12&same_pub=${samePub}`;
+    const r   = await fetch(url);
+    const d   = await r.json();
+
+    if (!d.ok) {
+      resultsEl.innerHTML = `<div class="similar-empty" style="color:var(--accent3)">Error: ${d.error}</div>`;
+      return;
+    }
+
+    if (!d.results || d.results.length === 0) {
+      resultsEl.innerHTML = '<div class="similar-empty">No comparable samples found — try checking "Include same publication".</div>';
+      return;
+    }
+
+    renderSimilarResults(d.results, queryName);
+  } catch(e) {
+    resultsEl.innerHTML = `<div class="similar-empty" style="color:var(--accent3)">Error: ${e.message}</div>`;
+  }
+}
+
+function rerunSimilarSearch() {
+  // Called when the "Include same publication" checkbox changes
+  if (_currentSimilarQuery) runSimilarSearch(_currentSimilarQuery);
+}
+
+function clearSimilarSearch() {
+  _currentSimilarQuery = null;
+  document.getElementById('similarControls').style.display = 'none';
+  document.getElementById('samePubCheckbox').checked = false;
+  document.getElementById('similarResults').innerHTML =
+    `<div class="similar-empty">
+      Open any sample from <strong>Explore</strong>, <strong>Table</strong>, or <strong>Ranked</strong>
+      and click <em>Find similar</em> to compare across the corpus.
+    </div>`;
+}
+
+function renderSimilarResults(results, queryName) {
+  const resultsEl = document.getElementById('similarResults');
+
+  // Find query sample for reference
+  const query = allSamples.find(s => s.display_name === queryName);
+  const queryInfo = query
+    ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px;">
+        Query: <span style="color:var(--accent)">${queryName}</span>
+        ${query.film_material ? ` · ${query.film_material}` : ''}
+        ${query.substrate_material ? ` on ${query.substrate_material}` : ''}
+        · ${results.length} matches
+       </div>`
+    : `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px;">
+        Query: <span style="color:var(--accent)">${queryName}</span> · ${results.length} matches
+       </div>`;
+
+  const rows = results.map((res, i) => {
+    const matColor = colorMap[res.film_material] || 'var(--muted)';
+
+    // Build field chips — show top 4 most-similar fields
+    const topFields = res.matched_fields.slice(0, 4);
+    const chips = topFields.map(f => {
+      const qv = formatVal(f.query_value);
+      const cv = formatVal(f.candidate_value);
+      const isGood = f.normalized_distance < 0.3;
+      const isOk   = f.normalized_distance < 0.8;
+      const chipClass     = isGood ? 'chip-good'  : isOk ? 'chip-ok'  : 'chip-poor';
+      const distClass     = isGood ? 'similar-field-dist-good' : isOk ? 'similar-field-dist-ok' : 'similar-field-dist-poor';
+      const proximityWord = isGood ? 'close' : isOk ? 'near' : 'distant';
+      return `<div class="similar-field-chip ${chipClass}">
+        <span class="similar-field-name">${f.label}:</span>
+        <span class="similar-field-values">${qv} → ${cv}</span>
+        <span class="similar-field-proximity ${distClass}">${proximityWord}</span>
+      </div>`;
+    }).join('');
+
+    const overlapNote = res.overlap_count > 4
+      ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);padding-left:30px;display:block;margin-top:4px;">+${res.overlap_count - 4} more shared fields</span>`
+      : '';
+
+    const safeDispName = res.display_name.replace(/'/g, "\\'");
+
+    return `<div class="similar-result-row" onclick="openDetail('${safeDispName}')">
+      <div class="similar-result-top">
+        <span class="similar-rank">${i + 1}</span>
+        <span class="similar-name">${res.display_name}</span>
+        <span class="similar-material" style="color:${matColor}">${res.film_material || '—'}</span>
+        <span class="similar-score">${res.overlap_count} fields matched</span>
+      </div>
+      <div class="similar-authors">${res.authors || '—'}</div>
+      <div class="similar-fields">${chips}</div>
+      ${overlapNote}
+    </div>`;
+  }).join('');
+
+  resultsEl.innerHTML = queryInfo + rows;
+}
+
+function formatVal(v) {
+  if (v == null) return '—';
+  if (typeof v === 'number') {
+    return v >= 1000 ? v.toLocaleString()
+         : v % 1 === 0 ? String(v)
+         : v.toPrecision(3);
+  }
+  return String(v);
+}
+
+
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+
 async function boot() {
   await Promise.all([loadFields(), loadCatchall(), loadCoverage()]);
 }
@@ -831,22 +1060,11 @@ async function loadFields() {
     const r = await fetch('/api/fields');
     const d = await r.json();
     if (!d.ok) throw new Error(d.error);
-    const fields = d.fields;
-
-    // Build FIELD_LABELS from server response
-    fields.forEach(f => { FIELD_LABELS[f.field] = f.label; });
-
-    // Populate all three dropdowns with fields that have data
-    // stripField — default to Tc_K
-    populateSelect('stripField', fields, 'Tc_K');
-    // xField — default to RRR
-    populateSelect('xField', fields, 'RRR');
-    // yField — default to Qi_internal
-    populateSelect('yField', fields, 'Qi_internal');
-    // rankedField — default to Tc_K
-    populateSelect('rankedField', fields, 'Tc_K');
-
-    // Now load samples and render
+    d.fields.forEach(f => { FIELD_LABELS[f.field] = f.label; });
+    populateSelect('stripField',  d.fields, 'Tc_K');
+    populateSelect('xField',      d.fields, 'RRR');
+    populateSelect('yField',      d.fields, 'Qi_internal');
+    populateSelect('rankedField', d.fields, 'Tc_K');
     await loadSamples();
   } catch(e) { console.error('Fields load failed', e); }
 }
@@ -899,7 +1117,8 @@ async function loadCatchall() {
   } catch(e) { console.error('Catchall load failed', e); }
 }
 
-// ── Filters ────────────────────────────────────────────────────────────────
+// ── Filters ───────────────────────────────────────────────────────────────
+
 function getFilteredSamples() {
   const checkedMaterials = Array.from(
     document.querySelectorAll('#materialFilters input:checked')
@@ -907,7 +1126,6 @@ function getFilteredSamples() {
   const substrate  = document.getElementById('substrateFilter').value;
   const confidence = document.getElementById('confidenceFilter').value;
   const nameSearch = document.getElementById('nameFilter').value.toLowerCase();
-
   return allSamples.filter(s => {
     if (checkedMaterials.length && !checkedMaterials.includes(s.film_material || '')) return false;
     if (substrate && s.substrate_material !== substrate) return false;
@@ -959,23 +1177,22 @@ function onFilterChange() {
   document.getElementById('statusCount').textContent = filtered.length;
 }
 
-// ── Label truncation helper ───────────────────────────────────────────────
+// ── Label truncation ──────────────────────────────────────────────────────
+
 function trunc(str, maxLen=22) {
   if (!str) return str;
-  // If it contains parentheses with a symbol e.g. 'Tantalum (Ta)', extract the symbol
   const symMatch = str.match(/\(([A-Z][a-zA-Z0-9\-]*)\)$/);
   if (symMatch && symMatch[1].length <= 8) return symMatch[1];
   return str.length > maxLen ? str.slice(0, maxLen).trimEnd() + '…' : str;
 }
 
-// ── Strip Chart (By Material) ──────────────────────────────────────────────
+// ── Strip Chart ───────────────────────────────────────────────────────────
+
 function renderStripChart(samples) {
   samples = samples || getFilteredSamples();
-  const field    = document.getElementById('stripField').value;
-  const groupBy  = document.getElementById('stripGroupBy').value;
-
-  // Group samples by the groupBy field
-  const groups = {};
+  const field   = document.getElementById('stripField').value;
+  const groupBy = document.getElementById('stripGroupBy').value;
+  const groups  = {};
   samples.forEach(s => {
     const key = s[groupBy] || 'Unknown';
     const val = s[field];
@@ -984,12 +1201,7 @@ function renderStripChart(samples) {
       groups[key].push({ y: val, label: s.display_name, sample: s });
     }
   });
-
-  const labels = Object.keys(groups).sort();
-
-  // Build one dataset per group — each point gets a jittered X position
-  // We use a bubble chart trick: x = category index + small random jitter
-  // Chart.js scatter with numeric x where x = label index + jitter
+  const labels   = Object.keys(groups).sort();
   const datasets = labels.map((label, i) => {
     const color = groupBy === 'film_material'
       ? (colorMap[label] || PALETTE[i % PALETTE.length])
@@ -999,7 +1211,7 @@ function renderStripChart(samples) {
       data: groups[label].map(pt => ({
         x: i + (Math.random() - 0.5) * 0.4,
         y: pt.y + (Math.random() - 0.5) * pt.y * 0.02,
-        originalY: pt.y,  // store unmodified value for tooltip
+        originalY: pt.y,
         displayName: pt.label,
         sample: pt.sample,
       })),
@@ -1009,9 +1221,7 @@ function renderStripChart(samples) {
       pointHoverRadius: 10,
     };
   });
-
   if (stripChart) stripChart.destroy();
-
   const ctx = document.getElementById('stripChart').getContext('2d');
   stripChart = new Chart(ctx, {
     type: 'scatter',
@@ -1021,32 +1231,22 @@ function renderStripChart(samples) {
       maintainAspectRatio: false,
       onClick: (evt, elements) => {
         if (elements.length > 0) {
-          const el = elements[0];
+          const el  = elements[0];
           const raw = stripChart.data.datasets[el.datasetIndex].data[el.index];
           if (raw && raw.displayName) openDetail(raw.displayName);
         }
       },
       plugins: {
-        legend: {
-          labels: {
-            color: '#8b949e',
-            font: { family: 'IBM Plex Mono', size: 11 },
-            boxWidth: 12,
-          }
-        },
+        legend: { labels: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 }, boxWidth: 12 } },
         tooltip: {
-          mode: 'nearest',
-          intersect: true,
-          backgroundColor: '#1c2128',
-          borderColor: '#21262d',
-          borderWidth: 1,
-          titleColor: '#58a6ff',
-          bodyColor: '#e6edf3',
+          mode: 'nearest', intersect: true,
+          backgroundColor: '#1c2128', borderColor: '#21262d', borderWidth: 1,
+          titleColor: '#58a6ff', bodyColor: '#e6edf3',
           titleFont: { family: 'IBM Plex Mono', size: 12 },
-          bodyFont: { family: 'IBM Plex Sans', size: 12 },
+          bodyFont:  { family: 'IBM Plex Sans', size: 12 },
           callbacks: {
             title: (items) => items[0].raw.displayName,
-            label: (item) => {
+            label: (item)  => {
               const s = item.raw.sample;
               return [
                 `${FIELD_LABELS[field] || field}: ${item.raw.originalY ?? item.raw.y}`,
@@ -1059,46 +1259,34 @@ function renderStripChart(samples) {
       },
       scales: {
         x: {
-          type: 'linear',
-          min: -0.6,
-          max: labels.length - 0.4,
+          type: 'linear', min: -0.6, max: labels.length - 0.4,
           ticks: {
-            color: '#8b949e',
-            font: { family: 'IBM Plex Mono', size: 10 },
+            color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 },
             stepSize: 1,
-            callback: (val) => {
-              const i = Math.round(val);
-              return (i >= 0 && i < labels.length) ? trunc(labels[i]) : '';
-            },
+            callback: (val) => { const i = Math.round(val); return (i >= 0 && i < labels.length) ? trunc(labels[i]) : ''; },
             maxRotation: 30,
           },
           grid: { color: '#21262d' },
         },
         y: {
-          title: {
-            display: true,
-            text: FIELD_LABELS[field] || field,
-            color: '#8b949e',
-            font: { family: 'IBM Plex Mono', size: 11 },
-          },
+          title: { display: true, text: FIELD_LABELS[field] || field, color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } },
           grid: { color: '#21262d' },
           ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } },
         }
       }
     }
   });
-
   document.getElementById('statusCount').textContent = samples.length;
 }
 
-// ── Scatter Chart ──────────────────────────────────────────────────────────
+// ── Scatter Chart ─────────────────────────────────────────────────────────
+
 function renderScatterChart(samples) {
   samples = samples || getFilteredSamples();
   const xField  = document.getElementById('xField').value;
   const yField  = document.getElementById('yField').value;
   const colorBy = document.getElementById('colorBy').value;
-
-  const groups = {};
+  const groups  = {};
   samples.forEach(s => {
     const key = s[colorBy] || 'Unknown';
     const x = s[xField], y = s[yField];
@@ -1107,16 +1295,13 @@ function renderScatterChart(samples) {
       groups[key].push({ x, y, label: s.display_name, sample: s });
     }
   });
-
   const datasets = Object.entries(groups).map(([key, points], i) => ({
     label: key,
     data: points,
     backgroundColor: (colorBy === 'film_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length]) + 'cc',
-    borderColor: colorBy === 'film_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length],
-    pointRadius: 7,
-    pointHoverRadius: 10,
+    borderColor:      colorBy === 'film_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length],
+    pointRadius: 7, pointHoverRadius: 10,
   }));
-
   if (scatterChart) scatterChart.destroy();
   const ctx = document.getElementById('scatterChart').getContext('2d');
   scatterChart = new Chart(ctx, {
@@ -1125,16 +1310,23 @@ function renderScatterChart(samples) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: (evt, elements) => {
+        if (elements.length > 0) {
+          const el  = elements[0];
+          const raw = scatterChart.data.datasets[el.datasetIndex].data[el.index];
+          if (raw && raw.label) openDetail(raw.label);
+        }
+      },
       plugins: {
         legend: { labels: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 }, boxWidth: 12 } },
         tooltip: {
           backgroundColor: '#1c2128', borderColor: '#21262d', borderWidth: 1,
           titleColor: '#58a6ff', bodyColor: '#e6edf3',
           titleFont: { family: 'IBM Plex Mono', size: 12 },
-          bodyFont: { family: 'IBM Plex Sans', size: 12 },
+          bodyFont:  { family: 'IBM Plex Sans', size: 12 },
           callbacks: {
             title: (items) => items[0].raw.label,
-            label: (item) => {
+            label: (item)  => {
               const s = item.raw.sample;
               return [
                 `${FIELD_LABELS[xField] || xField}: ${item.raw.x}`,
@@ -1149,20 +1341,19 @@ function renderScatterChart(samples) {
       scales: {
         x: {
           title: { display: true, text: FIELD_LABELS[xField] || xField, color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } },
-          grid: { color: '#21262d' },
-          ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }
+          grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }
         },
         y: {
           title: { display: true, text: FIELD_LABELS[yField] || yField, color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } },
-          grid: { color: '#21262d' },
-          ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }
+          grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }
         }
       }
     }
   });
 }
 
-// ── Table ──────────────────────────────────────────────────────────────────
+// ── Table ─────────────────────────────────────────────────────────────────
+
 function renderTable(samples) {
   const tbody = document.getElementById('tableBody');
   if (!samples.length) {
@@ -1175,7 +1366,7 @@ function renderTable(samples) {
     return `<span class="${cls}">${typeof val === 'number' ? val.toLocaleString() : val}</span>`;
   };
   tbody.innerHTML = samples.map(s => `
-    <tr title="${s.title || ''}">
+    <tr style="cursor:pointer;" onclick="openDetail('${(s.display_name || s.sample_id).replace(/'/g,"\\'")}')">
       <td style="color:var(--accent)">${s.display_name || s.sample_id}</td>
       <td>${s.film_material || '<span class="null-val">—</span>'}</td>
       <td>${s.substrate_material || '<span class="null-val">—</span>'}</td>
@@ -1188,9 +1379,58 @@ function renderTable(samples) {
   `).join('');
 }
 
-// ── Catchall ───────────────────────────────────────────────────────────────
+// ── Ranked List ───────────────────────────────────────────────────────────
+
+function renderRankedList(samples) {
+  samples = samples || getFilteredSamples();
+  const field  = document.getElementById('rankedField').value;
+  const order  = document.getElementById('rankedOrder').value;
+  const tbody  = document.getElementById('rankedBody');
+  if (!field) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px;text-align:center;">Select a measurement to rank by</td></tr>';
+    return;
+  }
+  const ranked = samples
+    .filter(s => s[field] != null)
+    .sort((a, b) => order === 'desc' ? b[field] - a[field] : a[field] - b[field]);
+  document.getElementById('rankedCount').textContent = ranked.length;
+  document.getElementById('rankedValueHeader').textContent = FIELD_LABELS[field] || field;
+  if (!ranked.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px;text-align:center;">No samples have this measurement</td></tr>';
+    return;
+  }
+  const confField =
+    field === 'Tc_K'                                  ? 'Tc_confidence'
+    : field === 'RRR'                                 ? 'RRR_confidence'
+    : (field === 'Qi_internal' || field === 'Qi_single_photon') ? 'Qi_confidence'
+    : field === 'T1_us'                               ? 'T1_confidence'
+    : null;
+  tbody.innerHTML = ranked.map((s, i) => {
+    const val      = s[field];
+    const conf     = confField ? s[confField] : null;
+    const confText = conf ? `<span class="conf-${conf}">${conf}</span>` : '<span class="null-val">—</span>';
+    const dispVal  = typeof val === 'number'
+      ? (val >= 1000 ? val.toLocaleString() : val % 1 === 0 ? val : val.toPrecision(4))
+      : val;
+    const material  = s.film_material || '—';
+    const matColor  = colorMap[material] || 'var(--muted)';
+    const safeDisp  = (s.display_name || s.sample_id).replace(/'/g, "\\'");
+    return `<tr class="ranked-row" onclick="openDetail('${safeDisp}')">
+      <td><span class="rank-badge">${i + 1}</span></td>
+      <td><span class="ranked-sample-name">${s.display_name || s.sample_id}</span></td>
+      <td><span style="color:${matColor};font-family:'IBM Plex Mono',monospace;font-size:13px;">${material}</span></td>
+      <td style="color:var(--muted);font-size:13px;">${s.substrate_material || '—'}</td>
+      <td><span class="ranked-value">${dispVal}</span></td>
+      <td style="font-size:13px;">${confText}</td>
+      <td style="color:var(--muted);font-size:12px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.authors || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Catchall ──────────────────────────────────────────────────────────────
+
 function renderCatchall(items) {
-  const container = document.getElementById('catchallItems');
+  const container   = document.getElementById('catchallItems');
   if (!items.length) { container.innerHTML = '<div style="color:var(--muted);">No items found.</div>'; return; }
   const typeColors = {
     correlation: '#58a6ff', schema_candidate: '#d2a8ff',
@@ -1214,88 +1454,15 @@ function renderCatchall(items) {
   `).join('');
 }
 
-// ── Ranked List ────────────────────────────────────────────────────────────
-function renderRankedList(samples) {
-  samples = samples || getFilteredSamples();
-  const field = document.getElementById('rankedField').value;
-  const order = document.getElementById('rankedOrder').value;
-  const tbody = document.getElementById('rankedBody');
+// ── Control listeners ─────────────────────────────────────────────────────
 
-  if (!field) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px;text-align:center;">Select a measurement to rank by</td></tr>';
-    return;
-  }
-
-  // Filter to samples that have a value for this field, skip nulls
-  const ranked = samples
-    .filter(s => s[field] != null)
-    .sort((a, b) => order === 'desc' ? b[field] - a[field] : a[field] - b[field]);
-
-  document.getElementById('rankedCount').textContent = ranked.length;
-
-  // Update the value column header to show the field label
-  const fieldLabel = FIELD_LABELS[field] || field;
-  document.getElementById('rankedValueHeader').textContent = fieldLabel;
-
-  if (!ranked.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px;text-align:center;">No samples have this measurement</td></tr>';
-    return;
-  }
-
-  // Confidence field — try common patterns
-  const confField = field + '_confidence' in ranked[0] ? field + '_confidence'
-    : field === 'Tc_K' ? 'Tc_confidence'
-    : field === 'RRR' ? 'RRR_confidence'
-    : field === 'Qi_internal' || field === 'Qi_single_photon' ? 'Qi_confidence'
-    : field === 'T1_us' ? 'T1_confidence'
-    : null;
-
-  tbody.innerHTML = ranked.map((s, i) => {
-    const val = s[field];
-    const conf = confField ? s[confField] : null;
-    const confClass = conf ? `conf-${conf}` : '';
-    const confText = conf
-      ? `<span class="${confClass}">${conf}</span>`
-      : '<span class="null-val">—</span>';
-    const dispVal = typeof val === 'number'
-      ? (val >= 1000 ? val.toLocaleString() : val % 1 === 0 ? val : val.toPrecision(4))
-      : val;
-    const material = s.film_material || '—';
-    const matColor = colorMap[material] || 'var(--muted)';
-
-    return `<tr class="ranked-row" onclick="openDetail('${(s.display_name || s.sample_id).replace(/'/g,"\\'")}')">
-      <td><span class="rank-badge">${i + 1}</span></td>
-      <td><span class="ranked-sample-name">${s.display_name || s.sample_id}</span></td>
-      <td><span style="color:${matColor};font-family:'IBM Plex Mono',monospace;font-size:12px;">${material}</span></td>
-      <td style="color:var(--muted);font-size:12px;">${s.substrate_material || '—'}</td>
-      <td><span class="ranked-value">${dispVal}</span></td>
-      <td style="font-size:12px;">${confText}</td>
-      <td style="color:var(--muted);font-size:11px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.authors || '—'}</td>
-    </tr>`;
-  }).join('');
-}
-
-// ── Tab switching ──────────────────────────────────────────────────────────
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.plot-area, .table-area, .catchall-area').forEach(a => a.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
-    if (tab.dataset.tab === 'strip') renderStripChart();
-    if (tab.dataset.tab === 'scatter') renderScatterChart();
-    if (tab.dataset.tab === 'ranked') renderRankedList();
-  });
-});
-
-// ── Control listeners ──────────────────────────────────────────────────────
-document.getElementById('stripField').addEventListener('change', () => renderStripChart());
-document.getElementById('stripGroupBy').addEventListener('change', () => renderStripChart());
-document.getElementById('xField').addEventListener('change', () => renderScatterChart());
-document.getElementById('yField').addEventListener('change', () => renderScatterChart());
-document.getElementById('colorBy').addEventListener('change', () => renderScatterChart());
-document.getElementById('rankedField').addEventListener('change', () => renderRankedList());
-document.getElementById('rankedOrder').addEventListener('change', () => renderRankedList());
+document.getElementById('stripField').addEventListener('change',    () => renderStripChart());
+document.getElementById('stripGroupBy').addEventListener('change',  () => renderStripChart());
+document.getElementById('xField').addEventListener('change',        () => renderScatterChart());
+document.getElementById('yField').addEventListener('change',        () => renderScatterChart());
+document.getElementById('colorBy').addEventListener('change',       () => renderScatterChart());
+document.getElementById('rankedField').addEventListener('change',   () => renderRankedList());
+document.getElementById('rankedOrder').addEventListener('change',   () => renderRankedList());
 document.getElementById('substrateFilter').addEventListener('change', onFilterChange);
 document.getElementById('confidenceFilter').addEventListener('change', onFilterChange);
 document.getElementById('nameFilter').addEventListener('input', onFilterChange);

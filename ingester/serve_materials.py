@@ -10,33 +10,43 @@
 #   # Ingestion Pipeline: http://localhost:8001/ingest_pipeline.html
 #
 # API routes:
-#   GET  /api/samples          — all samples with key measurement fields
-#   GET  /api/fields           — available numeric fields (only those with data)
-#   GET  /api/catchall         — catchall items
-#   GET  /api/coverage         — coverage summary
-#   POST /api/ingest/start     — start ingestion run
-#   GET  /api/ingest/status    — poll ingestion progress
-#   GET  /api/duplicates       — potential duplicate pairs
-#   POST /api/duplicates/decide — record a duplicate decision
-#   POST /api/build            — run build_sqlite
+#   GET  /api/samples                  — all samples with key measurement fields
+#   GET  /api/fields                   — available numeric fields (only those with data)
+#   GET  /api/catchall                 — catchall items
+#   GET  /api/coverage                 — coverage summary
+#   GET  /api/sample/{display_name}    — full detail for one sample
+#   GET  /api/similar                  — similarity search (see below)
+#   GET  /api/generate_profile         — generate QREM qubit profile YAML
+#   POST /api/ingest/start             — start ingestion run
+#   GET  /api/ingest/status            — poll ingestion progress
+#   GET  /api/duplicates               — potential duplicate pairs
+#   POST /api/duplicates/decide        — record a duplicate decision
+#   POST /api/build                    — run build_sqlite
+#
+# /api/similar params:
+#   display_name  — query sample (required)
+#   n             — number of results to return (default 10)
+#   same_pub      — include samples from the same publication (default false)
 
 import http.server
 import json
+import math
 import sqlite3
 import subprocess
 import threading
 import time
+import urllib.parse
 from pathlib import Path
 from difflib import SequenceMatcher
 from generate_qubit_profile import generate_profile, save_profile, fetch_sample_from_db
-
 import os
+
 PORT = int(os.environ.get('PORT', 8001))
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH   = REPO_ROOT / "data" / "ingested" / "records.db"
-JSONL_PATH = REPO_ROOT / "data" / "ingested" / "records.jsonl"
-DEDUP_PATH = REPO_ROOT / "data" / "ingested" / "deduplication.json"
-SERVE_DIR = Path(__file__).resolve().parent
+REPO_ROOT    = Path(__file__).resolve().parent.parent
+DB_PATH      = REPO_ROOT / "data" / "ingested" / "records.db"
+JSONL_PATH   = REPO_ROOT / "data" / "ingested" / "records.jsonl"
+DEDUP_PATH   = REPO_ROOT / "data" / "ingested" / "deduplication.json"
+SERVE_DIR    = Path(__file__).resolve().parent
 PROFILES_DIR = REPO_ROOT / "src" / "qrem" / "hardware_profiles"
 
 # All numeric fields the Explorer knows about — in display order.
@@ -68,11 +78,113 @@ ALL_NUMERIC_FIELDS = [
     ('derived_kinetic_inductance_pH_sq', 'Kinetic inductance derived (pH/□)'),
 ]
 
+# Field label lookup for similarity explanations
+FIELD_LABEL_MAP = {f: label for f, label in ALL_NUMERIC_FIELDS}
+SIMILARITY_FIELDS = [f for f, _ in ALL_NUMERIC_FIELDS]
+
+
+# ── Similarity search ─────────────────────────────────────────────────────
+
+def compute_similarity(samples: list, query_name: str, n: int = 10, same_pub: bool = False) -> list:
+    """
+    Find the N most similar samples to the query sample.
+
+    Algorithm:
+    - Only compare over fields where both samples have a non-null value (overlap).
+    - Normalize each field using z-score across the full corpus.
+    - Score = mean absolute normalized distance over overlapping fields (lower = more similar).
+      Weighted by sqrt(overlap_count) so samples sharing more fields rank better.
+    - Filter out same-publication samples unless same_pub=True.
+    - Return results sorted best-first (lowest distance = most similar).
+    """
+    # Find query sample
+    query = next((s for s in samples if s.get('display_name') == query_name), None)
+    if query is None:
+        return []
+
+    query_filename = query.get('filename', '')
+
+    # Compute per-field mean and std across the full corpus (all samples, not just query)
+    field_stats = {}
+    for field in SIMILARITY_FIELDS:
+        vals = [s[field] for s in samples if s.get(field) is not None]
+        if len(vals) < 2:
+            continue
+        mean = sum(vals) / len(vals)
+        variance = sum((v - mean) ** 2 for v in vals) / len(vals)
+        std = math.sqrt(variance)
+        if std > 0:
+            field_stats[field] = {'mean': mean, 'std': std}
+
+    results = []
+    for candidate in samples:
+        if candidate.get('display_name') == query_name:
+            continue  # skip self
+
+        # Same-publication filter
+        if not same_pub and candidate.get('filename') == query_filename:
+            continue
+
+        # Find overlapping fields where both samples have values and we have stats
+        overlap_fields = []
+        for field in SIMILARITY_FIELDS:
+            q_val = query.get(field)
+            c_val = candidate.get(field)
+            if q_val is not None and c_val is not None and field in field_stats:
+                overlap_fields.append(field)
+
+        if not overlap_fields:
+            continue  # no basis for comparison
+
+        # Compute mean normalized distance over overlapping fields
+        total_dist = 0.0
+        matched = []
+        for field in overlap_fields:
+            q_val = query[field]
+            c_val = candidate[field]
+            stats = field_stats[field]
+            norm_q = (q_val - stats['mean']) / stats['std']
+            norm_c = (c_val - stats['mean']) / stats['std']
+            dist = abs(norm_q - norm_c)
+            total_dist += dist
+            matched.append({
+                'field': field,
+                'label': FIELD_LABEL_MAP.get(field, field),
+                'query_value': q_val,
+                'candidate_value': c_val,
+                'normalized_distance': round(dist, 3),
+            })
+
+        # Sort matched fields by distance ascending (closest match first)
+        matched.sort(key=lambda x: x['normalized_distance'])
+
+        mean_dist = total_dist / len(overlap_fields)
+        # Weight: reward more overlapping fields (samples with more shared measurements
+        # give a more reliable similarity estimate)
+        weighted_score = mean_dist / math.sqrt(len(overlap_fields))
+
+        results.append({
+            'display_name':    candidate.get('display_name'),
+            'film_material':   candidate.get('film_material'),
+            'substrate_material': candidate.get('substrate_material'),
+            'authors':         candidate.get('authors'),
+            'doi':             candidate.get('doi'),
+            'filename':        candidate.get('filename'),
+            'score':           round(weighted_score, 4),
+            'overlap_count':   len(overlap_fields),
+            'matched_fields':  matched,
+        })
+
+    results.sort(key=lambda x: x['score'])
+    return results[:n]
+
+
 # ── Ingestion state (shared between threads) ──────────────────────────────
+
 _ingest_state = {
     "running":   False,
     "done":      False,
-    "progress":  [],       # list of status messages
+    "progress":  [],
     "total":     0,
     "processed": 0,
     "success":   0,
@@ -97,7 +209,6 @@ def _run_ingestion(papers_dir: str):
 
     script = SERVE_DIR / "pipeline_ingest.py"
     cmd = ["python3", str(script), "--papers-dir", papers_dir]
-
     try:
         proc = subprocess.Popen(
             cmd,
@@ -112,7 +223,6 @@ def _run_ingestion(papers_dir: str):
                 continue
             with _ingest_lock:
                 _ingest_state["progress"].append(line)
-                # Parse key lines for structured status
                 if line.startswith("[") and "/" in line[:10]:
                     _ingest_state["current"] = line
                 if "Done [OK]" in line:
@@ -125,7 +235,6 @@ def _run_ingestion(papers_dir: str):
     except Exception as e:
         with _ingest_lock:
             _ingest_state["progress"].append(f"ERROR: {e}")
-
     with _ingest_lock:
         _ingest_state["running"] = False
         _ingest_state["done"]    = True
@@ -134,24 +243,14 @@ def _run_ingestion(papers_dir: str):
 # ── Duplicate detection ───────────────────────────────────────────────────
 
 def title_similarity(a: str, b: str) -> float:
-    """Return similarity ratio between two titles (0-1)."""
     if not a or not b:
         return 0.0
-    a = a.lower().strip()
-    b = b.lower().strip()
-    return SequenceMatcher(None, a, b).ratio()
+    return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 
 
 def find_duplicate_pairs(threshold: float = 0.85) -> list:
-    """
-    Find pairs of ingested papers with similar titles.
-    Returns list of (paper_a, paper_b, similarity) dicts.
-    Only returns pairs not yet decided in deduplication.json.
-    """
     if not JSONL_PATH.exists():
         return []
-
-    # Load all ingested records
     records = []
     with open(JSONL_PATH, "r") as f:
         for line in f:
@@ -162,17 +261,16 @@ def find_duplicate_pairs(threshold: float = 0.85) -> list:
                 rec = json.loads(line)
                 if rec.get("outcome") == "ingested":
                     records.append({
-                        "filename": rec.get("filename"),
-                        "title":    rec.get("title") or "",
-                        "authors":  rec.get("authors") or "",
-                        "journal":  rec.get("journal") or "",
-                        "doi":      rec.get("doi"),
+                        "filename":    rec.get("filename"),
+                        "title":       rec.get("title") or "",
+                        "authors":     rec.get("authors") or "",
+                        "journal":     rec.get("journal") or "",
+                        "doi":         rec.get("doi"),
                         "num_samples": len((rec.get("extraction_json") or {}).get("samples", [])),
                     })
             except json.JSONDecodeError:
                 pass
 
-    # Load existing decisions
     decided_pairs = set()
     if DEDUP_PATH.exists():
         try:
@@ -183,26 +281,16 @@ def find_duplicate_pairs(threshold: float = 0.85) -> list:
         except Exception:
             pass
 
-    # Find similar pairs
     pairs = []
     for i in range(len(records)):
         for j in range(i + 1, len(records)):
-            a = records[i]
-            b = records[j]
+            a, b = records[i], records[j]
             key = tuple(sorted([a["filename"], b["filename"]]))
-            if key in decided_pairs:
-                continue
-            # Never flag a paper as a duplicate of itself
-            if a["filename"] == b["filename"]:
+            if key in decided_pairs or a["filename"] == b["filename"]:
                 continue
             sim = title_similarity(a["title"], b["title"])
             if sim >= threshold:
-                pairs.append({
-                    "paper_a":    a,
-                    "paper_b":    b,
-                    "similarity": round(sim, 3),
-                })
-
+                pairs.append({"paper_a": a, "paper_b": b, "similarity": round(sim, 3)})
     pairs.sort(key=lambda x: -x["similarity"])
     return pairs
 
@@ -331,14 +419,8 @@ def fetch_coverage():
 
 
 def fetch_sample_detail(display_name: str) -> dict:
-    """
-    Return full details for a single sample — all fields plus catchall items.
-    Called when user clicks a point in the Explorer.
-    """
     conn = get_db()
     cur = conn.cursor()
-
-    # Get full sample row
     cur.execute("""
         SELECT s.*, p.title, p.authors, p.doi, p.journal
         FROM samples s
@@ -350,14 +432,10 @@ def fetch_sample_detail(display_name: str) -> dict:
     if not row:
         conn.close()
         return None
-
     sample = dict(row)
-    # Remove large JSON blobs — not needed in detail view
     sample.pop('sample_json', None)
     sample.pop('derived_json', None)
     sample.pop('extraction_json', None)
-
-    # Get catchall items for this sample
     cur.execute("""
         SELECT item_type, description, value, source, notes
         FROM catchall_items
@@ -365,7 +443,6 @@ def fetch_sample_detail(display_name: str) -> dict:
         ORDER BY item_type, description
     """, (display_name,))
     catchall = [dict(r) for r in cur.fetchall()]
-
     conn.close()
     return {"sample": sample, "catchall": catchall}
 
@@ -373,55 +450,96 @@ def fetch_sample_detail(display_name: str) -> dict:
 # ── HTTP Handler ──────────────────────────────────────────────────────────
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # Cache samples in memory to avoid re-querying DB on every similarity request
+    _samples_cache = None
+    _samples_cache_lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(SERVE_DIR), **kwargs)
 
+    @classmethod
+    def get_cached_samples(cls):
+        with cls._samples_cache_lock:
+            if cls._samples_cache is None:
+                cls._samples_cache = fetch_samples()
+            return cls._samples_cache
+
+    @classmethod
+    def invalidate_cache(cls):
+        with cls._samples_cache_lock:
+            cls._samples_cache = None
+
     def do_GET(self):
-        if self.path == '/':
+        parsed = urllib.parse.urlparse(self.path)
+        path   = parsed.path
+        params = dict(urllib.parse.parse_qsl(parsed.query))
+
+        if path == '/':
             self.send_response(302)
             self.send_header('Location', '/materials_explorer.html')
             self.end_headers()
             return
-        if self.path == "/api/samples":
-            self._json(200, {"ok": True, "samples": fetch_samples()})
-        elif self.path == "/api/fields":
+
+        if path == "/api/samples":
+            samples = fetch_samples()
+            Handler._samples_cache = samples   # warm the cache
+            self._json(200, {"ok": True, "samples": samples})
+
+        elif path == "/api/fields":
             self._json(200, {"ok": True, "fields": fetch_available_fields()})
-        elif self.path.startswith("/api/catchall"):
-            item_type = None
-            if "?" in self.path:
-                for part in self.path.split("?", 1)[1].split("&"):
-                    if part.startswith("type="):
-                        item_type = part[5:]
+
+        elif path == "/api/catchall":
+            item_type = params.get("type")
             self._json(200, {"ok": True, "items": fetch_catchall(item_type)})
-        elif self.path == "/api/coverage":
+
+        elif path == "/api/coverage":
             self._json(200, {"ok": True, "coverage": fetch_coverage()})
-        elif self.path == "/api/ingest/status":
+
+        elif path == "/api/ingest/status":
             with _ingest_lock:
                 state = dict(_ingest_state)
             self._json(200, {"ok": True, "state": state})
-        elif self.path == "/api/duplicates":
+
+        elif path == "/api/duplicates":
             pairs = find_duplicate_pairs()
             self._json(200, {"ok": True, "pairs": pairs, "count": len(pairs)})
-        elif self.path.startswith("/api/sample/"):
+
+        elif path.startswith("/api/sample/"):
+            raw          = path[len("/api/sample/"):]
+            display_name = urllib.parse.unquote(raw, encoding='utf-8')
+            detail       = fetch_sample_detail(display_name)
+            if detail:
+                self._json(200, {"ok": True, **detail})
+            else:
+                self._json(404, {"ok": False, "error": f"Sample not found: {display_name}"})
+
+        elif path == "/api/similar":
+            display_name = urllib.parse.unquote(params.get("display_name", "")).strip()
+            n            = int(params.get("n", 10))
+            same_pub     = params.get("same_pub", "false").lower() == "true"
+
+            if not display_name:
+                self._json(400, {"ok": False, "error": "display_name required"})
+                return
+
             try:
-                import urllib.parse
-                raw = self.path[len("/api/sample/"):]
-                display_name = urllib.parse.unquote(raw, encoding='utf-8')
-                detail = fetch_sample_detail(display_name)
-                if detail:
-                    self._json(200, {"ok": True, **detail})
-                else:
-                    self._json(404, {"ok": False, "error": f"Sample not found: {display_name}"})
+                samples = self.get_cached_samples()
+                results = compute_similarity(samples, display_name, n=n, same_pub=same_pub)
+                self._json(200, {
+                    "ok":          True,
+                    "query":       display_name,
+                    "same_pub":    same_pub,
+                    "n_returned":  len(results),
+                    "results":     results,
+                })
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 self._json(500, {"ok": False, "error": str(e)})
-        elif self.path.startswith("/api/generate_profile"):
-            import urllib.parse
-            params = {}
-            if "?" in self.path:
-                params = dict(urllib.parse.parse_qsl(self.path.split("?", 1)[1]))
+
+        elif path == "/api/generate_profile":
             display_name = params.get("display_name", "")
-            do_save = params.get("save", "false").lower() == "true"
+            do_save      = params.get("save", "false").lower() == "true"
             if not display_name:
                 self._json(400, {"ok": False, "error": "display_name required"})
                 return
@@ -442,12 +560,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 import traceback
                 traceback.print_exc()
                 self._json(500, {"ok": False, "error": str(e)})
+
         else:
             super().do_GET()
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(length)) if length else {}
+        body   = json.loads(self.rfile.read(length)) if length else {}
 
         if self.path == "/api/ingest/start":
             with _ingest_lock:
@@ -462,8 +581,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif self.path == "/api/duplicates/decide":
             paper_a  = body.get("paper_a")
             paper_b  = body.get("paper_b")
-            decision = body.get("decision")  # "duplicate" or "not_duplicate"
-            keep     = body.get("keep")      # filename to keep (if duplicate)
+            decision = body.get("decision")
+            keep     = body.get("keep")
             try:
                 dedup = load_dedup()
                 dedup["decisions"].append({
@@ -486,9 +605,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     capture_output=True, text=True,
                     cwd=str(SERVE_DIR)
                 )
-                success = result.returncode == 0
+                Handler.invalidate_cache()  # DB rebuilt — flush sample cache
                 self._json(200, {
-                    "ok": success,
+                    "ok":    result.returncode == 0,
                     "output": result.stdout + result.stderr
                 })
             except Exception as e:
@@ -528,7 +647,6 @@ if __name__ == "__main__":
     print(f"")
     print(f"Press Ctrl+C to stop.")
     print(f"")
-
     with http.server.HTTPServer(("", PORT), Handler) as httpd:
         try:
             httpd.serve_forever()

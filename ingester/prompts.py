@@ -1,8 +1,9 @@
 # ingester/prompts.py
 # Prompt builders for the publications ingester.
-# Two prompts are used per paper:
+# Three prompts are used per paper:
 #   1. RELEVANCE CHECK — fast first pass: is this paper worth ingesting?
 #   2. EXTRACTION — sparse extraction of only what the paper actually reports
+#   3. SIMILARITY PROFILE — semantic profile for similarity search (Pass 3)
 #
 # Key design principle: SPARSE OUTPUT.
 # Claude only returns fields that are actually present in the paper.
@@ -12,6 +13,7 @@
 # Version history:
 #   v1 — initial sparse prompt, minimal guidance
 #   v2 — enriched catchall guidance, error prevention, domain knowledge glossary
+#   v3 — added Pass 3 similarity profile generation
 
 import json
 
@@ -77,6 +79,7 @@ process_comparison:  Systematically varies fabrication parameters across
 ---
 OUTPUT
 ---
+
 Return ONLY valid JSON. No markdown fences. No text before or after.
 {_RELEVANCE_SCHEMA_STR}
 """.strip()
@@ -86,11 +89,9 @@ Return ONLY valid JSON. No markdown fences. No text before or after.
 # PROMPT 2 — SPARSE EXTRACTION (enriched v2)
 # =============================================================================
 
-# Domain knowledge glossary — tells Claude what "relevant to qubit performance"
-# means in this field, so suspected_relevance entries are scientifically grounded
-# rather than generic. Modeled on the SEM pipeline's measurements glossary.
 _DOMAIN_GLOSSARY = """
 DOMAIN KNOWLEDGE — MATERIALS TO QUBIT PERFORMANCE CONNECTIONS
+
 When assessing suspected_relevance for catchall entries, use this glossary
 of known connections between material properties and qubit performance.
 These are the links our database is designed to capture.
@@ -130,7 +131,6 @@ Device performance:
   Two-qubit gate fidelity is the dominant cost — small improvements here
     (e.g. 99.5% → 99.9%) can reduce module count by 8x or more
 """.strip()
-
 
 _SPARSE_SCHEMA = {
     "doi": "<DOI or null>",
@@ -196,12 +196,10 @@ _SPARSE_SCHEMA = {
         ]
     }
 }
-
 _SPARSE_SCHEMA_STR = json.dumps(_SPARSE_SCHEMA, indent=2)
 
 
 def build_extraction_prompt(relevance: str, paper_type: str) -> str:
-
     type_instruction = {
         "primary": (
             "This is a PRIMARY RESEARCH PAPER. Extract one sample entry per distinct "
@@ -235,9 +233,10 @@ for a database supporting superconducting qubit research.
 ---
 PAPER TYPE: {type_instruction}
 RELEVANCE:  {relevance_instruction}
-
 ---
+
 EXTRACTION RULES
+
 ---
 
 1. SPARSE OUTPUT — only include fields the paper actually reports.
@@ -423,11 +422,270 @@ FREE NOTES:
 
 ---
 {_DOMAIN_GLOSSARY}
-
 ---
+
 AVAILABLE FIELDS — only return fields present in this paper:
 {_SPARSE_SCHEMA_STR}
 
 ---
 OUTPUT: Return ONLY raw valid JSON. No markdown fences. No text before or after.
+""".strip()
+
+
+# =============================================================================
+# PROMPT 3 — SIMILARITY PROFILE GENERATION
+# =============================================================================
+#
+# Sent once per sample (not per paper) after Pass 2 extraction is complete.
+# Input: the full extracted sample record including all structured fields
+#        and the complete catchall.
+# Output: a structured similarity_profile dict with controlled vocabulary.
+#
+# Design principles:
+# - Every dimension uses a controlled vocabulary defined here.
+# - Claude picks from the vocabulary; it does not invent new terms.
+# - The profile version is embedded so we can detect stale profiles after
+#   vocabulary updates and selectively re-run Pass 3.
+# - Output is per-sample, not per-paper.
+
+PROFILE_VERSION = "1.0"
+
+_PROFILE_VOCAB = {
+    "material_class": [
+        # Simple elements
+        "niobium", "aluminum", "tantalum", "rhenium", "titanium",
+        "vanadium", "indium", "tin", "lead",
+        # Nitrides
+        "titanium_nitride", "niobium_nitride", "niobium_titanium_nitride", "tantalum_nitride",
+        # Silicides
+        "platinum_silicide", "cobalt_silicide", "vanadium_silicide",
+        "molybdenum_silicide", "tungsten_silicide", "other_silicide",
+        # Germanides
+        "platinum_germanide", "cobalt_germanide", "other_germanide",
+        # Alloys
+        "niobium_titanium", "tantalum_hafnium", "aluminum_manganese", "other_alloy",
+        # Oxides
+        "indium_oxide", "other_oxide",
+        # Catch-all
+        "other"
+    ],
+    "transport_regime": [
+        "clean_limit",    # mean free path l > coherence length xi; vortex motion dominant
+        "dirty_limit",    # mean free path l < coherence length xi; different loss mechanisms
+        "intermediate",   # l ~ xi; both mechanisms relevant
+        "unknown"         # insufficient information to determine
+    ],
+    "loss_mechanisms": [
+        # List field — pick all that apply
+        "TLS_substrate",              # two-level systems in the substrate bulk
+        "TLS_interface",              # TLS at metal-substrate or metal-vacuum interface
+        "TLS_metal_vacuum",           # TLS at the metal-air interface specifically
+        "TLS_unattributed",           # TLS dominant but interface not identified
+        "quasiparticle",              # quasiparticle loss channel
+        "vortex_motion",              # vortex motion loss (common in clean-limit films)
+        "radiation",                  # radiative loss out of resonator/qubit
+        "dielectric_substrate",       # bulk dielectric loss in substrate
+        "surface_oxide",              # loss attributed to surface oxide layer
+        "flux_noise",                 # flux noise driven dephasing
+        "charge_noise",               # charge noise driven dephasing
+        "unknown"                     # loss measured but mechanism not identified
+    ],
+    "device_type": [
+        "film_only",                  # no patterned device; R vs T, XRD, surface characterization
+        "resonator",                  # microwave resonator (coplanar waveguide, lumped element, etc.)
+        "transmon",                   # transmon qubit
+        "fluxonium",                  # fluxonium qubit
+        "gatemon",                    # gatemon (semiconductor-based) qubit
+        "kinetic_inductance_detector",# MKID or KID — not a qubit but related
+        "junction_only",              # Josephson junction characterization without full qubit
+        "multi_qubit_device",         # multi-qubit processor or array
+        "unknown"
+    ],
+    "coherence_tier": [
+        "not_applicable",             # film_only paper; no device performance measured
+        "early_exploration",          # T1 < 10 µs or Qi < 1e5; material not yet optimized
+        "competitive",                # T1 10-100 µs or Qi 1e5-1e6; solid but not leading
+        "state_of_the_art"            # T1 > 100 µs or Qi > 1e6; among the best reported
+    ],
+    "science_focus": [
+        # List field — pick all that apply
+        "process_optimization",       # varying fabrication parameters to improve performance
+        "loss_mechanism_identification", # decomposing loss budget, attributing dominant channel
+        "materials_characterization", # characterizing film properties (RRR, Tc, crystal phase)
+        "device_demonstration",       # demonstrating qubit or resonator performance
+        "cross_platform_comparison",  # comparing different materials or processes side by side
+        "noise_characterization",     # flux noise, charge noise, 1/f noise studies
+        "surface_treatment",          # surface cleaning, passivation, etching studies
+        "junction_engineering",       # Josephson junction optimization
+        "scaling"                     # multi-qubit, yield, uniformity studies
+    ],
+    "growth_method": [
+        "sputtering",                 # DC or RF magnetron sputtering
+        "MBE",                        # molecular beam epitaxy
+        "ALD",                        # atomic layer deposition
+        "CVD",                        # chemical vapor deposition
+        "evaporation",                # thermal or e-beam evaporation
+        "other"
+    ],
+    "key_correlations": [
+        # List field — pick all that the paper explicitly reports or implies.
+        # These are drawn from the Block 5 domain knowledge glossary.
+        # Only include if the paper presents evidence for the connection.
+        "RRR_to_quasiparticle_density",
+        "RRR_to_T1",
+        "RRR_to_Qi",
+        "Tc_to_operating_margin",
+        "crystal_phase_to_loss",
+        "anneal_to_crystal_phase",
+        "anneal_to_RRR",
+        "anneal_to_T1",
+        "anneal_to_Qi",
+        "surface_oxide_to_TLS",
+        "surface_oxide_to_Qi",
+        "surface_oxide_to_T1",
+        "film_thickness_to_loss",
+        "substrate_to_TLS",
+        "clean_limit_to_vortex_loss",
+        "dirty_limit_to_quasiparticle_loss",
+        "mean_free_path_to_coherence_length",
+        "deposition_conditions_to_film_purity",
+        "loss_tangent_to_T1",
+        "Qi_to_T1_upper_bound",
+        "gate_fidelity_to_module_count"
+    ]
+}
+
+_PROFILE_SCHEMA = {
+    "sample_id": "<same sample_id as in the extraction record>",
+    "material_class": "<single value from material_class vocabulary>",
+    "transport_regime": "<single value from transport_regime vocabulary>",
+    "loss_mechanisms": ["<one or more values from loss_mechanisms vocabulary>"],
+    "device_type": "<single value from device_type vocabulary>",
+    "coherence_tier": "<single value from coherence_tier vocabulary>",
+    "science_focus": ["<one or more values from science_focus vocabulary>"],
+    "growth_method": "<single value from growth_method vocabulary>",
+    "key_correlations": ["<zero or more values from key_correlations vocabulary>"],
+    "profile_notes": "<one or two sentences explaining any non-obvious choices, or null>"
+}
+
+_PROFILE_SCHEMA_STR = json.dumps(_PROFILE_SCHEMA, indent=2)
+_PROFILE_VOCAB_STR  = json.dumps(_PROFILE_VOCAB,  indent=2)
+
+
+def build_profile_prompt(sample_record: dict) -> str:
+    """
+    Build the Pass 3 prompt for a single extracted sample record.
+    sample_record should be the full sample dict from the Pass 2 extraction,
+    including all structured fields and the complete catchall.
+    """
+    sample_json = json.dumps(sample_record, indent=2)
+
+    return f"""
+You are generating a similarity profile for a single materials characterization sample.
+This profile will be used to find scientifically similar samples across a large corpus
+of superconducting qubit materials papers.
+
+Your job is to read the full sample record below — including all structured fields
+and the catchall — and assign values from the controlled vocabularies provided.
+
+The profile must be:
+  - Grounded in the sample record. Do not invent properties not supported by the data.
+  - Concise. Pick the most specific applicable term, not multiple vague ones.
+  - Honest about uncertainty. If a dimension cannot be determined from the record,
+    use the appropriate "unknown" or "not_applicable" value.
+
+---
+CONTROLLED VOCABULARIES
+---
+
+These are the ONLY valid values for each dimension.
+Do not use values outside these lists.
+
+{_PROFILE_VOCAB_STR}
+
+---
+DIMENSION GUIDANCE
+---
+
+material_class:
+  Pick the primary superconducting film material.
+  Use the most specific term available — "platinum_silicide" not "other_silicide".
+  For junction devices (e.g. Ta with Al/AlOx junction), use the primary film
+  material (Ta → "tantalum"), not the junction material.
+
+transport_regime:
+  Infer from RRR, mean free path vs coherence length ratio, crystal phase,
+  and any explicit author statements.
+  - High RRR (>50 for Ta/Nb) → clean_limit
+  - Low RRR (<10) → dirty_limit
+  - If not determinable → unknown
+  For nitrides (TiN, NbTiN, NbN), dirty_limit is almost always correct.
+  For silicides and germanides with limited data → unknown.
+
+loss_mechanisms:
+  List ALL loss channels the paper identifies or investigates, even if not dominant.
+  Draw from the catchall correlations_observed and additional_measurements, not just
+  the structured fields. If the paper measures Qi but does not attribute the loss → unknown.
+  For film_only papers with no microwave measurement → omit (empty list is fine).
+
+device_type:
+  Use the most specific device actually fabricated and measured.
+  film_only: R vs T, XRD, AFM, surface characterization — no patterned microwave device.
+  If the paper does both film characterization AND resonator measurements → resonator.
+
+coherence_tier:
+  Base this on the best performance reported for this sample, not the paper average.
+  Thresholds:
+    not_applicable:    film_only — no device performance measured
+    early_exploration: T1 < 10 µs  OR  Qi < 1e5
+    competitive:       T1 10–100 µs  OR  Qi 1e5–1e6
+    state_of_the_art:  T1 > 100 µs  OR  Qi > 1e6
+  If only Qi is reported, use Qi thresholds. If only T1, use T1 thresholds.
+  When in doubt about borderline values, use author framing from the catchall.
+
+science_focus:
+  Pick ALL that apply — this is a list field.
+  Focus on what the paper is actually trying to answer, not just what it measures.
+  A paper that varies anneal temperature and measures T1 is process_optimization
+  AND materials_characterization, even if it also demonstrates a device.
+
+growth_method:
+  Use the primary deposition method for the superconducting film.
+  If multiple methods are compared → pick the one for this specific sample.
+
+key_correlations:
+  Only include correlations the paper explicitly presents evidence for —
+  either in the structured correlations_observed catchall entries, or clearly
+  stated in the paper's conclusions.
+  Do NOT infer correlations yourself. If no correlations are evidenced → empty list.
+
+profile_notes:
+  Use this to explain any non-obvious assignments — e.g. why you chose
+  "dirty_limit" despite limited RRR data, or why a junction paper is classified
+  as "film_only" for coherence_tier. Keep to one or two sentences. Null if not needed.
+
+---
+SAMPLE RECORD
+---
+
+{sample_json}
+
+---
+OUTPUT
+---
+
+Return a JSON array containing one profile object per sample in the record.
+If the record contains multiple samples, return one object per sample,
+each with its own sample_id matching the extraction record.
+
+Return ONLY raw valid JSON — a JSON array. No markdown fences. No text before or after.
+
+Example output for a two-sample record:
+[
+  {{ "sample_id": "Sample_A", "material_class": "tantalum", ... }},
+  {{ "sample_id": "Sample_B", "material_class": "tantalum", ... }}
+]
+
+Schema for each object:
+{_PROFILE_SCHEMA_STR}
 """.strip()
