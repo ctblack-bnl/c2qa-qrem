@@ -30,7 +30,8 @@ from pathlib import Path
 from difflib import SequenceMatcher
 from generate_qubit_profile import generate_profile, save_profile, fetch_sample_from_db
 
-PORT      = 8001
+import os
+PORT = int(os.environ.get('PORT', 8001))
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH   = REPO_ROOT / "data" / "ingested" / "records.db"
 JSONL_PATH = REPO_ROOT / "data" / "ingested" / "records.jsonl"
