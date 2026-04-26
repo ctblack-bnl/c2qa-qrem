@@ -378,6 +378,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(SERVE_DIR), **kwargs)
 
     def do_GET(self):
+        if self.path == '/':
+            self.send_response(302)
+            self.send_header('Location', '/materials_explorer.html')
+            self.end_headers()
+            return
         if self.path == "/api/samples":
             self._json(200, {"ok": True, "samples": fetch_samples()})
         elif self.path == "/api/fields":
