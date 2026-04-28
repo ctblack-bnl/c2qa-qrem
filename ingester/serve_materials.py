@@ -27,7 +27,6 @@
 #   display_name  — query sample (required)
 #   n             — number of results to return (default 10)
 #   same_pub      — include samples from the same publication (default false)
-
 import http.server
 import json
 import math
@@ -78,24 +77,169 @@ ALL_NUMERIC_FIELDS = [
     ('derived_kinetic_inductance_pH_sq', 'Kinetic inductance derived (pH/□)'),
 ]
 
+# Profile dimension fields and their types (single = binary match, list = Jaccard)
+PROFILE_SINGLE_FIELDS = [
+    ('sim_material_class',   'Material class'),
+    ('sim_transport_regime', 'Transport regime'),
+    ('sim_device_type',      'Device type'),
+    ('sim_coherence_tier',   'Coherence tier'),
+    ('sim_growth_method',    'Growth method'),
+]
+PROFILE_LIST_FIELDS = [
+    ('sim_loss_mechanisms',  'Loss mechanisms'),
+    ('sim_science_focus',    'Science focus'),
+    ('sim_key_correlations', 'Key correlations'),
+]
+
 # Field label lookup for similarity explanations
 FIELD_LABEL_MAP = {f: label for f, label in ALL_NUMERIC_FIELDS}
 SIMILARITY_FIELDS = [f for f, _ in ALL_NUMERIC_FIELDS]
 
+# Scoring weights
+PROFILE_WEIGHT = 0.75
+NUMERIC_WEIGHT = 0.25
+
 
 # ── Similarity search ─────────────────────────────────────────────────────
+
+def _jaccard(a: list, b: list) -> float:
+    """Jaccard similarity between two lists (treated as sets)."""
+    set_a = set(a or [])
+    set_b = set(b or [])
+    if not set_a and not set_b:
+        return 1.0   # both empty → identical
+    if not set_a or not set_b:
+        return 0.0
+    return len(set_a & set_b) / len(set_a | set_b)
+
+
+def _parse_json_list(val) -> list:
+    """Safely parse a JSON array stored as a string in SQLite."""
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return val
+    try:
+        parsed = json.loads(val)
+        return parsed if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def compute_profile_score(query: dict, candidate: dict) -> tuple[float, list]:
+    """
+    Compute semantic profile similarity score (0.0 = identical, 1.0 = maximally different).
+    Returns (score, matched_tags) where matched_tags is a list of dicts for the frontend.
+
+    Falls back to (None, []) if either sample has no profile.
+    """
+    if not query.get('sim_profile_version') or not candidate.get('sim_profile_version'):
+        return None, []
+
+    matched_tags = []
+    total_score = 0.0
+    num_dimensions = len(PROFILE_SINGLE_FIELDS) + len(PROFILE_LIST_FIELDS)
+
+    # Single-value fields: binary match (0 = same, 1 = different)
+    for field, label in PROFILE_SINGLE_FIELDS:
+        q_val = query.get(field)
+        c_val = candidate.get(field)
+        if q_val and c_val:
+            match = (q_val == c_val)
+            total_score += 0.0 if match else 1.0
+            matched_tags.append({
+                'field': field,
+                'label': label,
+                'query_value': q_val,
+                'candidate_value': c_val,
+                'match': match,
+                'type': 'single',
+            })
+        else:
+            # Missing on one side — treat as neutral (0.5)
+            total_score += 0.5
+
+    # List fields: Jaccard distance (0 = identical sets, 1 = disjoint)
+    for field, label in PROFILE_LIST_FIELDS:
+        q_list = _parse_json_list(query.get(field))
+        c_list = _parse_json_list(candidate.get(field))
+        jaccard_sim = _jaccard(q_list, c_list)
+        jaccard_dist = 1.0 - jaccard_sim
+        total_score += jaccard_dist
+        shared = list(set(q_list) & set(c_list))
+        matched_tags.append({
+            'field': field,
+            'label': label,
+            'query_value': q_list,
+            'candidate_value': c_list,
+            'shared': shared,
+            'jaccard_similarity': round(jaccard_sim, 3),
+            'type': 'list',
+        })
+
+    # Normalize to [0, 1]
+    profile_score = total_score / num_dimensions
+    return profile_score, matched_tags
+
+
+def compute_numeric_score(query: dict, candidate: dict, field_stats: dict) -> tuple[float, list]:
+    """
+    Compute numeric field similarity score (0.0 = identical, higher = more different).
+    Returns (weighted_score, matched_fields).
+
+    Returns (None, []) if there are no overlapping numeric fields.
+    """
+    overlap_fields = []
+    for field in SIMILARITY_FIELDS:
+        q_val = query.get(field)
+        c_val = candidate.get(field)
+        if q_val is not None and c_val is not None and field in field_stats:
+            overlap_fields.append(field)
+
+    if not overlap_fields:
+        return None, []
+
+    total_dist = 0.0
+    matched = []
+    for field in overlap_fields:
+        q_val = query[field]
+        c_val = candidate[field]
+        stats = field_stats[field]
+        norm_q = (q_val - stats['mean']) / stats['std']
+        norm_c = (c_val - stats['mean']) / stats['std']
+        dist = abs(norm_q - norm_c)
+        total_dist += dist
+        matched.append({
+            'field': field,
+            'label': FIELD_LABEL_MAP.get(field, field),
+            'query_value': q_val,
+            'candidate_value': c_val,
+            'normalized_distance': round(dist, 3),
+        })
+
+    matched.sort(key=lambda x: x['normalized_distance'])
+    mean_dist = total_dist / len(overlap_fields)
+    weighted_score = mean_dist / math.sqrt(len(overlap_fields))
+    return weighted_score, matched
+
 
 def compute_similarity(samples: list, query_name: str, n: int = 10, same_pub: bool = False) -> list:
     """
     Find the N most similar samples to the query sample.
 
-    Algorithm:
-    - Only compare over fields where both samples have a non-null value (overlap).
-    - Normalize each field using z-score across the full corpus.
-    - Score = mean absolute normalized distance over overlapping fields (lower = more similar).
-      Weighted by sqrt(overlap_count) so samples sharing more fields rank better.
-    - Filter out same-publication samples unless same_pub=True.
-    - Return results sorted best-first (lowest distance = most similar).
+    Hybrid scoring (75% profile, 25% numeric):
+    - Profile score: semantic similarity over 8 profile dimensions.
+        Single fields (material_class, transport_regime, device_type,
+        coherence_tier, growth_method): binary match.
+        List fields (loss_mechanisms, science_focus, key_correlations): Jaccard similarity.
+    - Numeric score: mean z-score normalized distance over overlapping numeric fields,
+        weighted by sqrt(overlap_count) to reward more shared fields.
+
+    Falls back gracefully:
+    - If only one layer is available, uses that layer at 100%.
+    - Samples with no profile and no numeric overlap are excluded.
+
+    Returns results sorted best-first (lowest combined score = most similar).
     """
     # Find query sample
     query = next((s for s in samples if s.get('display_name') == query_name), None)
@@ -104,7 +248,7 @@ def compute_similarity(samples: list, query_name: str, n: int = 10, same_pub: bo
 
     query_filename = query.get('filename', '')
 
-    # Compute per-field mean and std across the full corpus (all samples, not just query)
+    # Compute per-field mean and std across the full corpus for numeric scoring
     field_stats = {}
     for field in SIMILARITY_FIELDS:
         vals = [s[field] for s in samples if s.get(field) is not None]
@@ -125,43 +269,22 @@ def compute_similarity(samples: list, query_name: str, n: int = 10, same_pub: bo
         if not same_pub and candidate.get('filename') == query_filename:
             continue
 
-        # Find overlapping fields where both samples have values and we have stats
-        overlap_fields = []
-        for field in SIMILARITY_FIELDS:
-            q_val = query.get(field)
-            c_val = candidate.get(field)
-            if q_val is not None and c_val is not None and field in field_stats:
-                overlap_fields.append(field)
+        # Compute both layers
+        profile_score, profile_tags = compute_profile_score(query, candidate)
+        numeric_score, numeric_fields = compute_numeric_score(query, candidate, field_stats)
 
-        if not overlap_fields:
+        # Combine — fall back if one layer is unavailable
+        if profile_score is not None and numeric_score is not None:
+            combined_score = PROFILE_WEIGHT * profile_score + NUMERIC_WEIGHT * numeric_score
+            scoring_mode = 'hybrid'
+        elif profile_score is not None:
+            combined_score = profile_score
+            scoring_mode = 'profile_only'
+        elif numeric_score is not None:
+            combined_score = numeric_score
+            scoring_mode = 'numeric_only'
+        else:
             continue  # no basis for comparison
-
-        # Compute mean normalized distance over overlapping fields
-        total_dist = 0.0
-        matched = []
-        for field in overlap_fields:
-            q_val = query[field]
-            c_val = candidate[field]
-            stats = field_stats[field]
-            norm_q = (q_val - stats['mean']) / stats['std']
-            norm_c = (c_val - stats['mean']) / stats['std']
-            dist = abs(norm_q - norm_c)
-            total_dist += dist
-            matched.append({
-                'field': field,
-                'label': FIELD_LABEL_MAP.get(field, field),
-                'query_value': q_val,
-                'candidate_value': c_val,
-                'normalized_distance': round(dist, 3),
-            })
-
-        # Sort matched fields by distance ascending (closest match first)
-        matched.sort(key=lambda x: x['normalized_distance'])
-
-        mean_dist = total_dist / len(overlap_fields)
-        # Weight: reward more overlapping fields (samples with more shared measurements
-        # give a more reliable similarity estimate)
-        weighted_score = mean_dist / math.sqrt(len(overlap_fields))
 
         results.append({
             'display_name':    candidate.get('display_name'),
@@ -170,9 +293,11 @@ def compute_similarity(samples: list, query_name: str, n: int = 10, same_pub: bo
             'authors':         candidate.get('authors'),
             'doi':             candidate.get('doi'),
             'filename':        candidate.get('filename'),
-            'score':           round(weighted_score, 4),
-            'overlap_count':   len(overlap_fields),
-            'matched_fields':  matched,
+            'score':           round(combined_score, 4),
+            'scoring_mode':    scoring_mode,
+            'overlap_count':   len(numeric_fields),
+            'profile_tags':    profile_tags,    # for frontend tag display
+            'matched_fields':  numeric_fields,  # for frontend numeric chips
         })
 
     results.sort(key=lambda x: x['score'])
@@ -193,7 +318,6 @@ _ingest_state = {
     "current":   None,
 }
 _ingest_lock = threading.Lock()
-
 
 def _run_ingestion(papers_dir: str):
     """Run pipeline_ingest.py in a subprocess, capturing output line by line."""
@@ -247,7 +371,6 @@ def title_similarity(a: str, b: str) -> float:
         return 0.0
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 
-
 def find_duplicate_pairs(threshold: float = 0.85) -> list:
     if not JSONL_PATH.exists():
         return []
@@ -294,7 +417,6 @@ def find_duplicate_pairs(threshold: float = 0.85) -> list:
     pairs.sort(key=lambda x: -x["similarity"])
     return pairs
 
-
 def load_dedup() -> dict:
     if DEDUP_PATH.exists():
         try:
@@ -302,7 +424,6 @@ def load_dedup() -> dict:
         except Exception:
             pass
     return {"decisions": []}
-
 
 def save_dedup(dedup: dict):
     DEDUP_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -315,7 +436,6 @@ def get_db():
     conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn
-
 
 def fetch_available_fields():
     conn = get_db()
@@ -336,11 +456,12 @@ def fetch_available_fields():
     conn.close()
     return available
 
-
 def fetch_samples():
     conn = get_db()
     cur = conn.cursor()
     numeric_cols = ', '.join(f's.{f}' for f, _ in ALL_NUMERIC_FIELDS)
+    profile_single_cols = ', '.join(f's.{f}' for f, _ in PROFILE_SINGLE_FIELDS)
+    profile_list_cols   = ', '.join(f's.{f}' for f, _ in PROFILE_LIST_FIELDS)
     cur.execute(f"""
         SELECT
             s.display_name, s.sample_id, s.filename,
@@ -349,6 +470,9 @@ def fetch_samples():
             s.Tc_confidence, s.RRR_confidence,
             s.Qi_confidence, s.T1_confidence,
             p.authors, p.title, p.doi, p.journal,
+            s.sim_profile_version,
+            {profile_single_cols},
+            {profile_list_cols},
             {numeric_cols}
         FROM samples s
         JOIN papers p ON s.paper_id = p.id
@@ -357,6 +481,7 @@ def fetch_samples():
     """)
     rows = cur.fetchall()
     conn.close()
+
     numeric_field_names = [f for f, _ in ALL_NUMERIC_FIELDS]
     samples = []
     for row in rows:
@@ -370,7 +495,6 @@ def fetch_samples():
                     d[field] = None
         samples.append(d)
     return samples
-
 
 def fetch_catchall(item_type=None):
     conn = get_db()
@@ -396,7 +520,6 @@ def fetch_catchall(item_type=None):
     conn.close()
     return [dict(r) for r in rows]
 
-
 def fetch_coverage():
     conn = get_db()
     cur = conn.cursor()
@@ -416,7 +539,6 @@ def fetch_coverage():
     row = cur.fetchone()
     conn.close()
     return dict(row)
-
 
 def fetch_sample_detail(display_name: str) -> dict:
     conn = get_db()
@@ -517,11 +639,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             display_name = urllib.parse.unquote(params.get("display_name", "")).strip()
             n            = int(params.get("n", 10))
             same_pub     = params.get("same_pub", "false").lower() == "true"
-
             if not display_name:
                 self._json(400, {"ok": False, "error": "display_name required"})
                 return
-
             try:
                 samples = self.get_cached_samples()
                 results = compute_similarity(samples, display_name, n=n, same_pub=same_pub)

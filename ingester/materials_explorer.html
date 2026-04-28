@@ -327,6 +327,24 @@
   .similar-field-dist-ok    { color: var(--accent); }
   .similar-field-dist-poor  { color: var(--muted); }
 
+    /* Profile tag row */
+  .profile-tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding-left: 34px;
+    margin-bottom: 6px;
+  }
+  .profile-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+  .profile-tag-match    { border-color: var(--accent2); color: var(--accent2); background: rgba(63,185,80,0.08); }
+  .profile-tag-mismatch-count { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); padding: 2px 4px; }
+  
   /* ── Catchall ── */
   .catchall-area { flex: 1; overflow: auto; padding: 20px; display: none; flex-direction: column; gap: 16px; }
   .catchall-area.active { display: flex; }
@@ -981,8 +999,6 @@ function clearSimilarSearch() {
 
 function renderSimilarResults(results, queryName) {
   const resultsEl = document.getElementById('similarResults');
-
-  // Find query sample for reference
   const query = allSamples.find(s => s.display_name === queryName);
   const queryInfo = query
     ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px;">
@@ -998,8 +1014,36 @@ function renderSimilarResults(results, queryName) {
   const rows = results.map((res, i) => {
     const matColor = colorMap[res.film_material] || 'var(--muted)';
 
-    // Build field chips — show top 4 most-similar fields
-    const topFields = res.matched_fields.slice(0, 4);
+    // ── Profile tag row ──
+    let profileTagsHtml = '';
+    if (res.profile_tags && res.profile_tags.length > 0) {
+      let matchTags = [];
+      let mismatchCount = 0;
+      res.profile_tags.forEach(t => {
+        if (t.type === 'single') {
+          if (t.match) {
+            matchTags.push(`<span class="profile-tag profile-tag-match" title="${t.label}">✓ ${t.query_value}</span>`);
+          } else {
+            mismatchCount++;
+          }
+        } else {
+          // list field — only show shared items
+          if (t.shared && t.shared.length > 0) {
+            t.shared.forEach(s =>
+              matchTags.push(`<span class="profile-tag profile-tag-match" title="${t.label}">✓ ${s.replace(/_/g,' ')}</span>`)
+            );
+          }
+        }
+      });
+      let html = matchTags.join('');
+      if (mismatchCount > 0) {
+        html += `<span class="profile-tag-mismatch-count">${mismatchCount} dimension${mismatchCount > 1 ? 's' : ''} differ</span>`;
+      }
+      if (html) profileTagsHtml = `<div class="profile-tags-row">${html}</div>`;
+    }
+
+    // ── Numeric chips (top 3 — profile row takes some space) ──
+    const topFields = res.matched_fields.slice(0, 3);
     const chips = topFields.map(f => {
       const qv = formatVal(f.query_value);
       const cv = formatVal(f.candidate_value);
@@ -1015,20 +1059,25 @@ function renderSimilarResults(results, queryName) {
       </div>`;
     }).join('');
 
-    const overlapNote = res.overlap_count > 4
-      ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);padding-left:30px;display:block;margin-top:4px;">+${res.overlap_count - 4} more shared fields</span>`
+    const overlapNote = res.overlap_count > 3
+      ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);padding-left:30px;display:block;margin-top:4px;">+${res.overlap_count - 3} more shared numeric fields</span>`
+      : '';
+
+    // Scoring mode badge — show when not hybrid so user knows why
+    const modeBadge = res.scoring_mode !== 'hybrid'
+      ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-left:8px;">${res.scoring_mode}</span>`
       : '';
 
     const safeDispName = res.display_name.replace(/'/g, "\\'");
-
     return `<div class="similar-result-row" onclick="openDetail('${safeDispName}')">
       <div class="similar-result-top">
         <span class="similar-rank">${i + 1}</span>
         <span class="similar-name">${res.display_name}</span>
         <span class="similar-material" style="color:${matColor}">${res.film_material || '—'}</span>
-        <span class="similar-score">${res.overlap_count} fields matched</span>
+        <span class="similar-score">${modeBadge}</span>
       </div>
       <div class="similar-authors">${res.authors || '—'}</div>
+      ${profileTagsHtml}
       <div class="similar-fields">${chips}</div>
       ${overlapNote}
     </div>`;
@@ -1127,7 +1176,7 @@ function getFilteredSamples() {
   const confidence = document.getElementById('confidenceFilter').value;
   const nameSearch = document.getElementById('nameFilter').value.toLowerCase();
   return allSamples.filter(s => {
-    if (checkedMaterials.length && !checkedMaterials.includes(s.film_material || '')) return false;
+    if (checkedMaterials.length && !checkedMaterials.includes(s.sim_material_class || '')) return false;
     if (substrate && s.substrate_material !== substrate) return false;
     if (nameSearch && !(s.display_name || '').toLowerCase().includes(nameSearch)) return false;
     if (confidence === 'high') {
@@ -1143,14 +1192,14 @@ function getFilteredSamples() {
 }
 
 function buildMaterialFilters() {
-  const materials = [...new Set(allSamples.map(s => s.film_material).filter(Boolean))].sort();
-  materials.forEach((m, i) => { colorMap[m] = PALETTE[i % PALETTE.length]; });
+  const classes = [...new Set(allSamples.map(s => s.sim_material_class).filter(Boolean))].sort();
+  classes.forEach((c, i) => { colorMap[c] = PALETTE[i % PALETTE.length]; });
   const container = document.getElementById('materialFilters');
-  container.innerHTML = materials.map(m => `
+  container.innerHTML = classes.map(c => `
     <label class="checked">
-      <input type="checkbox" value="${m}" checked onchange="onFilterChange()">
-      <span class="color-dot" style="background:${colorMap[m]}"></span>
-      ${m}
+      <input type="checkbox" value="${c}" checked onchange="onFilterChange()">
+      <span class="color-dot" style="background:${colorMap[c]}"></span>
+      ${c.replace(/_/g, ' ')}
     </label>
   `).join('');
 }

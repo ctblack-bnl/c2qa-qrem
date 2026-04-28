@@ -35,7 +35,8 @@ from processed_ledger import (
     load_ledger, save_ledger,
     is_already_processed, record_processed
 )
-from prompts import RELEVANCE_PROMPT, build_extraction_prompt
+
+from prompts import RELEVANCE_PROMPT, build_extraction_prompt, build_profile_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +149,42 @@ def call_extraction(client: Any, deployment: str,
     print("\n  " + "-"*40, flush=True)
     return text_content
 
+def call_profile_generation(client: Any, deployment: str, samples: list) -> dict:
+    """
+    Pass 3: Generate similarity profiles for all samples in the extracted record.
+    Returns a dict keyed by sample_id.
+    """
+    if not samples:
+        return {}
+
+    prompt = build_profile_prompt(samples)
+
+    response = client.chat.completions.create(
+        model=deployment,
+        max_tokens=4000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    raw = response.choices[0].message.content.strip()
+
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        lines = raw.split("\n")
+        raw = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+
+    profiles_list = json.loads(raw)
+    if not isinstance(profiles_list, list):
+        raise ValueError(f"Expected JSON array, got {type(profiles_list)}")
+
+    result = {}
+    for p in profiles_list:
+        sid = p.get("sample_id")
+        if not sid:
+            print(f"  WARNING: profile missing sample_id, skipping entry", flush=True)
+            continue
+        p["profile_version"] = "1.0"
+        result[sid] = p
+
+    return result
 
 # ---------------------------------------------------------------------------
 # JSON parsing helper
@@ -367,6 +404,25 @@ def run_ingestion(
             "human_reviewed":   False,   # all records start as unreviewed
             "human_approved":   False,
         }
+
+        # ---------------------------------------------------------------
+        # PASS 3 — Similarity profile generation (only if extraction succeeded)
+        # ---------------------------------------------------------------
+        if not extraction_err and extraction_json:
+            samples = extraction_json.get("samples", [])
+            if samples:
+                print(f"  Pass 3: generating similarity profiles for {len(samples)} sample(s)...", flush=True)
+                try:
+                    start = time.time()
+                    profiles = call_profile_generation(client, deployment, samples)
+                    elapsed = time.time() - start
+                    print(f"  Profile generation done in {elapsed:.1f}s — {len(profiles)} profile(s)", flush=True)
+                    record["similarity_profiles"] = profiles
+                except Exception as e:
+                    print(f"  Pass 3 FAILED (non-fatal): {e}", flush=True)
+                    record["similarity_profiles"] = {}
+            else:
+                record["similarity_profiles"] = {}
 
         try:
             append_jsonl(out_path, record)

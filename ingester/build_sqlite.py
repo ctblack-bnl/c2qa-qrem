@@ -16,7 +16,6 @@
 #   cd ingester
 #   python3 build_sqlite.py
 #   # Then open data/ingested/records.db in any SQLite browser
-
 import json
 import re
 import sqlite3
@@ -24,13 +23,11 @@ import argparse
 from pathlib import Path
 from derive import derive_all, get_derived_value
 
-
 def make_display_name(authors: str, sample_id: str) -> str:
     """
     Build a human-readable display name for a sample.
     Format: {first_author_lastname}_{year}_{sample_id}
     Example: "Bahrami_2026_D1", "Yang_2026_Ta-Hf_1ks_750C"
-
     Authors string is typically "First Author et al., YYYY" or similar.
     We extract the first word (lastname) and the 4-digit year.
     """
@@ -40,20 +37,15 @@ def make_display_name(authors: str, sample_id: str) -> str:
     else:
         # Extract first word as lastname
         first_author = authors.strip().split()[0].rstrip(",")
-
         # Extract 4-digit year
         year_match = re.search(r'\b(20\d{2})\b', authors)
         year = year_match.group(1) if year_match else "????"
-
     # Clean sample_id for use in a display name
     clean_sid = str(sample_id).strip().replace(" ", "_").replace("/", "-")
-
     return f"{first_author}_{year}_{clean_sid}"
-
 
 def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"Reading: {jsonl_path}")
-
     # --- Load all records ---
     records = []
     with open(jsonl_path, "r", encoding="utf-8") as f:
@@ -65,7 +57,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 records.append(json.loads(line))
             except json.JSONDecodeError as e:
                 print(f"  Skipping malformed line: {e}")
-
     print(f"Loaded {len(records)} records")
 
     # --- Load deduplication decisions ---
@@ -144,7 +135,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             filename                TEXT,
             sample_id               TEXT,
             display_name            TEXT,   -- e.g. Bahrami_2026_D1
-
             -- Sample description
             substrate_material      TEXT,
             substrate_orientation   TEXT,
@@ -156,7 +146,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             annealing_temperature_C TEXT,
             annealing_duration_s    TEXT,
             junction_present        TEXT,
-
             -- Measurements
             Tc_K                    TEXT,
             RRR                     TEXT,
@@ -171,19 +160,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             T2_echo_us              TEXT,
             gate_1q_fidelity_pct    TEXT,
             gate_2q_fidelity_pct    TEXT,
-
             -- R vs T derived fields
             normal_state_resistance_Ohm     TEXT,
             room_temperature_resistance_Ohm TEXT,
             measured_structure_width_um     TEXT,
             measured_structure_length_um    TEXT,
-
             -- Confidence flags (high/medium/low for key fields)
             Tc_confidence           TEXT,
             RRR_confidence          TEXT,
             Qi_confidence           TEXT,
             T1_confidence           TEXT,
-
             -- Derived quantities (computed by build_sqlite.py from extracted fields)
             derived_resistivity_uOhm_cm      REAL,
             derived_BCS_gap_meV              REAL,
@@ -192,7 +178,17 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             derived_RRR_from_RvT              REAL,
             derived_sheet_resistance_Ohm_sq  REAL,
             derived_json                     TEXT,  -- full derived quantities JSON
-
+            -- Similarity profile (Pass 3)
+            sim_material_class      TEXT,
+            sim_transport_regime    TEXT,
+            sim_loss_mechanisms     TEXT,   -- JSON array
+            sim_device_type         TEXT,
+            sim_coherence_tier      TEXT,
+            sim_science_focus       TEXT,   -- JSON array
+            sim_growth_method       TEXT,
+            sim_key_correlations    TEXT,   -- JSON array
+            sim_profile_notes       TEXT,
+            sim_profile_version     TEXT,
             -- Full sample JSON for reference
             sample_json             TEXT
         );
@@ -227,6 +223,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     papers_inserted = 0
     samples_inserted = 0
     catchall_inserted = 0
+    profiles_found = 0
 
     for rec in records:
         ext = rec.get("extraction_json") or {}
@@ -264,9 +261,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             error_str,
             json.dumps(ext) if ext else None,
         ))
-
         paper_id = cur.lastrowid
         papers_inserted += 1
+
+        # Pull similarity profiles for this record (keyed by sample_id)
+        similarity_profiles = rec.get("similarity_profiles") or {}
 
         # Insert sample rows
         for sample in samples:
@@ -278,6 +277,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
 
             # Compute derived quantities from extracted fields
             derived = derive_all(sample)
+
+            # Look up similarity profile for this sample
+            profile = similarity_profiles.get(sid, {})
+            if profile:
+                profiles_found += 1
 
             cur.execute("""
                 INSERT INTO samples (
@@ -305,6 +309,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     derived_RRR_from_RvT,
                     derived_sheet_resistance_Ohm_sq,
                     derived_json,
+                    sim_material_class, sim_transport_regime,
+                    sim_loss_mechanisms, sim_device_type,
+                    sim_coherence_tier, sim_science_focus,
+                    sim_growth_method, sim_key_correlations,
+                    sim_profile_notes, sim_profile_version,
                     sample_json
                 ) VALUES (
                     ?, ?, ?, ?,
@@ -315,6 +324,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?
                 )
             """, (
@@ -357,13 +367,22 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 get_derived_value(derived, "derived_RRR_from_RvT"),
                 get_derived_value(derived, "derived_sheet_resistance_Ohm_sq"),
                 json.dumps(derived) if derived else None,
+                profile.get("material_class"),
+                profile.get("transport_regime"),
+                json.dumps(profile.get("loss_mechanisms") or []),
+                profile.get("device_type"),
+                profile.get("coherence_tier"),
+                json.dumps(profile.get("science_focus") or []),
+                profile.get("growth_method"),
+                json.dumps(profile.get("key_correlations") or []),
+                profile.get("profile_notes"),
+                profile.get("profile_version"),
                 json.dumps(sample),
             ))
             samples_inserted += 1
 
             # Insert catchall items
             catchall = sample.get("catchall", {})
-
             for item in catchall.get("additional_measurements", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -435,15 +454,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"  Papers inserted  : {papers_inserted}")
     print(f"  Samples inserted : {samples_inserted}")
     print(f"  Catchall items   : {catchall_inserted}")
+    print(f"  Profiles found   : {profiles_found} of {samples_inserted} samples")
     print(f"  Database written : {db_path}")
     print()
     print("To browse: open records.db in DB Browser for SQLite (sqlitebrowser.org)")
     print()
     print("Useful queries:")
     print("  SELECT display_name, film_material, Tc_K, RRR, Qi_internal FROM samples;")
+    print("  SELECT display_name, sim_material_class, sim_device_type, sim_coherence_tier FROM samples WHERE sim_profile_version IS NOT NULL;")
     print("  SELECT display_name, item_type, description FROM catchall_items LIMIT 20;")
     print("  SELECT outcome, COUNT(*) FROM papers GROUP BY outcome;")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
