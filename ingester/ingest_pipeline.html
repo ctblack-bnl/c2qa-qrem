@@ -6,7 +6,6 @@
 <title>C2QA // Ingestion Pipeline</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
-
   :root {
     --bg:      #0d1117;
     --surface: #161b22;
@@ -19,9 +18,7 @@
     --muted:   #8b949e;
     --card:    #1c2128;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
     background: var(--bg);
     color: var(--text);
@@ -30,10 +27,7 @@
     min-height: 100vh;
     padding: 32px;
   }
-
-  header {
-    margin-bottom: 32px;
-  }
+  header { margin-bottom: 32px; }
   header h1 {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 18px;
@@ -51,14 +45,12 @@
     font-size: 12px;
     margin-left: 16px;
   }
-
   .pipeline {
     display: flex;
     flex-direction: column;
     gap: 20px;
     max-width: 900px;
   }
-
   /* ── Stage card ── */
   .stage {
     background: var(--surface);
@@ -82,10 +74,7 @@
     border-radius: 3px;
     border: 1px solid var(--border);
   }
-  .stage-title {
-    font-weight: 500;
-    font-size: 15px;
-  }
+  .stage-title { font-weight: 500; font-size: 15px; }
   .stage-status {
     margin-left: auto;
     font-family: 'IBM Plex Mono', monospace;
@@ -93,21 +82,13 @@
     padding: 3px 10px;
     border-radius: 3px;
   }
-  .status-waiting  { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
-  .status-running  { background: #1f3a5f; color: var(--accent); border: 1px solid var(--accent); }
-  .status-done     { background: #1a3a1a; color: var(--green); border: 1px solid var(--green); }
-  .status-review   { background: #3a2a1a; color: var(--orange); border: 1px solid var(--orange); }
-
-  .stage-body {
-    padding: 20px;
-  }
-
+  .status-waiting { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+  .status-running { background: #1f3a5f; color: var(--accent); border: 1px solid var(--accent); }
+  .status-done    { background: #1a3a1a; color: var(--green); border: 1px solid var(--green); }
+  .status-review  { background: #3a2a1a; color: var(--orange); border: 1px solid var(--orange); }
+  .stage-body { padding: 20px; }
   /* ── Directory input ── */
-  .dir-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
+  .dir-row { display: flex; gap: 10px; margin-bottom: 16px; }
   .dir-input {
     flex: 1;
     background: var(--card);
@@ -119,7 +100,6 @@
     font-size: 12px;
   }
   .dir-input:focus { outline: none; border-color: var(--accent); }
-
   /* ── Buttons ── */
   .btn {
     padding: 9px 20px;
@@ -132,11 +112,12 @@
     transition: opacity 0.15s;
   }
   .btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .btn-primary  { background: var(--accent); color: #0d1117; }
-  .btn-success  { background: var(--green);  color: #0d1117; }
-  .btn-warning  { background: var(--orange); color: #0d1117; }
+  .btn-primary { background: var(--accent); color: #0d1117; }
+  .btn-success { background: var(--green);  color: #0d1117; }
+  .btn-warning { background: var(--orange); color: #0d1117; }
+  .btn-danger  { background: #da3633;       color: #fff; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
   .btn:not(:disabled):hover { opacity: 0.85; }
-
   /* ── Progress log ── */
   .log {
     background: var(--card);
@@ -151,13 +132,12 @@
     display: none;
   }
   .log.visible { display: block; }
-  .log-line { color: var(--muted); }
+  .log-line         { color: var(--muted); }
   .log-line.ok      { color: var(--green); }
   .log-line.skip    { color: var(--muted); }
   .log-line.fail    { color: var(--orange); }
   .log-line.current { color: var(--text); }
   .log-line.summary { color: var(--accent); font-weight: 500; }
-
   /* ── Stats row ── */
   .stats-row {
     display: flex;
@@ -166,13 +146,8 @@
     display: none;
   }
   .stats-row.visible { display: flex; }
-  .stat {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--muted);
-  }
+  .stat { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
   .stat span { color: var(--text); font-weight: 500; }
-
   /* ── Duplicate pairs ── */
   .dup-pair {
     background: var(--card);
@@ -200,39 +175,12 @@
     border-radius: 4px;
     padding: 10px;
   }
-  .dup-filename {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    color: var(--accent);
-    margin-bottom: 4px;
-  }
-  .dup-title {
-    font-size: 12px;
-    color: var(--text);
-    margin-bottom: 4px;
-    line-height: 1.4;
-  }
-  .dup-meta {
-    font-size: 11px;
-    color: var(--muted);
-  }
-  .dup-actions {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-  .dup-actions .btn {
-    padding: 6px 14px;
-    font-size: 12px;
-  }
-
-  .no-dups {
-    color: var(--green);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    padding: 16px 0;
-  }
-
+  .dup-filename { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); margin-bottom: 4px; }
+  .dup-title    { font-size: 12px; color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+  .dup-meta     { font-size: 11px; color: var(--muted); }
+  .dup-actions  { display: flex; gap: 8px; align-items: center; }
+  .dup-actions .btn { padding: 6px 14px; font-size: 12px; }
+  .no-dups { color: var(--green); font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 16px 0; }
   /* ── Build output ── */
   .build-output {
     background: var(--card);
@@ -247,25 +195,245 @@
     margin-top: 12px;
   }
   .build-output.visible { display: block; }
-
   /* ── Connector arrow ── */
-  .connector {
-    text-align: center;
-    color: var(--muted);
-    font-size: 18px;
-    line-height: 1;
+  .connector { text-align: center; color: var(--muted); font-size: 18px; line-height: 1; }
+
+  /* ── Stage 4: Mining ── */
+  .mining-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
   }
+  .mining-stats {
+    display: flex;
+    gap: 20px;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .mining-stats span { color: var(--text); font-weight: 500; }
+  .mining-log {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    height: 160px;
+    overflow-y: auto;
+    line-height: 1.6;
+    display: none;
+    margin-bottom: 16px;
+  }
+  .mining-log.visible { display: block; }
+  /* Finding cards */
+  .finding-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .finding-card:hover { border-color: var(--accent); }
+  .finding-card.approved  { border-color: var(--green); }
+  .finding-card.rejected  { border-color: #da3633; opacity: 0.5; }
+  .finding-card.revising  { border-color: var(--orange); }
+  .finding-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .finding-type-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .type-positive          { background: #1a3a1a; color: var(--green);  border: 1px solid var(--green); }
+  .type-negative          { background: #3a1a1a; color: #ff7b72;       border: 1px solid #ff7b72; }
+  .type-inconclusive      { background: #3a2a1a; color: var(--orange); border: 1px solid var(--orange); }
+  .type-derived_field_artifact { background: #2a2a1a; color: var(--purple); border: 1px solid var(--purple); }
+  .finding-title {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .finding-conf {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .finding-expand {
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .finding-card.open .finding-expand { transform: rotate(90deg); }
+  .finding-card-body {
+    display: none;
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .finding-card.open .finding-card-body { display: block; }
+  .finding-section {
+    margin-top: 14px;
+  }
+  .finding-section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 5px;
+  }
+  .finding-section-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .finding-evidence-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 14px;
+  }
+  .finding-evidence-col {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+  }
+  .finding-evidence-col-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .finding-record {
+    font-size: 12px;
+    color: var(--text);
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+    line-height: 1.4;
+  }
+  .finding-record:last-child { border-bottom: none; }
+  .finding-record-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .finding-qrem {
+    margin-top: 14px;
+    background: #1f2d3d;
+    border: 1px solid #2d4a6b;
+    border-radius: 4px;
+    padding: 10px 12px;
+  }
+  .finding-qrem-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    margin-bottom: 5px;
+  }
+  .finding-qrem-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .finding-questions {
+    margin-top: 14px;
+  }
+  .finding-question {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px 0 4px 12px;
+    border-left: 2px solid var(--border);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  /* Review actions */
+  .finding-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .finding-status-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-left: auto;
+  }
+  .status-tag-approved { background: #1a3a1a; color: var(--green); border: 1px solid var(--green); }
+  .status-tag-rejected { background: #3a1a1a; color: #ff7b72;      border: 1px solid #ff7b72; }
+  .status-tag-pending  { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+  /* Revision input */
+  .revision-area {
+    display: none;
+    margin-top: 10px;
+    width: 100%;
+  }
+  .revision-area.visible { display: flex; gap: 8px; }
+  .revision-input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    resize: vertical;
+    min-height: 60px;
+  }
+  .revision-input:focus { outline: none; border-color: var(--orange); }
+  .no-findings {
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 16px 0;
+  }
+  .review-summary {
+    display: flex;
+    gap: 16px;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .review-summary span { color: var(--text); font-weight: 500; }
 </style>
 </head>
 <body>
-
 <header>
   <h1>C2QA // Ingestion Pipeline</h1>
-  <p>Ingest papers → review duplicates → build database
+  <p>Ingest papers → review duplicates → build database → mine corpus
     <a href="materials_explorer.html">→ Open Materials Explorer</a>
   </p>
 </header>
-
 <div class="pipeline">
 
   <!-- ── Stage 1: Ingest ── -->
@@ -292,7 +460,6 @@
       </div>
     </div>
   </div>
-
   <div class="connector">↓</div>
 
   <!-- ── Stage 2: Deduplicate ── -->
@@ -311,7 +478,6 @@
       </div>
     </div>
   </div>
-
   <div class="connector">↓</div>
 
   <!-- ── Stage 3: Build ── -->
@@ -329,23 +495,71 @@
       <div class="build-output" id="buildOutput"></div>
     </div>
   </div>
+  <div class="connector">↓</div>
 
-</div>
+  <!-- ── Stage 4: Mine Corpus ── -->
+  <div class="stage" id="stage-mine">
+    <div class="stage-header">
+      <span class="stage-num">STAGE 4</span>
+      <span class="stage-title">Mine Corpus</span>
+      <span class="stage-status status-waiting" id="mine-status-badge">Ready</span>
+    </div>
+    <div class="stage-body">
+
+      <!-- Controls row -->
+      <div class="mining-controls">
+        <button class="btn btn-primary" id="btnRunMining" onclick="runMining()">
+          Run Mining (Phase A → B → C)
+        </button>
+        <button class="btn btn-success btn-sm" id="btnLoadFindings"
+                onclick="loadFindings()" style="opacity:0.7">
+          Load Existing Findings
+        </button>
+      </div>
+
+      <!-- Mining progress log -->
+      <div class="mining-log" id="miningLog"></div>
+
+      <!-- Findings area -->
+      <div id="findingsArea" style="display:none">
+        <div class="review-summary" id="reviewSummary"></div>
+        <div id="findingsList"></div>
+        <!-- Update DB button — shown after reviews -->
+        <div id="updateDbRow" style="display:none;margin-top:12px;">
+          <button class="btn btn-success" onclick="buildDatabase()">
+            Update Database with Approved Findings
+          </button>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;
+                       color:var(--muted);margin-left:12px;">
+            Then git push → Explorer updates on Render
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end .pipeline -->
 
 <script>
-let pollInterval = null;
-let dupPairs = [];
-let decidedCount = 0;
+// ═══════════════════════════════════════════════════════════
+// Shared state
+// ═══════════════════════════════════════════════════════════
+let pollInterval   = null;
+let dupPairs       = [];
+let decidedCount   = 0;
+let miningPollInt  = null;
+let findings       = [];   // loaded finding records
 
-// ── Stage 1 — Ingestion ───────────────────────────────────────────────────
-
+// ═══════════════════════════════════════════════════════════
+// Stage 1 — Ingestion
+// ═══════════════════════════════════════════════════════════
 async function startIngestion() {
   const papersDir = document.getElementById('papersDir').value.trim();
   document.getElementById('btnIngest').disabled = true;
   document.getElementById('ingestLog').classList.add('visible');
   document.getElementById('ingestStats').classList.add('visible');
   setStageStatus('ingest', 'running', 'Running...');
-
   try {
     const r = await fetch('/api/ingest/start', {
       method: 'POST',
@@ -353,16 +567,9 @@ async function startIngestion() {
       body: JSON.stringify({papers_dir: papersDir})
     });
     const d = await r.json();
-    if (!d.ok) {
-      appendLog('ERROR: ' + d.error, 'fail');
-      return;
-    }
-  } catch(e) {
-    appendLog('ERROR: ' + e, 'fail');
-    return;
-  }
+    if (!d.ok) { appendLog('ERROR: ' + d.error, 'fail'); return; }
+  } catch(e) { appendLog('ERROR: ' + e, 'fail'); return; }
 
-  // Start polling
   let lastLen = 0;
   pollInterval = setInterval(async () => {
     try {
@@ -370,36 +577,29 @@ async function startIngestion() {
       const d = await r.json();
       if (!d.ok) return;
       const state = d.state;
-
-      // Append new log lines
       const lines = state.progress || [];
       for (let i = lastLen; i < lines.length; i++) {
         const line = lines[i];
-        let cls = 'log-line';
-        if (line.includes('[OK]')) cls += ' ok';
-        else if (line.includes('Skipping')) cls += ' skip';
-        else if (line.includes('FAILED')) cls += ' fail';
-        else if (line.includes('===')) cls += ' summary';
-        else if (line.startsWith('[')) cls += ' current';
-        appendLog(line, cls.replace('log-line ', '').replace('log-line', ''));
+        let cls = '';
+        if (line.includes('[OK]'))      cls = 'ok';
+        else if (line.includes('Skipping')) cls = 'skip';
+        else if (line.includes('FAILED'))   cls = 'fail';
+        else if (line.includes('==='))      cls = 'summary';
+        else if (line.startsWith('['))      cls = 'current';
+        appendLog(line, cls);
       }
       lastLen = lines.length;
-
-      // Update stats
       document.getElementById('statSuccess').textContent = state.success;
       document.getElementById('statSkipped').textContent = state.skipped;
       document.getElementById('statFailed').textContent  = state.failed;
-
-      // Done?
       if (state.done && !state.running) {
         clearInterval(pollInterval);
         setStageStatus('ingest', 'done', 'Complete');
-        // Enable duplicate check
         document.getElementById('btnCheckDups').disabled = false;
         setStageStatus('dedup', 'review', 'Ready');
         loadDuplicates();
       }
-    } catch(e) { /* ignore poll errors */ }
+    } catch(e) {}
   }, 1500);
 }
 
@@ -412,44 +612,36 @@ function appendLog(text, cls) {
   log.scrollTop = log.scrollHeight;
 }
 
-// ── Stage 2 — Duplicates ──────────────────────────────────────────────────
-
+// ═══════════════════════════════════════════════════════════
+// Stage 2 — Duplicates
+// ═══════════════════════════════════════════════════════════
 async function loadDuplicates() {
   document.getElementById('btnCheckDups').disabled = true;
   setStageStatus('dedup', 'running', 'Checking...');
-
   try {
     const r = await fetch('/api/duplicates');
     const d = await r.json();
     if (!d.ok) return;
-
     dupPairs = d.pairs;
     decidedCount = 0;
     renderDuplicates();
-  } catch(e) {
-    console.error('Dup check failed', e);
-  }
+  } catch(e) { console.error('Dup check failed', e); }
 }
 
 function renderDuplicates() {
   const container = document.getElementById('dupContent');
-
   if (dupPairs.length === 0) {
     container.innerHTML = '<div class="no-dups">✓ No potential duplicates found</div>';
     setStageStatus('dedup', 'done', 'No duplicates');
     enableBuild();
     return;
   }
-
   let html = `<div style="color:var(--muted);font-size:12px;margin-bottom:12px;">
-    Found ${dupPairs.length} potential duplicate pair(s) — review each before building the database.
+    Found ${dupPairs.length} potential duplicate pair(s) — review each before building.
   </div>`;
-
   dupPairs.forEach((pair, i) => {
-    const a = pair.paper_a;
-    const b = pair.paper_b;
+    const a = pair.paper_a, b = pair.paper_b;
     const sim = Math.round(pair.similarity * 100);
-
     html += `
     <div class="dup-pair" id="dup-${i}">
       <div class="dup-similarity">Title similarity: ${sim}%</div>
@@ -457,28 +649,27 @@ function renderDuplicates() {
         <div class="dup-paper">
           <div class="dup-filename">${a.filename}</div>
           <div class="dup-title">${a.title || '—'}</div>
-          <div class="dup-meta">${a.authors || ''} · ${a.journal || 'unknown journal'} · ${a.num_samples} samples</div>
+          <div class="dup-meta">${a.authors||''} · ${a.journal||'unknown'} · ${a.num_samples} samples</div>
         </div>
         <div class="dup-paper">
           <div class="dup-filename">${b.filename}</div>
           <div class="dup-title">${b.title || '—'}</div>
-          <div class="dup-meta">${b.authors || ''} · ${b.journal || 'unknown journal'} · ${b.num_samples} samples</div>
+          <div class="dup-meta">${b.authors||''} · ${b.journal||'unknown'} · ${b.num_samples} samples</div>
         </div>
       </div>
       <div class="dup-actions">
-        <button class="btn btn-primary" onclick="decideDup(${i}, 'duplicate', '${a.filename}')">
+        <button class="btn btn-primary btn-sm" onclick="decideDup(${i},'duplicate','${a.filename}')">
           Keep ${a.filename.replace('.pdf','')}
         </button>
-        <button class="btn btn-primary" onclick="decideDup(${i}, 'duplicate', '${b.filename}')">
+        <button class="btn btn-primary btn-sm" onclick="decideDup(${i},'duplicate','${b.filename}')">
           Keep ${b.filename.replace('.pdf','')}
         </button>
-        <button class="btn btn-warning" onclick="decideDup(${i}, 'not_duplicate', null)">
+        <button class="btn btn-warning btn-sm" onclick="decideDup(${i},'not_duplicate',null)">
           Not a duplicate
         </button>
       </div>
     </div>`;
   });
-
   container.innerHTML = html;
   setStageStatus('dedup', 'review', `${dupPairs.length} to review`);
 }
@@ -489,31 +680,23 @@ async function decideDup(i, decision, keep) {
     await fetch('/api/duplicates/decide', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        paper_a:  pair.paper_a.filename,
-        paper_b:  pair.paper_b.filename,
-        decision: decision,
-        keep:     keep,
-      })
+      body: JSON.stringify({paper_a: pair.paper_a.filename, paper_b: pair.paper_b.filename,
+                            decision, keep})
     });
-
-    // Fade out decided pair
     const el = document.getElementById(`dup-${i}`);
     el.style.opacity = '0.3';
     el.style.pointerEvents = 'none';
-
     decidedCount++;
     if (decidedCount >= dupPairs.length) {
       setStageStatus('dedup', 'done', 'All reviewed');
       enableBuild();
     }
-  } catch(e) {
-    console.error('Decision failed', e);
-  }
+  } catch(e) { console.error('Decision failed', e); }
 }
 
-// ── Stage 3 — Build ───────────────────────────────────────────────────────
-
+// ═══════════════════════════════════════════════════════════
+// Stage 3 — Build Database
+// ═══════════════════════════════════════════════════════════
 function enableBuild() {
   document.getElementById('btnBuild').disabled = false;
   setStageStatus('build', 'review', 'Ready');
@@ -522,38 +705,384 @@ function enableBuild() {
 async function buildDatabase() {
   document.getElementById('btnBuild').disabled = true;
   setStageStatus('build', 'running', 'Building...');
-  document.getElementById('buildOutput').classList.add('visible');
-  document.getElementById('buildOutput').textContent = 'Building database...';
-
+  const out = document.getElementById('buildOutput');
+  out.classList.add('visible');
+  out.textContent = 'Building database...';
   try {
     const r = await fetch('/api/build', {method: 'POST'});
     const d = await r.json();
-    document.getElementById('buildOutput').textContent = d.output || 'Done.';
+    out.textContent = d.output || 'Done.';
     if (d.ok) {
       setStageStatus('build', 'done', 'Complete ✓');
-      document.getElementById('buildOutput').style.color = 'var(--green)';
-      // Show link to Materials Explorer
+      out.style.color = 'var(--green)';
       const link = document.createElement('div');
       link.style.cssText = 'margin-top:16px;font-family:"IBM Plex Mono",monospace;font-size:13px;';
-      link.innerHTML = '<a href="materials_explorer.html" style="color:var(--accent);text-decoration:none;font-size:14px;">→ Open Materials Explorer</a>';
+      link.innerHTML = '<a href="materials_explorer.html" style="color:var(--accent);text-decoration:none;">→ Open Materials Explorer</a>';
       document.getElementById('stage-build').querySelector('.stage-body').appendChild(link);
     } else {
       setStageStatus('build', 'review', 'Error');
-      document.getElementById('buildOutput').style.color = 'var(--orange)';
+      out.style.color = 'var(--orange)';
     }
   } catch(e) {
-    document.getElementById('buildOutput').textContent = 'Error: ' + e;
+    out.textContent = 'Error: ' + e;
     setStageStatus('build', 'review', 'Error');
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// Stage 4 — Mine Corpus
+// ═══════════════════════════════════════════════════════════
 
+// ── Run the full A→B→C pipeline ───────────────────────────
+async function runMining() {
+  document.getElementById('btnRunMining').disabled = true;
+  setStageStatus('mine', 'running', 'Running...');
+  const log = document.getElementById('miningLog');
+  log.classList.add('visible');
+  log.innerHTML = '';
+  appendMiningLog('Starting Phase A → B → C pipeline...', 'current');
+
+  try {
+    const r = await fetch('/api/mining/run', {method: 'POST'});
+    const d = await r.json();
+    if (!d.ok) {
+      appendMiningLog('ERROR: ' + d.error, 'fail');
+      document.getElementById('btnRunMining').disabled = false;
+      return;
+    }
+  } catch(e) {
+    appendMiningLog('ERROR: ' + e, 'fail');
+    document.getElementById('btnRunMining').disabled = false;
+    return;
+  }
+
+  // Poll for status
+  let lastLen = 0;
+  miningPollInt = setInterval(async () => {
+    try {
+      const r = await fetch('/api/mining/status');
+      const d = await r.json();
+      if (!d.ok) return;
+      const state = d.state;
+      const lines = state.progress || [];
+      for (let i = lastLen; i < lines.length; i++) {
+        const line = lines[i];
+        let cls = '';
+        if (line.includes('[OK]') || line.includes('✓')) cls = 'ok';
+        else if (line.includes('ERROR'))   cls = 'fail';
+        else if (line.includes('==='))     cls = 'summary';
+        else if (line.startsWith('['))     cls = 'current';
+        appendMiningLog(line, cls);
+      }
+      lastLen = lines.length;
+      if (state.done && !state.running) {
+        clearInterval(miningPollInt);
+        if (state.error) {
+          setStageStatus('mine', 'review', 'Error');
+          appendMiningLog('Pipeline failed: ' + state.error, 'fail');
+          document.getElementById('btnRunMining').disabled = false;
+        } else {
+          appendMiningLog('Pipeline complete — loading findings...', 'ok');
+          await loadFindings();
+        }
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+function appendMiningLog(text, cls) {
+  const log = document.getElementById('miningLog');
+  const div = document.createElement('div');
+  div.className = 'log-line' + (cls ? ' ' + cls : '');
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── Load and render findings ───────────────────────────────
+async function loadFindings() {
+  try {
+    const r = await fetch('/api/mining/findings');
+    const d = await r.json();
+    if (!d.ok) {
+      appendMiningLog('Could not load findings: ' + d.error, 'fail');
+      return;
+    }
+    findings = d.findings;
+    renderFindings();
+  } catch(e) {
+    appendMiningLog('Error loading findings: ' + e, 'fail');
+  }
+}
+
+function renderFindings() {
+  const area = document.getElementById('findingsArea');
+  const list = document.getElementById('findingsList');
+  area.style.display = 'block';
+
+  if (!findings || findings.length === 0) {
+    list.innerHTML = '<div class="no-findings">No findings yet — run the mining pipeline first.</div>';
+    setStageStatus('mine', 'waiting', 'No findings');
+    return;
+  }
+
+  // Summary counts
+  updateReviewSummary();
+
+  // Render each finding card
+  list.innerHTML = findings.map((f, i) => renderFindingCard(f, i)).join('');
+
+  const pending = findings.filter(f => f.review_status === 'pending').length;
+  setStageStatus('mine', pending > 0 ? 'review' : 'done',
+                 pending > 0 ? `${pending} to review` : 'All reviewed ✓');
+}
+
+function renderFindingCard(f, i) {
+  const writeup   = f.writeup || {};
+  const ftype     = writeup.finding_type || 'inconclusive';
+  const title     = writeup.title || f.hypothesis_key;
+  const summary   = writeup.summary || '';
+  const detail    = writeup.finding_detail || '';
+  const conf      = f.phase_b_confidence ?? writeup.confidence ?? '?';
+  const confPct   = typeof conf === 'number' ? Math.round(conf * 100) + '%' : conf;
+  const qrem      = writeup.qrem_implications || '';
+  const perMat    = writeup.per_material_recommendation || '';
+  const alt       = writeup.alternative_explanations || '';
+  const followup  = writeup.suggested_followup || '';
+  const questions = writeup.questions_for_reviewer || [];
+  const status    = f.review_status || 'pending';
+  const evSummary = writeup.evidence_summary || {};
+
+  const typeLabel = {
+    positive: '✓ POSITIVE', negative: '✗ NEGATIVE',
+    inconclusive: '~ INCONCLUSIVE', derived_field_artifact: '⚠ DERIVED'
+  }[ftype] || ftype.toUpperCase();
+
+  const statusClass = {approved: 'approved', rejected: 'rejected', revising: 'revising'}[status] || '';
+  const statusTag = status !== 'pending'
+    ? `<span class="finding-status-tag status-tag-${status}">${status.toUpperCase()}</span>` : '';
+
+  // Supporting records
+  const supRecords = (f.supporting_records || []).slice(0, 5).map(r =>
+    `<div class="finding-record">
+      <div class="finding-record-name">${r.display_name || r}</div>
+      <div style="font-size:11px;color:var(--muted)">${r.reason || ''}</div>
+    </div>`
+  ).join('');
+
+  // Complicating records
+  const compRecords = (f.complicating_records || []).slice(0, 5).map(r =>
+    `<div class="finding-record">
+      <div class="finding-record-name">${r.display_name || r}</div>
+      <div style="font-size:11px;color:var(--muted)">${r.reason || ''}</div>
+    </div>`
+  ).join('');
+
+  const questionsHtml = questions.map(q =>
+    `<div class="finding-question">${q}</div>`
+  ).join('');
+
+  const reviewActions = status === 'pending' ? `
+    <button class="btn btn-success btn-sm" onclick="approveFinding(${i})">Accept Finding</button>
+    <button class="btn btn-warning btn-sm" onclick="toggleRevise(${i})">Send Back for Revision</button>
+    <button class="btn btn-danger  btn-sm" onclick="rejectFinding(${i})">Reject Finding</button>
+    <div class="revision-area" id="revise-area-${i}">
+      <textarea class="revision-input" id="revise-notes-${i}"
+                placeholder="Describe what needs revision..."></textarea>
+      <button class="btn btn-warning btn-sm"
+              onclick="submitRevision(${i})" style="align-self:flex-start">Send Back</button>
+    </div>` : `
+    <button class="btn btn-sm" style="background:var(--card);color:var(--muted);border:1px solid var(--border)"
+            onclick="resetFinding(${i})">Reset to Pending</button>`;
+
+  return `
+  <div class="finding-card ${statusClass}" id="finding-card-${i}">
+    <div class="finding-card-header" onclick="toggleFinding(${i})">
+      <span class="finding-type-badge type-${ftype}">${typeLabel}</span>
+      <span class="finding-title">${title}</span>
+      <span class="finding-conf">conf: ${confPct}</span>
+      ${statusTag}
+      <span class="finding-expand">›</span>
+    </div>
+    <div class="finding-card-body">
+      ${summary ? `<div class="finding-section">
+        <div class="finding-section-label">Summary</div>
+        <div class="finding-section-text">${summary}</div>
+      </div>` : ''}
+      ${detail ? `<div class="finding-section">
+        <div class="finding-section-label">Detail</div>
+        <div class="finding-section-text">${detail}</div>
+      </div>` : ''}
+      <div class="finding-evidence-row">
+        <div class="finding-evidence-col">
+          <div class="finding-evidence-col-label">Supporting (${(f.supporting_records||[]).length})</div>
+          ${supRecords || '<div style="color:var(--muted);font-size:12px">None identified</div>'}
+        </div>
+        <div class="finding-evidence-col">
+          <div class="finding-evidence-col-label">Complicating (${(f.complicating_records||[]).length})</div>
+          ${compRecords || '<div style="color:var(--muted);font-size:12px">None identified</div>'}
+        </div>
+      </div>
+      ${alt ? `<div class="finding-section">
+        <div class="finding-section-label">Alternative Explanations</div>
+        <div class="finding-section-text">${alt}</div>
+      </div>` : ''}
+      ${qrem ? `<div class="finding-qrem">
+        <div class="finding-qrem-label">⚙ QREM Mapping Layer Implications</div>
+        <div class="finding-qrem-text">${qrem}</div>
+      </div>` : ''}
+      ${perMat ? `<div class="finding-section">
+        <div class="finding-section-label">Per-Material Recommendation</div>
+        <div class="finding-section-text">${perMat}</div>
+      </div>` : ''}
+      ${questionsHtml ? `<div class="finding-questions">
+        <div class="finding-section-label">Questions for Reviewer</div>
+        ${questionsHtml}
+      </div>` : ''}
+      ${followup ? `<div class="finding-section">
+        <div class="finding-section-label">Suggested Follow-up</div>
+        <div class="finding-section-text">${followup}</div>
+      </div>` : ''}
+      <div class="finding-actions">${reviewActions}</div><div style="font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5">Accept = finding is correct (including negative results) · Send Back = needs revision · Reject Finding = analysis is flawed</div>
+    </div>
+  </div>`;
+}
+
+function toggleFinding(i) {
+  const card = document.getElementById(`finding-card-${i}`);
+  card.classList.toggle('open');
+}
+
+// ── Review actions ─────────────────────────────────────────
+async function approveFinding(i) {
+  const f = findings[i];
+  try {
+    const r = await fetch('/api/mining/approve', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({hypothesis_key: f.hypothesis_key})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      findings[i].review_status = 'approved';
+      refreshCard(i);
+      updateReviewSummary();
+      checkAllReviewed();
+    }
+  } catch(e) { console.error('Approve failed', e); }
+}
+
+async function rejectFinding(i) {
+  const f = findings[i];
+  try {
+    const r = await fetch('/api/mining/reject', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({hypothesis_key: f.hypothesis_key})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      findings[i].review_status = 'rejected';
+      refreshCard(i);
+      updateReviewSummary();
+      checkAllReviewed();
+    }
+  } catch(e) { console.error('Reject failed', e); }
+}
+
+function toggleRevise(i) {
+  const area = document.getElementById(`revise-area-${i}`);
+  area.classList.toggle('visible');
+  findings[i]._revisingOpen = area.classList.contains('visible');
+}
+
+async function submitRevision(i) {
+  const f     = findings[i];
+  const notes = document.getElementById(`revise-notes-${i}`).value.trim();
+  if (!notes) { alert('Please enter revision notes before submitting.'); return; }
+  try {
+    const r = await fetch('/api/mining/revise', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({hypothesis_key: f.hypothesis_key, notes})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      findings[i].review_status = 'revising';
+      findings[i].review_notes  = notes;
+      refreshCard(i);
+      updateReviewSummary();
+      checkAllReviewed();
+    }
+  } catch(e) { console.error('Revision failed', e); }
+}
+
+async function resetFinding(i) {
+  const f = findings[i];
+  try {
+    const r = await fetch('/api/mining/reset', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({hypothesis_key: f.hypothesis_key})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      findings[i].review_status = 'pending';
+      refreshCard(i);
+      updateReviewSummary();
+    }
+  } catch(e) { console.error('Reset failed', e); }
+}
+
+function refreshCard(i) {
+  const card = document.getElementById(`finding-card-${i}`);
+  const wasOpen = card.classList.contains('open');
+  card.outerHTML = renderFindingCard(findings[i], i);
+  if (wasOpen) {
+    document.getElementById(`finding-card-${i}`).classList.add('open');
+  }
+}
+
+function updateReviewSummary() {
+  const approved = findings.filter(f => f.review_status === 'approved').length;
+  const rejected = findings.filter(f => f.review_status === 'rejected').length;
+  const revising = findings.filter(f => f.review_status === 'revising').length;
+  const pending  = findings.filter(f => f.review_status === 'pending').length;
+  document.getElementById('reviewSummary').innerHTML = `
+    <div>Total: <span>${findings.length}</span></div>
+    <div style="color:var(--green)">Approved: <span style="color:var(--green)">${approved}</span></div>
+    <div style="color:#ff7b72">Rejected: <span style="color:#ff7b72">${rejected}</span></div>
+    <div style="color:var(--orange)">Needs revision: <span style="color:var(--orange)">${revising}</span></div>
+    <div>Pending: <span>${pending}</span></div>
+  `;
+}
+
+function checkAllReviewed() {
+  const pending = findings.filter(f => f.review_status === 'pending').length;
+  const approved = findings.filter(f => f.review_status === 'approved').length;
+  if (pending === 0) {
+    setStageStatus('mine', 'done', 'All reviewed ✓');
+    if (approved > 0) {
+      document.getElementById('updateDbRow').style.display = 'block';
+    }
+  } else {
+    setStageStatus('mine', 'review', `${pending} to review`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Shared helpers
+// ═══════════════════════════════════════════════════════════
 function setStageStatus(stage, type, text) {
   const badge = document.getElementById(`${stage}-status-badge`);
   badge.className = `stage-status status-${type}`;
   badge.textContent = text;
 }
+
+// Auto-load findings on page load (in case a previous run exists)
+window.addEventListener('load', () => {
+  loadFindings().catch(() => {});
+});
 </script>
 </body>
 </html>
