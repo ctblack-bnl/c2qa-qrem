@@ -20,6 +20,26 @@ from typing import List, Tuple, Dict
 from circuit_ir import CircuitIR
 
 
+def compute_circuit_depth(ir: CircuitIR) -> int:
+    """
+    Compute circuit depth via critical path traversal.
+
+    Tracks the accumulated depth at each qubit as we walk the gate list
+    in order. For each gate, its depth = max(depth of its qubits) + 1.
+    Circuit depth = the maximum qubit depth at the end.
+
+    Measurements are included — they are real time-consuming operations
+    and nothing on that qubit can proceed until they complete.
+    This matches Qiskit's convention.
+    """
+    qubit_depth = {q: 0 for q in ir.qubits}
+    for gate in ir.gates:
+        depth_here = max(qubit_depth[q] for q in gate.qubits) + 1
+        for q in gate.qubits:
+            qubit_depth[q] = depth_here
+    return max(qubit_depth.values()) if qubit_depth else 0
+
+
 @dataclass
 class AnalysisResult:
     """
@@ -28,6 +48,11 @@ class AnalysisResult:
     """
     # --- Provenance ---
     source_file: str
+
+    # --- Circuit depth ---
+    # Length of the critical path through the gate dependency graph.
+    # Sets the per-gate logical error rate target in Stage 3.
+    circuit_depth: int
 
     # --- The interaction graph ---
     # Nodes = qubits, Edges = interactions, Edge weight = number of interactions
@@ -54,6 +79,7 @@ class AnalysisResult:
     def summary(self) -> str:
         lines = []
         lines.append(f"Analysis: {self.source_file}")
+        lines.append(f"  Circuit depth       : {self.circuit_depth}")
         lines.append(f"  Qubits in graph     : {self.graph.number_of_nodes()}")
         lines.append(f"  Interacting pairs   : {self.graph.number_of_edges()}")
         lines.append(f"  Locality score      : {self.locality_score:.2f}  (1.0 = very local, 0.0 = very spread)")
@@ -80,6 +106,9 @@ def analyze(ir: CircuitIR) -> AnalysisResult:
         AnalysisResult with interaction graph and derived metrics
     """
     print(f"Analyzing: {ir.source_file}")
+
+    # --- Compute circuit depth ---
+    circuit_depth = compute_circuit_depth(ir)
 
     # --- Build the interaction graph ---
     # Start with an empty graph and add all qubits as nodes
@@ -143,6 +172,7 @@ def analyze(ir: CircuitIR) -> AnalysisResult:
 
     result = AnalysisResult(
         source_file=ir.source_file,
+        circuit_depth=circuit_depth,
         graph=graph,
         interaction_pairs=interaction_pairs,
         qubit_interaction_counts=qubit_interaction_counts,

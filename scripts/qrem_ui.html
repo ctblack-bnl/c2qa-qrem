@@ -96,21 +96,25 @@
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: 300px 1fr;   /* slightly wider left panel */
-    grid-template-rows: auto 1fr;
-    min-height: calc(100vh - 61px);
+    grid-template-columns: 300px 1fr;
+    align-items: start;
   }
 
   /* ── Left panel — controls ───────────────────────────────── */
   .panel-controls {
-    grid-row: 1 / 3;
     border-right: 1px solid var(--border);
-    padding: 24px 20px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 16px;
     background: rgba(17,24,32,0.6);
     overflow-y: auto;
+  }
+
+  /* ── Right side — metrics + chart stacked with no gap ───── */
+  .panel-right {
+    display: flex;
+    flex-direction: column;
   }
   .section-label {
     font-family: var(--mono);
@@ -328,12 +332,12 @@
 
   /* ── Top right — metric cards ────────────────────────────── */
   .panel-metrics {
-    padding: 24px 28px 18px;
+    padding: 16px 28px 14px;
     border-bottom: 1px solid var(--border);
   }
   .metrics-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 12px;
   }
   .metric-card {
@@ -422,7 +426,7 @@
 
   /* ── Bottom right — chart ────────────────────────────────── */
   .panel-chart {
-    padding: 20px 28px 28px;
+    padding: 0 28px 20px;
     display: flex;
     flex-direction: column;
   }
@@ -430,7 +434,8 @@
     display: flex;
     align-items: baseline;
     gap: 16px;
-    margin-bottom: 14px;
+    margin-bottom: 8px;
+    padding-top: 12px;
   }
   .chart-title {
     font-family: var(--mono);
@@ -446,9 +451,8 @@
     color: var(--text-muted);
   }
   .chart-wrap {
-    flex: 1;
     position: relative;
-    min-height: 240px;
+    height: 240px;
   }
   canvas#chart { width: 100%; height: 100%; display: block; }
 
@@ -539,25 +543,27 @@
             </select>
           </div>
           <div>
-            <div class="hw-row-label">Interconnect</div>
-            <select id="profile-interconnect" onchange="updateHwSummary()">
-              <option>Loading…</option>
-            </select>
-          </div>
-          <div>
-            <div class="hw-row-label">Module</div>
-            <select id="profile-module" onchange="updateHwSummary()">
-              <option>Loading…</option>
-            </select>
-          </div>
-          <div>
             <div class="hw-row-label">Error Correction</div>
             <select id="profile-ec" onchange="updateHwSummary()">
               <option>Loading…</option>
             </select>
           </div>
+          <!-- Interconnect and Module profiles preserved in hardware_profiles/ —
+               not active in single-module estimator. Reconnect when Tier 2
+               (estimator_tier2_modular.py) is integrated. -->
         </div>
       </div>
+    </div>
+
+    <!-- Target circuit success rate -->
+    <div>
+      <div class="section-label">Target Circuit Success Rate</div>
+      <select id="target-success-rate">
+        <option value="0.90">90% — exploratory</option>
+        <option value="0.99" selected>99% — standard</option>
+        <option value="0.999">99.9% — high demand</option>
+        <option value="0.9999">99.99% — very high demand</option>
+      </select>
     </div>
 
     <!-- Fidelity slider -->
@@ -586,6 +592,7 @@
     <div id="circuit-analysis" style="display:none">
       <div class="section-label">Circuit Analysis</div>
       <table class="analysis-table">
+        <tr><td>Circuit depth</td><td id="ca-depth">—</td></tr>
         <tr><td>Single-qubit gates</td><td id="ca-sq">—</td></tr>
         <tr><td>Two-qubit gates</td><td id="ca-tq">—</td></tr>
         <tr><td>Measurements</td><td id="ca-meas">—</td></tr>
@@ -606,6 +613,9 @@
 
   </aside>
 
+  <!-- ── Right side: metrics + chart stacked ── -->
+  <div class="panel-right">
+
   <!-- ── Top right: Metric cards ── -->
   <div class="panel-metrics">
     <div class="metrics-grid" id="metrics-grid">
@@ -617,7 +627,10 @@
         <div class="metric-sub">surface code d</div>
         <div class="metric-expand-panel" id="expand-code-dist">
           Minimum odd d such that<br>
-          (p/threshold)^((d+1)/2) ≤ target<br>
+          (p/threshold)^((d+1)/2) ≤ target LER<br>
+          <br>
+          Target LER derived from circuit depth:<br>
+          1 − success_rate^(1/depth)<br>
           <br>
           <span id="expand-code-dist-detail" style="color:var(--text-label)">—</span>
         </div>
@@ -655,49 +668,9 @@
         <div class="metric-expand-panel" id="expand-total">
           Computation qubits<br>
           + magic state factory qubits<br>
-          + communication qubits<br>
+          (single-module lower bound)<br>
           <br>
           <span id="expand-total-detail" style="color:var(--text-label)">—</span>
-        </div>
-      </div>
-
-      <div class="metric-card" id="card-modules">
-        <div class="metric-card-expand" onclick="toggleCardExpand('card-modules')" title="Show calculation">›</div>
-        <div class="metric-label">Modules</div>
-        <div class="metric-value" id="val-modules">—</div>
-        <div class="metric-sub" id="sub-modules">needed</div>
-        <div class="metric-expand-panel" id="expand-modules">
-          ceil(total physical qubits /<br>qubits per module)<br>
-          <br>
-          <span id="expand-modules-detail" style="color:var(--text-label)">—</span>
-        </div>
-      </div>
-
-      <div class="metric-card" id="card-intermodule">
-        <div class="metric-card-expand" onclick="toggleCardExpand('card-intermodule')" title="Show calculation">›</div>
-        <div class="metric-label">Inter-Module</div>
-        <div class="metric-value" id="val-intermodule">—</div>
-        <div class="metric-sub">of 2q gates</div>
-        <div class="metric-expand-panel" id="expand-intermodule">
-          Two-qubit gates where the<br>two qubits are on different modules.<br>
-          Each requires a purified Bell pair<br>via lattice surgery.<br>
-          <br>
-          <span id="expand-intermodule-detail" style="color:var(--text-label)">—</span>
-        </div>
-      </div>
-
-      <div class="metric-card" id="card-slowdown">
-        <div class="metric-card-expand" onclick="toggleCardExpand('card-slowdown')" title="Show calculation">›</div>
-        <div class="metric-label">Link Slowdown</div>
-        <div class="metric-value" id="val-slowdown">—</div>
-        <div class="metric-sub">× vs local gate</div>
-        <div class="metric-expand-panel" id="expand-slowdown">
-          Runtime cost of one inter-module<br>
-          gate relative to a local 2q gate.<br>
-          Includes Bell pair generation<br>
-          + entanglement purification.<br>
-          <br>
-          <span id="expand-slowdown-detail" style="color:var(--text-label)">—</span>
         </div>
       </div>
 
@@ -707,8 +680,8 @@
   <!-- ── Bottom right: Staircase chart ── -->
   <div class="panel-chart">
     <div class="chart-header">
-      <div class="chart-title">Fidelity → Module Count</div>
-      <div class="chart-subtitle">staircase curve — marker shows current estimate</div>
+      <div class="chart-title">Fidelity → Physical Qubit Count</div>
+      <div class="chart-subtitle">steps = code distance thresholds · d= labels where space permits</div>
     </div>
     <div class="chart-wrap">
       <canvas id="chart"></canvas>
@@ -717,6 +690,8 @@
       </div>
     </div>
   </div>
+
+  </div> <!-- end .panel-right -->
 
 </div>
 
@@ -739,7 +714,7 @@
   </div>
   <div class="status-item" style="margin-left:auto">
     <span class="status-key">C2QA Baby QREM</span>
-    <span class="status-val">v0.4 — April 2026</span>
+    <span class="status-val">v0.5 — April 2026 — single-module</span>
   </div>
 </div>
 
@@ -759,10 +734,8 @@ function toggleHwConfig() {
 
 function updateHwSummary() {
   const q  = document.getElementById('profile-qubits').value;
-  const ic = document.getElementById('profile-interconnect').value;
-  const m  = document.getElementById('profile-module').value;
   const ec = document.getElementById('profile-ec').value;
-  const parts = [q, ic, m, ec].filter(Boolean);
+  const parts = [q, ec].filter(Boolean);
   document.getElementById('hw-summary').textContent =
     parts.length ? parts.join(' · ') : 'No profiles selected';
 }
@@ -808,10 +781,10 @@ async function loadProfiles() {
     if (!data.ok) throw new Error(data.error);
     const profiles = data.profiles;
 
-    populateProfileSelect('profile-qubits',      profiles.qubits);
-    populateProfileSelect('profile-interconnect', profiles.interconnect);
-    populateProfileSelect('profile-module',        profiles.module);
-    populateProfileSelect('profile-ec',            profiles.error_correction);
+    populateProfileSelect('profile-qubits', profiles.qubits);
+    populateProfileSelect('profile-ec',     profiles.error_correction);
+    // Interconnect and module profiles not active in single-module estimator.
+    // profile-interconnect and profile-module elements no longer in the DOM.
 
     updateHwSummary();
   } catch(e) {
@@ -841,10 +814,13 @@ slider.addEventListener('input', () => {
 // ─────────────────────────────────────────────────────────────
 function getProfileSelection() {
   return {
-    qubits:          document.getElementById('profile-qubits').value,
-    interconnect:    document.getElementById('profile-interconnect').value,
-    module:          document.getElementById('profile-module').value,
+    qubits:           document.getElementById('profile-qubits').value,
     error_correction: document.getElementById('profile-ec').value,
+    // interconnect and module not active — Tier 2 not yet wired.
+    // Pass nullish values; serve.py will fall back to legacy profile path
+    // which already handles missing interconnect/module gracefully.
+    interconnect: null,
+    module:       null,
   };
 }
 
@@ -853,6 +829,7 @@ function getProfileSelection() {
 // ─────────────────────────────────────────────────────────────
 async function runEstimation(fidelity, circuit) {
   const profiles = getProfileSelection();
+  const successRate = parseFloat(document.getElementById('target-success-rate').value);
   const resp = await fetch('/api/estimate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -860,7 +837,8 @@ async function runEstimation(fidelity, circuit) {
       circuit,
       ...profiles,
       profile_overrides: {
-        gates: { two_qubit_fidelity_pct: parseFloat(fidelity) }
+        gates:            { two_qubit_fidelity_pct: parseFloat(fidelity) },
+        target_circuit_success_rate: successRate,
       }
     })
   });
@@ -870,18 +848,62 @@ async function runEstimation(fidelity, circuit) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Sweep fidelity range to build staircase curve
+// Build staircase curve — parameterized by code distance
+//
+// Rather than sweeping fidelity and calling the API 40 times,
+// we derive the full curve analytically from the single
+// estimation result we already have.
+//
+// From the surface code formula:
+//   logical_error_rate = (p / threshold) ^ ((d+1)/2)
+//
+// Back-deriving threshold from the known result:
+//   threshold = p / ler ^ (2/(d+1))
+//
+// Then for any target d, the minimum fidelity that achieves it
+// is the fidelity at which d-2 just fails:
+//   p_max(d) = threshold × target ^ (2/(d-1))
+//   fidelity_threshold(d) = (1 - p_max(d)) × 100
+//
+// This gives one exact point per code distance step, the curve
+// fills the full chart width by construction, and no API calls
+// are needed. Runs instantly.
 // ─────────────────────────────────────────────────────────────
-async function sweepCurve(circuit) {
+const MAX_D = 49;
+
+function buildCurve(numLogicalQubits, lerAchieved, physErrRate, currentFidelity, currentD) {
+  // Back-derive threshold and target from the current estimation result
+  const p = physErrRate;
+  const d = currentD;
+  // threshold: p / ler^(2/(d+1))
+  const threshold = p / Math.pow(lerAchieved, 2 / (d + 1));
+  // target logical error rate: what ler do we get at d=currentD exactly at boundary?
+  // Use a standard target of 1e-6 (the profile value) — derive it from the fact that
+  // d is the *minimum* d, meaning d-2 just failed:
+  // ler(d-2) > target  →  (p/threshold)^((d-1)/2) > target
+  // We can recover target = (p/threshold)^((d+1)/2) = lerAchieved (the achieved value at d)
+  // For the threshold fidelities, we need: what p makes d just sufficient?
+  // d is sufficient when (p/threshold)^((d+1)/2) <= target
+  // target = lerAchieved (the value we're targeting with this profile)
+  const target = lerAchieved;
+
   const points = [];
-  const steps = 40;
-  for (let i = 0; i <= steps; i++) {
-    const f = Math.round((99.00 + i * (0.99 / steps)) * 1000) / 1000;
-    const r = await runEstimation(f, circuit);
-    if (r.code_distance <= 50) {
-      points.push({ fidelity: f, modules: r.num_modules, code_distance: r.code_distance });
-    }
+  for (let di = 3; di <= MAX_D; di += 2) {
+    const physPerLogical = 2 * di * di - 1;
+    const totalPhysical  = numLogicalQubits * physPerLogical;
+    // Maximum p at which di is sufficient:
+    // (p/threshold)^((di+1)/2) = target  →  p = threshold × target^(2/(di+1))
+    const pMax = threshold * Math.pow(target, 2 / (di + 1));
+    const fidelityThreshold = (1 - pMax) * 100;
+    if (fidelityThreshold < 99.0 || fidelityThreshold > 99.999) continue;
+    points.push({
+      d: di,
+      fidelity: fidelityThreshold,
+      total_physical_qubits: totalPhysical,
+    });
   }
+  // Sort ascending fidelity: low fidelity (high d, many qubits) on the left
+  points.sort((a, b) => a.fidelity - b.fidelity);
   return points;
 }
 
@@ -903,43 +925,21 @@ function updateCards(result) {
   set('val-phys-logical', fmtNum(result.physical_qubits_per_logical),  'card-phys-logical', 'highlight');
   set('val-logical',      result.num_logical_qubits,                   'card-logical',      '');
   set('val-total',        fmtNum(result.total_physical_qubits),        'card-total',        '');
-  set('val-modules',      result.num_modules,                          'card-modules',
-      result.num_modules <= 2 ? 'good' : result.num_modules >= 10 ? 'warn' : '');
-  const pct = (result.intermodule_fraction * 100).toFixed(1) + '%';
-  set('val-intermodule', pct, 'card-intermodule',
-      result.intermodule_fraction > 0.4 ? 'warn' : '');
-
-  // Slowdown factor card — color coded by severity
-  const slowdown = result.inter_module_slowdown_factor;
-  const slowdownStr = slowdown ? slowdown.toLocaleString() + '×' : '—';
-  set('val-slowdown', slowdownStr, 'card-slowdown',
-      slowdown >= 1000 ? 'warn' : slowdown >= 100 ? '' : 'good');
 
   // Expand panel detail text
   const d = result.code_distance;
   const p = (result.physical_error_rate * 100).toFixed(3);
+  const targetLer = result.target_logical_error_rate;
+  const lerStr = (targetLer != null) ? targetLer.toExponential(2) : '—';
   document.getElementById('expand-code-dist-detail').textContent =
-    `p = ${p}%  →  d = ${d}`;
+    `depth=${result.circuit_depth ?? '—'}  success=${result.target_circuit_success_rate != null ? (result.target_circuit_success_rate*100).toFixed(1)+'%' : '—'}`
+    + `  →  LER target=${lerStr}`
+    + `  →  d=${d}`;
   document.getElementById('expand-phys-logical-detail').textContent =
     `2 × ${d}² − 1 = ${result.physical_qubits_per_logical}`;
   document.getElementById('expand-total-detail').textContent =
     `${result.computation_qubits.toLocaleString()} compute`
-    + ` + ${result.factory_qubits} factory`
-    + ` + ${result.comm_qubits_total} comm`;
-  document.getElementById('expand-modules-detail').textContent =
-    `⌈${result.total_physical_qubits.toLocaleString()} ÷ ${result.physical_qubits_per_module.toLocaleString()}⌉ = ${result.num_modules}`;
-  document.getElementById('expand-intermodule-detail').textContent =
-    `${result.num_intermodule_operations} of ${result.num_two_qubit_gates_circuit} two-qubit gates`
-    + ` · ${result.comm_qubits_per_link} comm qubits/link`;
-
-  // Slowdown expand panel
-  const purRounds = result.purification_rounds ?? 0;
-  const effTime = result.effective_gate_time_us ?? '—';
-  const postFid = result.fidelity_after_purification_pct ?? '—';
-  document.getElementById('expand-slowdown-detail').textContent =
-    `${purRounds} purification round${purRounds !== 1 ? 's' : ''}`
-    + ` · ${effTime} µs effective`
-    + `\nfidelity after purif: ${postFid}%`;
+    + ` + ${result.factory_qubits} factory`;
 
   // Status bar
   const feasEl = document.getElementById('status-feasible');
@@ -957,6 +957,7 @@ function updateCards(result) {
     result.platform || 'superconducting';
 
   // Circuit analysis panel
+  document.getElementById('ca-depth').textContent = result.circuit_depth;
   document.getElementById('ca-sq').textContent = result.num_single_qubit_gates;
   document.getElementById('ca-tq').textContent = result.num_two_qubit_gates_circuit;
   document.getElementById('ca-meas').textContent = result.num_measurements;
@@ -980,7 +981,7 @@ function updateCards(result) {
 // ─────────────────────────────────────────────────────────────
 // Draw staircase chart
 // ─────────────────────────────────────────────────────────────
-function drawChart(points, currentFidelity, currentModules) {
+function drawChart(points, currentFidelity, currentPhysicalQubits) {
   const canvas = document.getElementById('chart');
   const wrap   = canvas.parentElement;
   if (wrap.clientWidth === 0 || wrap.clientHeight === 0) return;
@@ -992,19 +993,21 @@ function drawChart(points, currentFidelity, currentModules) {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   const W = wrap.clientWidth, H = wrap.clientHeight;
-  const pad = { top: 16, right: 24, bottom: 40, left: 58 };
+  const pad = { top: 16, right: 24, bottom: 44, left: 80 };
   const cw = W - pad.left - pad.right;
   const ch = H - pad.top  - pad.bottom;
 
-  const maxModules = Math.max(...points.map(p => p.modules));
-  const firstDrop  = points.find(p => p.modules < maxModules);
-  const xMin = firstDrop ? Math.max(99.0, firstDrop.fidelity - 0.1) : 99.0;
+  const maxQ = Math.max(...points.map(p => p.total_physical_qubits));
   const xMax = 99.99;
-  const yMax = maxModules, yMin = 0;
+  // xMin = leftmost plotted point, no margin.
+  // The curve starts exactly at the left edge of the chart.
+  const xMin = Math.min(...points.map(p => p.fidelity));
+  const xRange = xMax - xMin;
+  const yMax = maxQ, yMin = 0;
 
   function niceInterval(range) {
     if (range === 0) return 1;
-    const rough = range / 6;
+    const rough = range / 5;
     const mag = Math.pow(10, Math.floor(Math.log10(rough)));
     const n = rough / mag;
     return n < 2 ? mag : n < 5 ? 2 * mag : 5 * mag;
@@ -1014,15 +1017,15 @@ function drawChart(points, currentFidelity, currentModules) {
   for (let t = 0; t <= yMax + interval; t += interval) yTicks.push(t);
 
   const toX = f => pad.left + (f - xMin) / (xMax - xMin) * cw;
-  const toY = m => pad.top  + ch - (m - yMin) / (yMax - yMin + interval * 0.5) * ch;
+  const toY = q => pad.top  + ch - (q - yMin) / (yMax - yMin + interval * 0.5) * ch;
 
   ctx.clearRect(0, 0, W, H);
 
   // Grid lines
   ctx.strokeStyle = 'rgba(30,58,95,0.6)';
   ctx.lineWidth = 1;
-  yTicks.forEach(m => {
-    const y = toY(m);
+  yTicks.forEach(q => {
+    const y = toY(q);
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
   });
 
@@ -1036,30 +1039,39 @@ function drawChart(points, currentFidelity, currentModules) {
   ctx.stroke();
 
   // Y labels
-  ctx.fillStyle = '#8aabbc';
-  ctx.font = '10px IBM Plex Mono, monospace';
+  ctx.fillStyle = '#c8dde8';
+  ctx.font = '12px IBM Plex Mono, monospace';
   ctx.textAlign = 'right';
-  yTicks.forEach(m => { ctx.fillText(m + ' mod', pad.left - 6, toY(m) + 3); });
-
-  // X labels
-  ctx.textAlign = 'center';
-  [99.0,99.1,99.2,99.3,99.4,99.5,99.6,99.7,99.8,99.9,99.99].forEach(f => {
-    if (f >= xMin - 0.01) ctx.fillText(f.toFixed(2)+'%', toX(f), pad.top + ch + 14);
+  yTicks.forEach(q => {
+    const label = q >= 1000 ? (q/1000).toFixed(0) + 'k' : String(q);
+    ctx.fillText(label + ' q', pad.left - 6, toY(q) + 4);
   });
 
+  // X labels — generated to cover the actual data range
+  ctx.fillStyle = '#c8dde8';
+  ctx.font = '12px IBM Plex Mono, monospace';
+  ctx.textAlign = 'center';
+  const xTickStep = xRange > 0.5 ? 0.1 : xRange > 0.2 ? 0.05 : 0.02;
+  const xTickStart = Math.ceil(xMin / xTickStep) * xTickStep;
+  for (let f = xTickStart; f <= xMax + 0.001; f = Math.round((f + xTickStep) * 1000) / 1000) {
+    if (toX(f) >= pad.left && toX(f) <= pad.left + cw) {
+      ctx.fillText(f.toFixed(2) + '%', toX(f), pad.top + ch + 16);
+    }
+  }
+
   // X title
-  ctx.fillStyle = '#3a5a7a';
-  ctx.font = '10px IBM Plex Mono, monospace';
-  ctx.fillText('two-qubit gate fidelity', pad.left + cw / 2, pad.top + ch + 30);
+  ctx.fillStyle = '#7a9ab0';
+  ctx.font = '11px IBM Plex Mono, monospace';
+  ctx.fillText('two-qubit gate fidelity', pad.left + cw / 2, pad.top + ch + 32);
 
   // Staircase fill
   ctx.beginPath();
-  ctx.moveTo(toX(Math.max(points[0].fidelity, xMin)), toY(0));
+  ctx.moveTo(toX(points[0].fidelity), toY(0));
   points.forEach((p, i) => {
-    if (p.fidelity < xMin) return;
-    const x1 = toX(Math.max(p.fidelity, xMin));
+    const x1 = toX(p.fidelity);
     const x2 = i < points.length - 1 ? toX(points[i+1].fidelity) : toX(xMax);
-    ctx.lineTo(x1, toY(p.modules)); ctx.lineTo(x2, toY(p.modules));
+    ctx.lineTo(x1, toY(p.total_physical_qubits));
+    ctx.lineTo(x2, toY(p.total_physical_qubits));
   });
   ctx.lineTo(toX(xMax), toY(0));
   ctx.closePath();
@@ -1072,19 +1084,32 @@ function drawChart(points, currentFidelity, currentModules) {
   ctx.beginPath();
   ctx.strokeStyle = 'rgba(0,212,255,0.7)';
   ctx.lineWidth = 1.5;
-  let started = false;
   points.forEach((p, i) => {
-    if (p.fidelity < xMin) return;
-    const x1 = toX(Math.max(p.fidelity, xMin));
+    const x1 = toX(p.fidelity);
     const x2 = i < points.length - 1 ? toX(points[i+1].fidelity) : toX(xMax);
-    if (!started) { ctx.moveTo(x1, toY(p.modules)); started = true; }
-    ctx.lineTo(x1, toY(p.modules)); ctx.lineTo(x2, toY(p.modules));
+    if (i === 0) ctx.moveTo(x1, toY(p.total_physical_qubits));
+    ctx.lineTo(x1, toY(p.total_physical_qubits));
+    ctx.lineTo(x2, toY(p.total_physical_qubits));
   });
   ctx.stroke();
 
+  // d= step labels — shown when the step is wide enough to fit the text
+  ctx.font = '11px IBM Plex Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(200,221,232,0.6)';
+  points.forEach((p, i) => {
+    const x1 = toX(p.fidelity);
+    const x2 = i < points.length - 1 ? toX(points[i+1].fidelity) : toX(xMax);
+    const stepWidth = x2 - x1;
+    if (stepWidth > 26) {
+      const y = toY(p.total_physical_qubits) - 5;
+      ctx.fillText(`d=${p.d}`, (x1 + x2) / 2, y);
+    }
+  });
+
   // Current position marker
   if (currentFidelity >= xMin) {
-    const mx = toX(currentFidelity), my = toY(currentModules);
+    const mx = toX(currentFidelity), my = toY(currentPhysicalQubits);
     ctx.beginPath();
     ctx.strokeStyle = 'rgba(0,212,255,0.35)';
     ctx.lineWidth = 1; ctx.setLineDash([3,4]);
@@ -1094,15 +1119,19 @@ function drawChart(points, currentFidelity, currentModules) {
     ctx.fillStyle = 'rgba(0,212,255,0.15)'; ctx.fill();
     ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2);
     ctx.fillStyle = '#00d4ff'; ctx.fill();
-    ctx.fillStyle = '#00d4ff';
-    ctx.font = '11px IBM Plex Mono, monospace';
-    const label = `${currentModules} mod @ ${currentFidelity.toFixed(2)}%`;
+    ctx.fillStyle = '#e8f4f8';
+    ctx.font = '12px IBM Plex Mono, monospace';
+    const qLabel = currentPhysicalQubits >= 1000
+      ? currentPhysicalQubits.toLocaleString() + ' q'
+      : currentPhysicalQubits + ' q';
+    const label = `${qLabel} @ ${currentFidelity.toFixed(2)}%`;
     const labelW = ctx.measureText(label).width;
     const labelX = (mx + 10 + labelW > W - pad.right) ? mx - labelW - 10 : mx + 10;
     ctx.textAlign = 'left';
     ctx.fillText(label, labelX, my - 6);
   }
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // Main run handler
@@ -1122,9 +1151,16 @@ runBtn.addEventListener('click', async () => {
     const result = await runEstimation(fidelity, circuit);
     lastResult = result;
     updateCards(result);
-    runBtn.textContent = 'Sweeping curve…';
-    curveData = await sweepCurve(circuit);
-    drawChart(curveData, fidelity, result.num_modules);
+    // Build the staircase curve client-side from the profile parameters
+    // returned in the single estimation result — no sweep API calls needed.
+    curveData = buildCurve(
+      result.num_logical_qubits,
+      result.logical_error_rate_achieved,   // used to back-derive threshold below
+      result.physical_error_rate,           // p at current fidelity
+      fidelity,
+      result.code_distance,
+    );
+    drawChart(curveData, fidelity, result.total_physical_qubits);
   } catch(e) {
     showError(e.message);
   } finally {
@@ -1140,7 +1176,7 @@ function showError(msg) {
 
 window.addEventListener('resize', () => {
   if (curveData && lastResult) {
-    drawChart(curveData, parseFloat(slider.value), lastResult.num_modules);
+    drawChart(curveData, parseFloat(slider.value), lastResult.total_physical_qubits);
   }
 });
 

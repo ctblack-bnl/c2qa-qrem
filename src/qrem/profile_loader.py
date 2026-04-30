@@ -102,7 +102,11 @@ def load_profile(
 
     for component, name in components.items():
         if not name:
-            raise ValueError(f"Missing profile component: {component}")
+            # Skip missing components — allows partial modular loading
+            # (e.g. qubits + error_correction only, without interconnect/module).
+            # Callers are responsible for ensuring the merged profile has all
+            # sections that estimator.py actually reads.
+            continue
 
         subdir = PROFILE_SUBDIRS[component]
         path = base / subdir / f"{name}.yaml"

@@ -38,13 +38,18 @@ LEGACY_PROFILE_PATH = PROFILES_DIR / "superconducting.yaml"
 CIRCUITS_DIR = REPO_ROOT / "data" / "circuits"
 
 
+STATIC_DIR = REPO_ROOT / "ingester" / "static"
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(REPO_ROOT), **kwargs)
 
     # ── Route GET requests ────────────────────────────────────────────────────
     def do_GET(self):
-        if self.path == "/api/profiles":
+        if self.path.startswith("/static/"):
+            self._handle_static()
+        elif self.path == "/api/profiles":
             self._handle_profiles()
         elif self.path == "/api/circuits":
             self._handle_circuits_get()
@@ -59,6 +64,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._handle_circuits_get()
         else:
             self._send_json(404, {"error": f"Unknown route: {self.path}"})
+
+    def _handle_static(self):
+        """Serve static files from ingester/static/."""
+        filename = self.path[len("/static/"):]
+        filepath = STATIC_DIR / filename
+        if not filepath.exists() or not filepath.is_file():
+            self._send_json(404, {"error": f"Static file not found: {filename}"})
+            return
+        suffix = filepath.suffix.lower()
+        content_types = {
+            ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".gif": "image/gif", ".svg": "image/svg+xml",
+            ".css": "text/css", ".js": "application/javascript",
+        }
+        content_type = content_types.get(suffix, "application/octet-stream")
+        data = filepath.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _handle_profiles(self):
         """
@@ -132,13 +158,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
             profile_overrides = body.get("profile_overrides", None)
 
-            # Determine modular vs legacy mode
+            # Determine modular vs legacy mode.
+            # In the single-module estimator, the UI sends null for interconnect
+            # and module (Tier 2 not yet active). Fall back to legacy profile
+            # when either is missing, which loads only qubits + error_correction.
             qubits          = body.get("qubits")
             interconnect    = body.get("interconnect")
             module          = body.get("module")
             error_correction = body.get("error_correction")
 
+            # Use modular mode only when all four components are present and non-null.
+            # Currently interconnect and module will be null (single-module estimator).
             use_modular = all([qubits, interconnect, module, error_correction])
+
+            # Partial modular: qubits + error_correction present, interconnect/module null.
+            # This is the normal operating mode for the single-module estimator.
+            use_partial_modular = bool(qubits and error_correction and not (interconnect and module))
 
             # Import here so import errors surface as clean JSON responses
             from estimator import run_estimation
@@ -158,6 +193,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     "qubits":           qubits,
                     "interconnect":     interconnect,
                     "module":           module,
+                    "error_correction": error_correction,
+                }
+            elif use_partial_modular:
+                # Single-module estimator: load qubits + error_correction only.
+                # Interconnect and module profiles are not needed (Tier 2 inactive).
+                result = run_estimation(
+                    circuit_path=str(circuit_path),
+                    profiles_dir=str(PROFILES_DIR),
+                    qubits=qubits,
+                    interconnect=None,
+                    module=None,
+                    error_correction=error_correction,
+                    profile_overrides=profile_overrides,
+                    verbose=False,
+                )
+                profile_used = {
+                    "qubits":           qubits,
                     "error_correction": error_correction,
                 }
             else:
