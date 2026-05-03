@@ -254,45 +254,6 @@
     color: var(--text-muted);
   }
 
-  /* run button */
-  button#run-btn {
-    width: 100%;
-    padding: 12px;
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    border-radius: 2px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-  button#run-btn:hover {
-    background: rgba(0,212,255,0.08);
-    box-shadow: 0 0 20px rgba(0,212,255,0.2);
-  }
-  button#run-btn.running {
-    color: var(--text-muted);
-    border-color: var(--border);
-    cursor: wait;
-  }
-  button#run-btn.running::after {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 40%;
-    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.15), transparent);
-    animation: shimmer 1s infinite;
-  }
-  @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(350%); }
-  }
 
   /* circuit analysis */
   .analysis-table {
@@ -487,7 +448,20 @@
     border-radius: 2px;
     margin-top: 8px;
   }
-  .empty-state {
+  .panel-below-chart {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--border);
+    padding: 16px 28px 80px; /* bottom pad for status bar */
+  }
+  .below-panel {
+    padding: 0 20px 0 0;
+  }
+  .below-panel + .below-panel {
+    padding: 0 0 0 20px;
+    border-left: 1px solid var(--border);
+  }
     display: flex;
     align-items: center;
     justify-content: center;
@@ -538,7 +512,7 @@
         <div class="hw-config-body">
           <div>
             <div class="hw-row-label">Qubits</div>
-            <select id="profile-qubits" onchange="updateHwSummary()">
+            <select id="profile-qubits" onchange="updateHwSummary(); fetchAndInitSliders(this.value).then(() => scheduleRun(0))">
               <option>Loading…</option>
             </select>
           </div>
@@ -566,47 +540,66 @@
       </select>
     </div>
 
-    <!-- Fidelity slider -->
+    <!-- T1 slider -->
     <div>
-      <div class="section-label">Two-Qubit Gate Fidelity</div>
+      <div class="section-label">T1 — Energy Relaxation Time</div>
       <div class="slider-row">
-        <span class="slider-label">Fidelity</span>
-        <span class="slider-value" id="fidelity-display">99.90%</span>
+        <span class="slider-label">T1</span>
+        <span class="slider-value" id="t1-display">200 µs</span>
+        <span class="slider-label" style="margin-left:8px; font-size:10px; color:var(--text-muted)" id="t1-provenance">[ASSUMED]</span>
       </div>
-      <input type="range" id="fidelity-slider"
-             min="99.0" max="99.99" step="0.01" value="99.90">
+      <input type="range" id="t1-slider" min="10" max="500" step="5" value="200">
       <div class="slider-ticks">
-        <span>99.0%</span>
-        <span>99.5%</span>
-        <span>99.99%</span>
+        <span>10 µs</span>
+        <span>250 µs</span>
+        <span>500 µs</span>
       </div>
     </div>
 
-    <!-- Run button -->
+    <!-- T2 slider -->
     <div>
-      <button id="run-btn">▶ Run Estimation</button>
-      <div class="error-banner" id="error-banner"></div>
+      <div class="section-label">T2 — Dephasing Time</div>
+      <div class="slider-row">
+        <span class="slider-label">T2</span>
+        <span class="slider-value" id="t2-display">400 µs</span>
+        <span class="slider-label" style="margin-left:8px; font-size:10px; color:var(--text-muted)" id="t2-provenance">[ASSUMED: 2×T1]</span>
+      </div>
+      <input type="range" id="t2-slider" min="10" max="1000" step="5" value="400">
+      <div class="slider-ticks">
+        <span>10 µs</span>
+        <span>500 µs</span>
+        <span>1000 µs</span>
+      </div>
+      <div style="margin-top:6px; display:flex; align-items:center; gap:8px">
+        <input type="checkbox" id="t2-link" checked>
+        <label for="t2-link" style="font-size:11px; color:var(--text-muted); cursor:pointer">
+          Link T2 = 2×T1 (Bloch limit)
+        </label>
+      </div>
     </div>
 
-    <!-- Circuit analysis -->
-    <div id="circuit-analysis" style="display:none">
-      <div class="section-label">Circuit Analysis</div>
-      <table class="analysis-table">
-        <tr><td>Circuit depth</td><td id="ca-depth">—</td></tr>
-        <tr><td>Single-qubit gates</td><td id="ca-sq">—</td></tr>
-        <tr><td>Two-qubit gates</td><td id="ca-tq">—</td></tr>
-        <tr><td>Measurements</td><td id="ca-meas">—</td></tr>
-        <tr><td>Locality score</td><td id="ca-locality">—</td></tr>
-        <tr><td>Hub qubits</td><td id="ca-hubs">—</td></tr>
-      </table>
+    <!-- Gate time display (read-only) -->
+    <div>
+      <div class="section-label">Gate Time (from profile)</div>
+      <div class="slider-row">
+        <span class="slider-label">2Q gate</span>
+        <span class="slider-value" id="gate-time-display">50 ns</span>
+        <span class="slider-label" style="margin-left:8px; font-size:10px; color:var(--text-muted)" id="gate-time-provenance">[ASSUMED]</span>
+      </div>
+      <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-family:var(--mono)">
+        Fixed by gate implementation — not a material property
+      </div>
     </div>
+
+    <!-- Error banner -->
+    <div class="error-banner" id="error-banner"></div>
 
     <!-- Assumptions -->
     <div style="flex:1">
       <div class="section-label">Simplifying Assumptions</div>
       <div class="assumptions-list" id="assumptions-list">
         <div class="assumption-item" style="opacity:0.5; border-color: #1e3a5f">
-          Run an estimation to see assumptions
+          Loading…
         </div>
       </div>
     </div>
@@ -619,6 +612,21 @@
   <!-- ── Top right: Metric cards ── -->
   <div class="panel-metrics">
     <div class="metrics-grid" id="metrics-grid">
+
+      <div class="metric-card" id="card-fidelity">
+        <div class="metric-card-expand" onclick="toggleCardExpand('card-fidelity')" title="Show calculation">›</div>
+        <div class="metric-label">Derived Fidelity</div>
+        <div class="metric-value" id="val-fidelity">—</div>
+        <div class="metric-sub">from T1, T2, gate time</div>
+        <div class="metric-expand-panel" id="expand-fidelity">
+          ε_total = ε_T1 + ε_T2 + ε_ctrl<br>
+          fidelity = 1 − ε_total<br><br>
+          ε_T1 = gate_time / T1<br>
+          ε_T2 = gate_time / T2<br>
+          ε_ctrl = fixed from baseline profile<br><br>
+          <span id="expand-fidelity-detail" style="color:var(--text-label)">—</span>
+        </div>
+      </div>
 
       <div class="metric-card" id="card-code-dist">
         <div class="metric-card-expand" onclick="toggleCardExpand('card-code-dist')" title="Show calculation">›</div>
@@ -680,15 +688,71 @@
   <!-- ── Bottom right: Staircase chart ── -->
   <div class="panel-chart">
     <div class="chart-header">
-      <div class="chart-title">Fidelity → Physical Qubit Count</div>
-      <div class="chart-subtitle">steps = code distance thresholds · d= labels where space permits</div>
+      <div class="chart-title">T1 → Physical Qubit Count</div>
+      <div class="chart-subtitle">steps = code distance thresholds · d= labels where space permits · T2 linked or fixed</div>
     </div>
     <div class="chart-wrap">
       <canvas id="chart"></canvas>
       <div class="empty-state" id="empty-state">
-        Select a circuit and run estimation to see the curve
+        Loading…
       </div>
     </div>
+  </div>
+
+  <!-- ── Below chart: Circuit Analysis + Error Attribution side by side ── -->
+  <div class="panel-below-chart" id="panel-below-chart" style="display:none">
+
+    <!-- Circuit Analysis -->
+    <div class="below-panel">
+      <div class="section-label">Circuit Analysis</div>
+      <table class="analysis-table">
+        <tr><td>Circuit depth</td><td id="ca-depth">—</td></tr>
+        <tr><td>Single-qubit gates</td><td id="ca-sq">—</td></tr>
+        <tr><td>Two-qubit gates</td><td id="ca-tq">—</td></tr>
+        <tr><td>Measurements</td><td id="ca-meas">—</td></tr>
+        <tr><td>Locality score</td><td id="ca-locality">—</td></tr>
+        <tr><td>Hub qubits</td><td id="ca-hubs">—</td></tr>
+      </table>
+    </div>
+
+    <!-- Error Attribution -->
+    <div class="below-panel" id="coherence-budget">
+      <div class="section-label">Error Attribution</div>
+      <table class="analysis-table">
+        <tr><td>T1</td><td id="cb-T1">—</td></tr>
+        <tr><td>T2</td><td id="cb-T2">—</td></tr>
+        <tr><td>Gate time</td><td id="cb-gate-time">—</td></tr>
+        <tr><td>T1-limited ceiling</td><td id="cb-ceiling">—</td></tr>
+        <tr><td>Derived fidelity</td><td id="cb-effective">—</td></tr>
+      </table>
+      <div style="margin-top:10px; margin-bottom:6px">
+        <div class="section-label" style="font-size:10px; margin-bottom:6px">Gate Error Decomposition</div>
+        <div id="cb-bar" style="display:flex; height:14px; border-radius:3px; overflow:hidden; margin-bottom:8px">
+          <div id="cb-bar-T1"      style="background:#00d4ff; transition:width 0.4s"></div>
+          <div id="cb-bar-T2"      style="background:#0099bb; transition:width 0.4s"></div>
+          <div id="cb-bar-control" style="background:#1e3a5f; transition:width 0.4s"></div>
+        </div>
+        <table class="analysis-table" id="cb-breakdown-table">
+          <tr>
+            <td><span style="display:inline-block;width:8px;height:8px;background:#00d4ff;border-radius:2px;margin-right:5px"></span>ε<sub>T1</sub> (relaxation)</td>
+            <td id="cb-eps-T1">—</td>
+            <td id="cb-frac-T1" style="color:var(--text-muted); font-size:11px">—</td>
+          </tr>
+          <tr>
+            <td><span style="display:inline-block;width:8px;height:8px;background:#0099bb;border-radius:2px;margin-right:5px"></span>ε<sub>T2</sub> (dephasing)</td>
+            <td id="cb-eps-T2">—</td>
+            <td id="cb-frac-T2" style="color:var(--text-muted); font-size:11px">—</td>
+          </tr>
+          <tr>
+            <td><span style="display:inline-block;width:8px;height:8px;background:#1e3a5f;border-radius:2px;margin-right:5px"></span>ε<sub>ctrl</sub> (control/other)</td>
+            <td id="cb-eps-ctrl">—</td>
+            <td id="cb-frac-ctrl" style="color:var(--text-muted); font-size:11px">—</td>
+          </tr>
+        </table>
+        <div id="cb-provenance" style="margin-top:6px; font-size:10px; color:var(--text-muted); font-family:var(--mono)"></div>
+      </div>
+    </div>
+
   </div>
 
   </div> <!-- end .panel-right -->
@@ -768,6 +832,10 @@ async function loadCircuits() {
       opt.value = c; opt.textContent = c;
       sel.appendChild(opt);
     });
+    // Default to test_circuit.qasm if available, else first in list
+    const preferred = 'test_circuit.qasm';
+    const match = (data.circuits || []).find(c => c === preferred);
+    if (match) sel.value = match;
   } catch(e) {
     document.getElementById('circuit-select').innerHTML =
       '<option>Could not load circuits</option>';
@@ -783,10 +851,21 @@ async function loadProfiles() {
 
     populateProfileSelect('profile-qubits', profiles.qubits);
     populateProfileSelect('profile-ec',     profiles.error_correction);
-    // Interconnect and module profiles not active in single-module estimator.
-    // profile-interconnect and profile-module elements no longer in the DOM.
+
+    // Default to transmon_baseline_2026 if available
+    const qSel = document.getElementById('profile-qubits');
+    const preferred = 'transmon_baseline_2026';
+    const match = (profiles.qubits || []).find(n => n === preferred);
+    if (match) qSel.value = match;
 
     updateHwSummary();
+
+    // Initialize sliders from the default-selected qubit profile
+    const defaultQubits = qSel.value;
+    if (defaultQubits) await fetchAndInitSliders(defaultQubits);
+
+    // Auto-run on boot with defaults
+    scheduleRun(0);
   } catch(e) {
     document.getElementById('hw-summary').textContent = 'Could not load profiles';
     console.error('Profile load failed:', e);
@@ -801,13 +880,62 @@ function populateProfileSelect(id, names) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Slider
+// T1 / T2 slider declarations and helpers
 // ─────────────────────────────────────────────────────────────
-const slider  = document.getElementById('fidelity-slider');
-const display = document.getElementById('fidelity-display');
-slider.addEventListener('input', () => {
-  display.textContent = parseFloat(slider.value).toFixed(2) + '%';
-});
+const t1Slider  = document.getElementById('t1-slider');
+const t2Slider  = document.getElementById('t2-slider');
+const t2Link    = document.getElementById('t2-link');
+const t1Display = document.getElementById('t1-display');
+const t2Display = document.getElementById('t2-display');
+const t2Prov    = document.getElementById('t2-provenance');
+
+function getT1() { return parseFloat(t1Slider.value); }
+function getT2() { return parseFloat(t2Slider.value); }
+
+function syncT2toT1() {
+  const t2val = Math.min(2 * getT1(), 1000);
+  t2Slider.value = t2val;
+  t2Display.textContent = t2val.toFixed(0) + ' µs';
+  t2Prov.textContent = '[ASSUMED: 2×T1]';
+}
+
+// ─────────────────────────────────────────────────────────────
+// Initialize sliders from loaded profile values
+// Called on boot and whenever the qubits profile dropdown changes
+// ─────────────────────────────────────────────────────────────
+async function fetchAndInitSliders(qubitsProfileName) {
+  try {
+    const resp = await fetch(`/api/profile_values?qubits=${encodeURIComponent(qubitsProfileName)}`);
+    const data = await resp.json();
+    if (!data.ok) return;
+
+    const T1 = data.T1_us ?? 200;
+    t1Slider.value = Math.min(Math.max(T1, 10), 500);
+    t1Display.textContent = T1.toFixed(0) + ' µs';
+    document.getElementById('t1-provenance').textContent =
+      (data.measured_fields || []).includes('T1_us') ? '[MEASURED]' : '[ASSUMED]';
+
+    if (data.T2_us != null) {
+      const T2 = data.T2_us;
+      t2Slider.value = Math.min(Math.max(T2, 10), 1000);
+      t2Display.textContent = T2.toFixed(0) + ' µs';
+      t2Link.checked = false;
+      t2Prov.textContent = (data.measured_fields || []).includes('T2_us')
+        ? '[MEASURED]' : '[ASSUMED]';
+    } else {
+      t2Link.checked = true;
+      syncT2toT1();
+    }
+
+    document.getElementById('gate-time-display').textContent =
+      (data.two_qubit_gate_time_ns ?? 50).toFixed(0) + ' ns';
+    document.getElementById('gate-time-provenance').textContent =
+      (data.measured_fields || []).includes('two_qubit_gate_time_ns')
+        ? '[MEASURED]' : '[ASSUMED]';
+  } catch(e) {
+    console.warn('Could not fetch profile values:', e);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 // Get current profile selection
@@ -827,7 +955,7 @@ function getProfileSelection() {
 // ─────────────────────────────────────────────────────────────
 // Run estimation (single point)
 // ─────────────────────────────────────────────────────────────
-async function runEstimation(fidelity, circuit) {
+async function runEstimation(t1_us, t2_us, circuit) {
   const profiles = getProfileSelection();
   const successRate = parseFloat(document.getElementById('target-success-rate').value);
   const resp = await fetch('/api/estimate', {
@@ -837,7 +965,7 @@ async function runEstimation(fidelity, circuit) {
       circuit,
       ...profiles,
       profile_overrides: {
-        gates:            { two_qubit_fidelity_pct: parseFloat(fidelity) },
+        coherence: { T1_us: t1_us, T2_us: t2_us },
         target_circuit_success_rate: successRate,
       }
     })
@@ -964,7 +1092,6 @@ function updateCards(result) {
   document.getElementById('ca-locality').textContent = parseFloat(result.locality_score).toFixed(2);
   document.getElementById('ca-hubs').textContent = result.hub_qubits.length > 0
     ? result.hub_qubits.join(', ') : 'none';
-  document.getElementById('circuit-analysis').style.display = 'block';
 
   // Assumptions
   const list = document.getElementById('assumptions-list');
@@ -1134,53 +1261,293 @@ function drawChart(points, currentFidelity, currentPhysicalQubits) {
 
 
 // ─────────────────────────────────────────────────────────────
-// Main run handler
+// Auto-run — no button needed
+// Triggered by: slider changes (debounced), dropdown changes (immediate)
+// Also runs on boot after profiles + sliders initialize
 // ─────────────────────────────────────────────────────────────
-const runBtn    = document.getElementById('run-btn');
 const errBanner = document.getElementById('error-banner');
+let autoRunTimer = null;
+let isRunning = false;
 
-runBtn.addEventListener('click', async () => {
-  const circuit  = document.getElementById('circuit-select').value;
-  const fidelity = parseFloat(slider.value);
-  if (!circuit) { showError('Please select a circuit.'); return; }
-  runBtn.classList.add('running');
-  runBtn.textContent = 'Running…';
+// ─────────────────────────────────────────────────────────────
+// Build T1 sensitivity curve (analytical — no API sweep)
+// ─────────────────────────────────────────────────────────────
+function buildT1Curve(result, t2_linked) {
+  const cb = result.coherence_budget;
+  if (!cb || !cb.computable) return [];
+  const gate_time_us    = cb.gate_time_us;
+  const epsilon_control = cb.epsilon_control;
+  const T2_fixed        = cb.T2_us;
+  const threshold  = result.physical_error_rate /
+                     Math.pow(result.logical_error_rate_achieved, 2 / (result.code_distance + 1));
+  const target_LER = result.target_logical_error_rate;
+  const n_logical  = result.num_logical_qubits;
+  const points = [];
+  for (let T1 = 10; T1 <= 500; T1 += 5) {
+    const T2 = t2_linked ? Math.min(2 * T1, 1000) : T2_fixed;
+    const eps_T1    = gate_time_us / T1;
+    const eps_T2    = gate_time_us / T2;
+    const eps_total = Math.min(eps_T1 + eps_T2 + epsilon_control, 1.0);
+    if (eps_total >= threshold) continue;
+    let code_d = null;
+    for (let d = 3; d < 100; d += 2) {
+      if (Math.pow(eps_total / threshold, (d + 1) / 2) <= target_LER) { code_d = d; break; }
+    }
+    if (code_d === null) continue;
+    points.push({
+      T1,
+      total_qubits: n_logical * (2 * code_d * code_d - 1),
+      code_d,
+    });
+  }
+  return points;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Update error attribution panel
+// ─────────────────────────────────────────────────────────────
+function updateCoherenceBudget(result) {
+  const panel = document.getElementById('coherence-budget');
+  if (!panel) return;
+  const cb = result.coherence_budget;
+  if (!cb || !cb.computable) { panel.style.display = 'none'; return; }
+
+  const fmtUs  = v => v != null ? v.toFixed(0) + ' µs' : '—';
+  const fmtNs  = v => v != null ? v.toFixed(0) + ' ns' : '—';
+  const fmtPct = v => v != null ? v.toFixed(3) + '%' : '—';
+  const fmtEps = v => v != null ? v.toExponential(2) : '—';
+  const fmtFrac= v => v != null ? '(' + v.toFixed(1) + '%)' : '';
+
+  const s = id => document.getElementById(id);
+  if (s('cb-T1'))       s('cb-T1').textContent       = fmtUs(cb.T1_us);
+  if (s('cb-T2'))       s('cb-T2').textContent       = fmtUs(cb.T2_us);
+  if (s('cb-gate-time'))s('cb-gate-time').textContent= fmtNs(cb.gate_time_ns);
+  if (s('cb-ceiling'))  s('cb-ceiling').textContent  = fmtPct(cb.t1_limited_fidelity_pct);
+  if (s('cb-effective'))s('cb-effective').textContent= fmtPct(cb.derived_fidelity_pct ?? cb.effective_fidelity_pct);
+  if (s('cb-eps-T1'))   s('cb-eps-T1').textContent   = fmtEps(cb.epsilon_T1);
+  if (s('cb-eps-T2'))   s('cb-eps-T2').textContent   = fmtEps(cb.epsilon_T2);
+  if (s('cb-eps-ctrl')) s('cb-eps-ctrl').textContent = fmtEps(cb.epsilon_control);
+
+  if (cb.fractions_meaningful) {
+    const bar = s('cb-bar');
+    if (bar) bar.style.display = 'flex';
+    if (s('cb-bar-T1'))      s('cb-bar-T1').style.width      = cb.T1_fraction_pct.toFixed(1) + '%';
+    if (s('cb-bar-T2'))      s('cb-bar-T2').style.width      = cb.T2_fraction_pct.toFixed(1) + '%';
+    if (s('cb-bar-control')) s('cb-bar-control').style.width = cb.control_fraction_pct.toFixed(1) + '%';
+    if (s('cb-frac-T1'))     s('cb-frac-T1').textContent     = fmtFrac(cb.T1_fraction_pct);
+    if (s('cb-frac-T2'))     s('cb-frac-T2').textContent     = fmtFrac(cb.T2_fraction_pct);
+    if (s('cb-frac-ctrl'))   s('cb-frac-ctrl').textContent   = fmtFrac(cb.control_fraction_pct);
+  } else {
+    const bar = s('cb-bar');
+    if (bar) bar.style.display = 'none';
+    if (s('cb-frac-ctrl')) s('cb-frac-ctrl').textContent = '(coherence-limited)';
+  }
+
+  const measured = cb.measured_fields || [];
+  const relevant = ['T1_us', 'T2_us', 'two_qubit_gate_time_ns'];
+  const meas = relevant.filter(f => measured.includes(f));
+  const assu = relevant.filter(f => !measured.includes(f));
+  let prov = '';
+  if (meas.length) prov += '[MEASURED] ' + meas.join(', ');
+  if (assu.length) prov += (prov ? '   ' : '') + '[ASSUMED] ' + assu.join(', ');
+  if (s('cb-provenance')) s('cb-provenance').textContent = prov;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Draw T1 sensitivity chart (log y-axis)
+// ─────────────────────────────────────────────────────────────
+function drawT1Chart(points, currentT1, currentQubits) {
+  const canvas = document.getElementById('chart');
+  const wrap   = canvas.parentElement;
+  if (!points.length || wrap.clientWidth === 0) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = wrap.clientWidth  * dpr;
+  canvas.height = wrap.clientHeight * dpr;
+  canvas.style.width  = wrap.clientWidth  + 'px';
+  canvas.style.height = wrap.clientHeight + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  const pad = { top: 16, right: 24, bottom: 44, left: 80 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top  - pad.bottom;
+
+  const minT1  = Math.min(...points.map(p => p.T1));
+  const maxT1  = Math.max(...points.map(p => p.T1));
+  const xRange = maxT1 - minT1 || 1;
+  const allQ   = points.map(p => p.total_qubits).filter(q => q > 0);
+  const logMin = Math.floor(Math.log10(Math.min(...allQ)));
+  const logMax = Math.ceil(Math.log10(Math.max(...allQ)));
+
+  function niceInterval(range) {
+    const rough = range / 5;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+    const n = rough / mag;
+    return n < 2 ? mag : n < 5 ? 2 * mag : 5 * mag;
+  }
+  const toX = t1 => pad.left + (t1 - minT1) / xRange * cw;
+  const toY = q  => q <= 0 ? pad.top + ch :
+    pad.top + ch - (Math.log10(q) - logMin) / (logMax - logMin) * ch;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Log grid + Y labels
+  ctx.font = '12px IBM Plex Mono, monospace';
+  ctx.textAlign = 'right';
+  for (let exp = logMin; exp <= logMax; exp++) {
+    const q = Math.pow(10, exp);
+    const y = toY(q);
+    ctx.strokeStyle = 'rgba(30,58,95,0.6)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    ctx.fillStyle = '#c8dde8';
+    ctx.fillText((q >= 1000 ? (q/1000).toFixed(0)+'k' : String(q)) + ' q', pad.left - 6, y + 4);
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(90,122,154,0.4)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top); ctx.lineTo(pad.left, pad.top + ch);
+  ctx.lineTo(pad.left + cw, pad.top + ch); ctx.stroke();
+
+  // X labels
+  ctx.fillStyle = '#c8dde8'; ctx.font = '12px IBM Plex Mono, monospace'; ctx.textAlign = 'center';
+  const xStep = niceInterval(xRange);
+  const xStart = Math.ceil(minT1 / xStep) * xStep;
+  for (let t = xStart; t <= maxT1 + 1; t += xStep)
+    ctx.fillText(t.toFixed(0) + ' µs', toX(t), pad.top + ch + 16);
+  ctx.fillStyle = '#7a9ab0'; ctx.font = '11px IBM Plex Mono, monospace';
+  ctx.fillText('T1 energy relaxation time', pad.left + cw / 2, pad.top + ch + 32);
+
+  // Curve fill
+  ctx.beginPath();
+  ctx.moveTo(toX(points[0].T1), pad.top + ch);
+  for (let i = 0; i < points.length; i++) {
+    const x1 = toX(points[i].T1);
+    const x2 = i < points.length - 1 ? toX(points[i+1].T1) : toX(maxT1);
+    ctx.lineTo(x1, toY(points[i].total_qubits));
+    ctx.lineTo(x2, toY(points[i].total_qubits));
+  }
+  ctx.lineTo(toX(maxT1), pad.top + ch); ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+  grad.addColorStop(0, 'rgba(0,212,255,0.12)');
+  grad.addColorStop(1, 'rgba(0,212,255,0.01)');
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Curve line
+  ctx.beginPath(); ctx.strokeStyle = 'rgba(0,212,255,0.7)'; ctx.lineWidth = 1.5;
+  for (let i = 0; i < points.length; i++) {
+    const x1 = toX(points[i].T1);
+    const x2 = i < points.length - 1 ? toX(points[i+1].T1) : toX(maxT1);
+    if (i === 0) ctx.moveTo(x1, toY(points[i].total_qubits));
+    ctx.lineTo(x1, toY(points[i].total_qubits));
+    ctx.lineTo(x2, toY(points[i].total_qubits));
+  }
+  ctx.stroke();
+
+  // Step labels d=N
+  ctx.font = '11px IBM Plex Mono, monospace'; ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(200,221,232,0.6)';
+  for (let i = 0; i < points.length; i++) {
+    if (i === 0 || points[i].code_d !== points[i-1].code_d) {
+      const endIdx = points.findIndex((p, j) => j > i && p.code_d !== points[i].code_d);
+      const endT1  = endIdx >= 0 ? points[endIdx].T1 : maxT1;
+      const stepW  = toX(endT1) - toX(points[i].T1);
+      if (stepW > 32) {
+        ctx.fillText(`d=${points[i].code_d}`,
+          toX(points[i].T1) + stepW / 2, toY(points[i].total_qubits) - 6);
+      }
+    }
+  }
+
+  // Current T1 marker — dot + stacked label
+  const curPt = points.reduce((best, p) =>
+    Math.abs(p.T1 - currentT1) < Math.abs(best.T1 - currentT1) ? p : best, points[0]);
+  const cx = toX(currentT1);
+  const cy = toY(curPt.total_qubits);
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+  ctx.fillStyle = '#00d4ff'; ctx.fill();
+  const labelRight = cx < pad.left + cw * 0.75;
+  ctx.textAlign = labelRight ? 'left' : 'right';
+  ctx.font = '11px IBM Plex Mono, monospace'; ctx.fillStyle = '#00d4ff';
+  const xOff = labelRight ? 10 : -10;
+  ctx.fillText(`T1 = ${currentT1} µs`, cx + xOff, cy - 8);
+  ctx.fillText(`${curPt.total_qubits.toLocaleString()} qubits`, cx + xOff, cy + 6);
+}
+
+async function triggerEstimation() {
+  if (isRunning) return;
+  const circuit = document.getElementById('circuit-select').value;
+  if (!circuit) return;
+
+  isRunning = true;
   errBanner.style.display = 'none';
   document.getElementById('empty-state').style.display = 'none';
+
+  // Show a subtle running indicator in the status bar
+  document.getElementById('status-feasible').textContent = 'running…';
+  document.getElementById('status-feasible').className = 'status-val';
+
   try {
-    const result = await runEstimation(fidelity, circuit);
+    const t1_us = getT1();
+    const t2_us = getT2();
+    const result = await runEstimation(t1_us, t2_us, circuit);
     lastResult = result;
     updateCards(result);
-    // Build the staircase curve client-side from the profile parameters
-    // returned in the single estimation result — no sweep API calls needed.
-    curveData = buildCurve(
-      result.num_logical_qubits,
-      result.logical_error_rate_achieved,   // used to back-derive threshold below
-      result.physical_error_rate,           // p at current fidelity
-      fidelity,
-      result.code_distance,
-    );
-    drawChart(curveData, fidelity, result.total_physical_qubits);
+    updateCoherenceBudget(result);
+    const t2_linked = document.getElementById('t2-link').checked;
+    curveData = buildT1Curve(result, t2_linked);
+    drawT1Chart(curveData, t1_us, result.total_physical_qubits);
+    document.getElementById('panel-below-chart').style.display = 'grid';
   } catch(e) {
     showError(e.message);
   } finally {
-    runBtn.classList.remove('running');
-    runBtn.textContent = '▶ Run Estimation';
+    isRunning = false;
   }
+}
+
+function scheduleRun(delay = 400) {
+  clearTimeout(autoRunTimer);
+  autoRunTimer = setTimeout(triggerEstimation, delay);
+}
+
+// Sliders — debounced
+t1Slider.addEventListener('input', () => {
+  t1Display.textContent = getT1().toFixed(0) + ' µs';
+  if (t2Link.checked) syncT2toT1();
+  scheduleRun(400);
 });
 
+t2Slider.addEventListener('input', () => {
+  t2Display.textContent = getT2().toFixed(0) + ' µs';
+  t2Prov.textContent = '[MANUAL]';
+  t2Link.checked = false;
+  scheduleRun(400);
+});
+
+// Checkbox — immediate
+t2Link.addEventListener('change', () => {
+  if (t2Link.checked) syncT2toT1();
+  scheduleRun(0);
+});
+
+// Dropdowns — immediate
+document.getElementById('circuit-select').addEventListener('change', () => scheduleRun(0));
+document.getElementById('profile-ec').addEventListener('change', () => scheduleRun(0));
+document.getElementById('target-success-rate').addEventListener('change', () => scheduleRun(0));
+
 function showError(msg) {
-  errBanner.textContent = msg;
+  errBanner.textContent = '⚠ ' + msg;
   errBanner.style.display = 'block';
 }
 
 window.addEventListener('resize', () => {
-  if (curveData && lastResult) {
-    drawChart(curveData, parseFloat(slider.value), lastResult.total_physical_qubits);
+  if (curveData && curveData.length && lastResult) {
+    drawT1Chart(curveData, getT1(), lastResult.total_physical_qubits);
   }
 });
 
 boot();
+
 </script>
 </body>
 </html>

@@ -49,6 +49,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith("/static/"):
             self._handle_static()
+        elif self.path.startswith("/api/profile_values"):
+            self._handle_profile_values()
         elif self.path == "/api/profiles":
             self._handle_profiles()
         elif self.path == "/api/circuits":
@@ -85,6 +87,57 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def _handle_profile_values(self):
+        """
+        Return the coherence and gate values from a named qubit profile.
+        Used to initialize T1/T2/gate_time sliders on page load and profile change.
+
+        Request: GET /api/profile_values?qubits=transmon_baseline_2026
+
+        Response:
+        {
+            "ok": true,
+            "T1_us": 200,
+            "T2_us": 300,
+            "two_qubit_gate_time_ns": 50,
+            "two_qubit_fidelity_pct": 99.9,
+            "measured_fields": [],
+            "assumed_fields": ["T1_us", "T2_us", ...]
+        }
+        """
+        try:
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            qubits_name = (params.get('qubits', [None])[0])
+
+            if not qubits_name:
+                self._send_json(400, {"error": "Missing ?qubits= parameter"})
+                return
+
+            from profile_loader import load_profile
+            profile = load_profile(
+                profiles_dir=str(PROFILES_DIR),
+                qubits=qubits_name,
+                error_correction=None,
+            )
+
+            coherence  = profile.get('coherence', {})
+            gates      = profile.get('gates', {})
+            provenance = profile.get('provenance', {})
+
+            self._send_json(200, {
+                "ok": True,
+                "T1_us":                  coherence.get('T1_us', 200),
+                "T2_us":                  coherence.get('T2_us', None),
+                "two_qubit_gate_time_ns": gates.get('two_qubit_gate_time_ns', 50),
+                "two_qubit_fidelity_pct": gates.get('two_qubit_fidelity_pct', 99.9),
+                "measured_fields":        provenance.get('measured_fields', []),
+                "assumed_fields":         provenance.get('assumed_fields', []),
+            })
+        except Exception as e:
+            self._send_json(500, {"error": str(e)})
 
     def _handle_profiles(self):
         """

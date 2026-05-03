@@ -41,8 +41,9 @@ gates:
   two_qubit_fidelity_pct: 99.9       # Fidelity of two-qubit gates (CNOT, CZ, etc.)
                                       # Dominant error source in most circuits.
                                       # Current best: 99.0-99.7%.
-  two_qubit_gate_time_ns: 200        # Time to execute a two-qubit gate, nanoseconds.
-                                      # Typical range: 100-500 ns.
+  two_qubit_gate_time_ns: 50         # Time to execute a two-qubit gate, nanoseconds.
+                                      # Typical range: 25-200 ns for tunable-coupler architectures.
+                                      # 50ns is representative of current state-of-the-art.
   readout_fidelity_pct: 99.5         # Fidelity of qubit measurement.
                                       # Critical for error correction syndrome measurements.
                                       # Current best: 99.0-99.9%.

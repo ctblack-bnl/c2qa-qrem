@@ -46,8 +46,9 @@ gates:
                                       # This is the dominant error source in most circuits.
                                       # Current best: 99.0-99.7%. 99.5 is ambitious but achievable.
 
-  two_qubit_gate_time_ns: 200        # Time to execute a two-qubit gate, in nanoseconds.
-                                      # Typical range: 100-500 ns. Much slower than single-qubit.
+  two_qubit_gate_time_ns: 50         # Time to execute a two-qubit gate, in nanoseconds.
+                                      # Typical range: 25-200 ns for tunable-coupler architectures.
+                                      # 50ns is representative of current state-of-the-art.
 
   readout_fidelity_pct: 99.5         # Fidelity of qubit measurement.
                                       # Critical for error correction syndrome measurements.

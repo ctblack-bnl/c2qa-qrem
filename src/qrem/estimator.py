@@ -98,6 +98,20 @@ class EstimationResult:
     comm_qubits_per_link: Optional[int] = None
     comm_qubits_total: Optional[int] = None
 
+    # --- Coherence budget ---
+    # T1-limited fidelity ceiling: the maximum gate fidelity physically achievable
+    # given T1 and gate time. If profile fidelity exceeds this, it is inconsistent.
+    t1_limited_fidelity_pct: Optional[float] = None   # 1 - t_gate/T1, as a percentage
+    effective_two_qubit_fidelity_pct: Optional[float] = None  # min(profile, T1 ceiling)
+
+    # Error decomposition — fractional contributions to total gate error.
+    # Based on standard first-order decoherence model (valid when t_gate << T1, T2).
+    # coherence_budget keys: 'epsilon_T1', 'epsilon_T2', 'epsilon_control',
+    #                         'total_error', 'T1_us', 'T2_us', 'gate_time_ns',
+    #                         'T1_fraction_pct', 'T2_fraction_pct', 'control_fraction_pct',
+    #                         'measured_fields', 'assumed_fields'
+    coherence_budget: Optional[dict] = None
+
     # --- Feasibility ---
     feasible: bool = True
     feasibility_notes: List[str] = field(default_factory=list)
@@ -190,12 +204,144 @@ def _estimate_magic_state_factories(num_t_gates: int,
     return num_factories, qubits_per_factory, num_factories * qubits_per_factory
 
 
+def _derive_control_error_baseline(profile: dict) -> float:
+    """
+    Derive ε_control from the baseline profile's stated fidelity and T1/T2/gate_time.
+
+    This anchors the control error to what the baseline profile implies, rather
+    than picking an arbitrary number. For corpus-derived profiles where fidelity
+    is assumed (not measured), this gives a self-consistent baseline.
+
+    ε_control = (1 - fidelity) - gate_time/T1 - gate_time/T2
+    Clamped to 0 if negative (coherence-limited regime).
+
+    Called once at estimation time to fix ε_control for the forward calculation.
+    """
+    coherence    = profile.get('coherence', {})
+    gates        = profile.get('gates', {})
+    T1_us        = coherence.get('T1_us', 200.0)
+    T2_us        = coherence.get('T2_us', 300.0)
+    gate_time_ns = gates.get('two_qubit_gate_time_ns', 50.0)
+    fidelity_pct = gates.get('two_qubit_fidelity_pct', 99.9)
+
+    gate_time_us    = gate_time_ns / 1000.0
+    epsilon_total   = 1.0 - (fidelity_pct / 100.0)
+    epsilon_T1      = gate_time_us / T1_us
+    epsilon_T2      = gate_time_us / T2_us
+    epsilon_control = max(0.0, epsilon_total - epsilon_T1 - epsilon_T2)
+    return epsilon_control
+
+
+def _compute_coherence_budget(profile: dict,
+                               epsilon_control_baseline: float) -> dict:
+    """
+    Forward calculation: derive gate fidelity from T1, T2, gate_time, and a
+    fixed control error baseline.
+
+    Mode 1 — materials-first:
+        Inputs:  T1, T2 (material properties), gate_time (device parameter),
+                 epsilon_control_baseline (fixed, derived from baseline profile)
+        Outputs: epsilon_T1, epsilon_T2, epsilon_total, derived_fidelity_pct
+
+    This is the reverse of the old approach. Fidelity is now an OUTPUT,
+    not an input. The researcher varies T1 and T2; everything else follows.
+
+    T2 fallback: if T2 is not present in the profile, use T2 = 2*T1
+    (theoretical Bloch equation limit — optimistic, flagged as assumed).
+
+    Reference: standard first-order decoherence model, valid when t_gate << T1, T2.
+    Control error baseline derived from profile's stated fidelity (Option 2).
+    """
+    coherence  = profile.get('coherence', {})
+    gates      = profile.get('gates', {})
+    provenance = profile.get('provenance', {})
+
+    T1_us        = coherence.get('T1_us')
+    T2_us_raw    = coherence.get('T2_us')
+    gate_time_ns = gates.get('two_qubit_gate_time_ns')
+
+    measured_fields = list(provenance.get('measured_fields', []))
+    assumed_fields  = list(provenance.get('assumed_fields', []))
+    assumptions     = []
+
+    # Cannot compute without T1 and gate_time — use profile defaults
+    if T1_us is None:
+        T1_us = 200.0
+        assumed_fields.append('T1_us')
+        assumptions.append("T1 not in profile — using default 200 µs.")
+
+    if gate_time_ns is None:
+        gate_time_ns = 50.0
+        assumed_fields.append('two_qubit_gate_time_ns')
+        assumptions.append("Gate time not in profile — using default 50 ns.")
+
+    # T2 fallback: use T2 = 2*T1 (Bloch equation limit) if not measured
+    t2_assumed = False
+    if T2_us_raw is None:
+        T2_us = 2.0 * T1_us
+        t2_assumed = True
+        assumed_fields.append('T2_us')
+        assumptions.append(
+            f"T2 not measured — using T2 = 2×T1 = {T2_us:.0f} µs "
+            f"(Bloch equation limit, optimistic; actual T2 may be lower due to pure dephasing)."
+        )
+    else:
+        T2_us = T2_us_raw
+
+    gate_time_us = gate_time_ns / 1000.0
+
+    # Forward calculation: T1, T2, gate_time → error contributions → fidelity
+    epsilon_T1      = gate_time_us / T1_us
+    epsilon_T2      = gate_time_us / T2_us
+    epsilon_total   = epsilon_T1 + epsilon_T2 + epsilon_control_baseline
+    # Clamp: total error can't exceed 1.0
+    epsilon_total   = min(epsilon_total, 1.0)
+    derived_fidelity_pct = (1.0 - epsilon_total) * 100.0
+
+    # T1-limited ceiling: best possible fidelity from T1 alone (T2, control = 0)
+    t1_limited_fidelity_pct = (1.0 - epsilon_T1) * 100.0
+
+    # Fractional breakdown — always meaningful in forward mode since
+    # epsilon_total is constructed from the three components
+    if epsilon_total > 0:
+        T1_fraction_pct      = (epsilon_T1                / epsilon_total) * 100.0
+        T2_fraction_pct      = (epsilon_T2                / epsilon_total) * 100.0
+        control_fraction_pct = (epsilon_control_baseline  / epsilon_total) * 100.0
+        fractions_meaningful = True
+    else:
+        T1_fraction_pct = T2_fraction_pct = control_fraction_pct = 0.0
+        fractions_meaningful = False
+
+    return {
+        'computable': True,
+        'T1_us': T1_us,
+        'T2_us': T2_us,
+        't2_assumed': t2_assumed,
+        'gate_time_ns': gate_time_ns,
+        'gate_time_us': gate_time_us,
+        'epsilon_T1': epsilon_T1,
+        'epsilon_T2': epsilon_T2,
+        'epsilon_control': epsilon_control_baseline,
+        'epsilon_total': epsilon_total,
+        'derived_fidelity_pct': derived_fidelity_pct,
+        't1_limited_fidelity_pct': t1_limited_fidelity_pct,
+        'fractions_meaningful': fractions_meaningful,
+        'T1_fraction_pct': T1_fraction_pct,
+        'T2_fraction_pct': T2_fraction_pct,
+        'control_fraction_pct': control_fraction_pct,
+        'measured_fields': measured_fields,
+        'assumed_fields': assumed_fields,
+        'assumptions': assumptions,
+    }
+
+
 def estimate(analysis: AnalysisResult,
              profile_path: str = None,
              profile_overrides: Optional[dict] = None,
              verbose: bool = True,
              ir=None,
-             profile: Optional[dict] = None) -> EstimationResult:
+             profile: Optional[dict] = None,
+             epsilon_control_baseline: Optional[float] = None) -> EstimationResult:
     """
     Run Stage 3 estimation: translate logical analysis into physical resources.
 
@@ -215,8 +361,24 @@ def estimate(analysis: AnalysisResult,
     if profile is None:
         profile = load_profile(legacy_path=profile_path, overrides=profile_overrides)
 
+    # --- Step 0: Derive control error baseline from profile ---
+    # ε_control must be derived from the UNMODIFIED profile (before T1/T2 slider overrides).
+    # If run_estimation pre-computed it from the clean profile, use that value.
+    # Otherwise fall back to deriving it from whatever profile we have.
+    if epsilon_control_baseline is None:
+        epsilon_control_baseline = _derive_control_error_baseline(profile)
+
+    # --- Compute coherence budget (forward: T1, T2 → fidelity) ---
+    # T1 and T2 are the primary material inputs. Gate fidelity is derived.
+    # T2 = 2*T1 fallback applied automatically if T2 missing from profile.
+    coherence_budget = _compute_coherence_budget(profile, epsilon_control_baseline)
+
     # --- Extract key parameters from profile ---
-    two_qubit_fidelity = profile['gates']['two_qubit_fidelity_pct'] / 100.0
+    # Fidelity is now DERIVED from T1/T2/gate_time, not taken from profile directly.
+    derived_fidelity_pct = coherence_budget['derived_fidelity_pct']
+    t1_limited_fidelity_pct = coherence_budget['t1_limited_fidelity_pct']
+
+    two_qubit_fidelity  = derived_fidelity_pct / 100.0
     physical_error_rate = 1.0 - two_qubit_fidelity
     threshold = profile['error_correction']['threshold']
 
@@ -274,16 +436,23 @@ def estimate(analysis: AnalysisResult,
     if feasible and not feasibility_notes:
         feasibility_notes.append("Physical error rate within correctable regime.")
 
+    # Propagate any coherence budget assumptions into feasibility notes
+    for note in coherence_budget.get('assumptions', []):
+        feasibility_notes.append(note)
+
     # --- Assumptions ---
     assumptions = [
+        f"Gate fidelity derived from materials: T1={coherence_budget['T1_us']:.0f} µs, "
+        f"T2={coherence_budget['T2_us']:.0f} µs, gate_time={coherence_budget['gate_time_ns']:.0f} ns "
+        f"→ derived fidelity {derived_fidelity_pct:.3f}%.",
+        f"Control error baseline ε_ctrl={epsilon_control_baseline*100:.4f}% fixed from profile "
+        f"(pulse errors, leakage, calibration — not materials-dependent).",
         "Perfect intra-module connectivity assumed (no SWAP routing overhead). "
         "Physical qubit count is a lower bound on total system size.",
         "Surface code analytical approximation used (not full Stim simulation).",
         "T gate count is placeholder (0) — magic state factory costs will be "
         "underestimated for T-gate-heavy circuits.",
-        "Modular overhead (Tier 2) not modeled — single-module estimator only. "
-        "Module count, inter-module operations, and communication qubit overhead "
-        "are a Center-wide research problem. See estimator_tier2_modular.py.",
+        "Modular overhead (Tier 2) not modeled — single-module estimator only.",
     ]
 
     result = EstimationResult(
@@ -303,6 +472,10 @@ def estimate(analysis: AnalysisResult,
         factory_qubits=factory_qubits,
         qubits_per_factory=qubits_per_factory,
         total_physical_qubits=total_physical_qubits,
+        # Coherence budget (forward: T1/T2 → fidelity)
+        t1_limited_fidelity_pct=t1_limited_fidelity_pct,
+        effective_two_qubit_fidelity_pct=derived_fidelity_pct,
+        coherence_budget=coherence_budget,
         # Tier 2 fields — not yet active
         physical_qubits_per_module=None,
         num_modules=None,
@@ -367,8 +540,18 @@ def run_estimation(
     from analyzer import analyze
 
     if profile_path:
+        # Load clean profile (no overrides) to derive stable ε_ctrl baseline
+        clean_profile = load_profile(legacy_path=profile_path)
         profile = load_profile(legacy_path=profile_path, overrides=profile_overrides)
     elif profiles_dir:
+        # Load clean profile (no overrides) to derive stable ε_ctrl baseline
+        clean_profile = load_profile(
+            profiles_dir=profiles_dir,
+            qubits=qubits,
+            interconnect=interconnect,
+            module=module,
+            error_correction=error_correction,
+        )
         profile = load_profile(
             profiles_dir=profiles_dir,
             qubits=qubits,
@@ -383,7 +566,8 @@ def run_estimation(
     ir = parse_qasm(circuit_path)
     analysis = analyze(ir)
     return estimate(analysis, profile_path=None, profile=profile,
-                    verbose=verbose, ir=ir)
+                    verbose=verbose, ir=ir,
+                    epsilon_control_baseline=_derive_control_error_baseline(clean_profile))
 
 
 # --- Allow running this file directly as a quick test ---
