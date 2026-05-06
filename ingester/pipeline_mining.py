@@ -146,9 +146,9 @@ FIELD_MAP: Dict[str, str] = {
     # Derived quantities
     "resistivity":                  "derived_resistivity_uOhm_cm",
     "normal state resistivity":     "derived_resistivity_uOhm_cm",
-    "bcs gap":                      "derived_BCS_gap_meV",
-    "energy gap":                   "derived_BCS_gap_meV",
-    "superconducting gap":          "derived_BCS_gap_meV",
+    "bcs gap":                      "Tc_K",  # deterministic transform of Tc — map directly
+    "energy gap":                   "Tc_K",  # deterministic transform of Tc — map directly
+    "superconducting gap":          "Tc_K",  # deterministic transform of Tc — map directly
 
     # Noise
     "flux noise":                   "json:flux_noise_amplitude_uPhi0_per_sqrtHz",
@@ -432,6 +432,7 @@ def load_corpus(db_path: Path) -> List[dict]:
             s.sim_material_class, s.sim_transport_regime,
             s.sim_coherence_tier, s.sim_device_type,
             s.sim_profile_version,
+            s.derived_material,
             s.Tc_K, s.RRR, s.sheet_resistance_Ohm_sq,
             s.loss_tangent_substrate, s.loss_tangent_interface,
             s.TLS_density, s.Qi_internal, s.Qi_single_photon,
@@ -557,23 +558,50 @@ def run_phase_a(db_path: Path, out_path: Path,
                 verbose: bool = False) -> dict:
     """
     Phase A: Evidence Extraction.
-
     Produces four output files:
       mining_evidence.jsonl            — evidence tables for Phase B
       mining_corpus_gaps.jsonl         — stated but unmeasurable
       mining_out_of_scope.jsonl        — device physics / exotic domain
       mining_measurement_frequency.json — community measurement patterns
+
+    Evidence tables are produced at two levels of stratification:
+      - "global"            : all materials combined (cross-corpus view)
+      - "<material_class>"  : within a single sim_material_class only
+
+    Both levels use the same stated correlations as seeds. The global
+    table is the original cross-corpus scan; per-class tables hold
+    material identity constant, which is the correct unit for most
+    materials-to-device connection hypotheses.
+
+    Phase B consumes all tables regardless of stratification level.
+    The `stratification` field in each table distinguishes them.
+    Tables with data_sufficient=False (< 3 co-occurring samples) are
+    written to the JSONL but skipped by Phase B — they will become
+    sufficient as the corpus grows.
     """
     print("=" * 60)
     print("Phase A — Evidence Extraction")
     print("=" * 60)
-
     print(f"\nLoading corpus from {db_path}...")
     corpus = load_corpus(db_path)
     mat_corpus = [s for s in corpus if is_materials_sample(s)]
     print(f"Loaded {len(corpus)} samples total")
     print(f"  Materials characterization : {len(mat_corpus)}")
     print(f"  Device/circuit (excluded)  : {len(corpus) - len(mat_corpus)}")
+
+    # ── Group mat_corpus by material class for stratified scan ─────────────
+    from collections import defaultdict
+    mat_corpus_by_class = defaultdict(list)
+    for s in mat_corpus:
+        cls = (s.get("derived_material") or "unknown").strip().lower()
+        if not cls:
+            cls = "unknown"
+        mat_corpus_by_class[cls].append(s)
+
+    print(f"\nMaterial classes in corpus:")
+    for cls, samples in sorted(mat_corpus_by_class.items(),
+                                key=lambda x: -len(x[1])):
+        print(f"  {cls:<30} : {len(samples)} samples")
 
     # Collect all correlation items from all samples
     all_correlations = []
@@ -589,12 +617,10 @@ def run_phase_a(db_path: Path, out_path: Path,
                     "value":          item.get("value"),
                     "notes":          item.get("notes"),
                 })
-
     print(f"\nFound {len(all_correlations)} correlation items total")
 
     # ── Parse and classify ─────────────────────────────────────────────────
     print("\nParsing and classifying correlations...")
-
     matched_hypotheses = {}
     corpus_gaps = []
     out_of_scope = []
@@ -602,7 +628,6 @@ def run_phase_a(db_path: Path, out_path: Path,
     for corr in all_correlations:
         value = corr.get("value") or ""
 
-        # Step 1: Parse "A vs B" (handles parentheses bug)
         parsed = parse_vs_pair(value)
         if parsed is None:
             if corr["is_materials"]:
@@ -620,7 +645,6 @@ def run_phase_a(db_path: Path, out_path: Path,
 
         term_a, term_b = parsed
 
-        # Step 2: Device/circuit physics check
         if is_device_physics(term_a, term_b):
             out_of_scope.append({
                 **corr,
@@ -630,7 +654,6 @@ def run_phase_a(db_path: Path, out_path: Path,
             })
             continue
 
-        # Step 3: Non-materials sample, non-device content
         if not corr["is_materials"]:
             corpus_gaps.append({
                 **corr,
@@ -641,11 +664,9 @@ def run_phase_a(db_path: Path, out_path: Path,
             })
             continue
 
-        # Step 4: Map terms to fields
         field_a, match_type_a, ambig_a = map_term_to_field(term_a)
         field_b, match_type_b, ambig_b = map_term_to_field(term_b)
 
-        # Step 5: Both sides unmatched
         if field_a is None and field_b is None:
             corpus_gaps.append({
                 **corr,
@@ -657,7 +678,6 @@ def run_phase_a(db_path: Path, out_path: Path,
             })
             continue
 
-        # Step 6: One side unmatched
         if field_a is None or field_b is None:
             corpus_gaps.append({
                 **corr,
@@ -676,9 +696,7 @@ def run_phase_a(db_path: Path, out_path: Path,
             })
             continue
 
-        # Step 7: Both sides map — add to matched hypotheses
         key = tuple(sorted([field_a, field_b]))
-
         if key not in matched_hypotheses:
             matched_hypotheses[key] = {
                 "field_a":             key[0],
@@ -686,7 +704,6 @@ def run_phase_a(db_path: Path, out_path: Path,
                 "stated_correlations": [],
                 "mapping_notes":       [],
             }
-
         matched_hypotheses[key]["stated_correlations"].append({
             **corr,
             "term_a":       term_a,
@@ -698,7 +715,6 @@ def run_phase_a(db_path: Path, out_path: Path,
             "match_type_b": match_type_b,
             "ambiguous_b":  ambig_b,
         })
-
         for ambig, term, field in [
             (ambig_a, term_a, field_a),
             (ambig_b, term_b, field_b),
@@ -713,69 +729,126 @@ def run_phase_a(db_path: Path, out_path: Path,
     print(f"  Corpus gaps        : {len(corpus_gaps)}")
     print(f"  Out of scope       : {len(out_of_scope)}")
 
-    # ── Cross-sample evidence scan ─────────────────────────────────────────
-    print(f"\nScanning materials corpus for co-occurrence evidence...")
+    # ── Cross-sample evidence scan — global + per-class ────────────────────
+    #
+    # For each matched hypothesis we produce:
+    #   1. One global evidence table  (stratification="global")
+    #   2. One table per material class that has any evidence
+    #      (stratification="<material_class>")
+    #
+    # Stated correlations are the same for all tables of a given hypothesis —
+    # they are corpus-wide author claims, not per-class.
+    #
+    # hypothesis_key format:
+    #   global    : "field_a_vs_field_b"
+    #   per-class : "field_a_vs_field_b__tantalum"
+
+    print(f"\nScanning corpus for co-occurrence evidence "
+          f"(global + {len(mat_corpus_by_class)} material classes)...")
 
     evidence_tables = []
 
-    for key, hyp in matched_hypotheses.items():
-        field_a = hyp["field_a"]
-        field_b = hyp["field_b"]
-
-        evidence_records = []
-        for sample in mat_corpus:
+    def _scan_samples(samples, field_a, field_b):
+        """Scan a list of samples for co-occurrence of two fields."""
+        records = []
+        for sample in samples:
             val_a = get_sample_value(sample, field_a)
             val_b = get_sample_value(sample, field_b)
             if val_a is not None and val_b is not None:
-                evidence_records.append(
+                records.append(
                     build_compact_evidence_record(
                         sample, field_a, field_b, val_a, val_b
                     )
                 )
+        return records
 
-        stats = {}
-        if evidence_records:
-            vals_a = [r["value_a"] for r in evidence_records]
-            vals_b = [r["value_b"] for r in evidence_records]
-            stats = {
-                "n_samples":     len(evidence_records),
-                "field_a_range": [min(vals_a), max(vals_a)],
-                "field_b_range": [min(vals_b), max(vals_b)],
-                "materials":     list({r["film_material"]
-                                       for r in evidence_records
-                                       if r["film_material"]}),
-            }
+    def _build_stats(records, field_a, field_b):
+        """Build summary stats for an evidence record set."""
+        if not records:
+            return {}
+        vals_a = [r["value_a"] for r in records]
+        vals_b = [r["value_b"] for r in records]
+        return {
+            "n_samples":     len(records),
+            "field_a_range": [min(vals_a), max(vals_a)],
+            "field_b_range": [min(vals_b), max(vals_b)],
+            "materials":     list({r["film_material"]
+                                   for r in records
+                                   if r["film_material"]}),
+        }
 
-        evidence_table = {
+    def _make_evidence_table(hyp, field_a, field_b, records,
+                              stratification, hypothesis_key):
+        """Assemble a complete evidence table record."""
+        stats = _build_stats(records, field_a, field_b)
+        return {
             "type":                     "evidence_table",
-            "hypothesis_key":           f"{field_a}_vs_{field_b}",
+            "hypothesis_key":           hypothesis_key,
+            "stratification":           stratification,
             "field_a":                  field_a,
             "field_b":                  field_b,
             "stated_correlation_count": len(hyp["stated_correlations"]),
-            "evidence_record_count":    len(evidence_records),
-            "data_sufficient":          len(evidence_records) >= 3,
+            "evidence_record_count":    len(records),
+            "data_sufficient":          len(records) >= 3,
             "mapping_notes":            hyp["mapping_notes"],
             "stated_correlations":      hyp["stated_correlations"],
-            "evidence_records":         evidence_records,
+            "evidence_records":         records,
             "stats":                    stats,
             "phase_a_generated_at":     datetime.now().isoformat(),
             "corpus_size":              len(corpus),
             "materials_corpus_size":    len(mat_corpus),
         }
 
-        evidence_tables.append(evidence_table)
+    for key, hyp in matched_hypotheses.items():
+        field_a = hyp["field_a"]
+        field_b = hyp["field_b"]
+        base_key = f"{field_a}_vs_{field_b}"
 
-        status = (f"{len(evidence_records)} samples"
-                  if evidence_records else "NO EVIDENCE")
-        thin = " ← thin" if 0 < len(evidence_records) < 3 else ""
-        print(f"  {field_a} × {field_b}: "
-              f"{len(hyp['stated_correlations'])} stated, "
-              f"{status}{thin}")
+        # ── 1. Global scan (all materials) ─────────────────────────────────
+        global_records = _scan_samples(mat_corpus, field_a, field_b)
+        global_table = _make_evidence_table(
+            hyp, field_a, field_b, global_records,
+            stratification="global",
+            hypothesis_key=base_key,
+        )
+        evidence_tables.append(global_table)
 
+        status = (f"{len(global_records)} samples"
+                  if global_records else "NO EVIDENCE")
+        thin = " ← thin" if 0 < len(global_records) < 3 else ""
+        print(f"  [global] {base_key}: "
+              f"{len(hyp['stated_correlations'])} stated, {status}{thin}")
+
+        # ── 2. Per-class scan ──────────────────────────────────────────────
+        for cls, cls_samples in sorted(mat_corpus_by_class.items()):
+            cls_records = _scan_samples(cls_samples, field_a, field_b)
+
+            # Always write the table — data_sufficient=False tables are
+            # skipped by Phase B but preserved for corpus growth over time
+            cls_key = f"{base_key}__{cls}"
+            cls_table = _make_evidence_table(
+                hyp, field_a, field_b, cls_records,
+                stratification=cls,
+                hypothesis_key=cls_key,
+            )
+            
+
+            if cls != "other":
+                evidence_tables.append(cls_table)
+            if cls_records:
+                thin_cls = " ← thin" if len(cls_records) < 3 else ""
+                excluded = " — EXCLUDED from Phase B" if cls == "other" else ""
+                print(f"  [{cls}] {base_key}: "
+                      f"{len(cls_records)} samples{thin_cls}{excluded}")
+
+    # Sort: sufficient first, then by stated correlation count descending
     evidence_tables.sort(
-        key=lambda t: (t["stated_correlation_count"],
-                       t["evidence_record_count"]),
-        reverse=True,
+        key=lambda t: (
+            not t["data_sufficient"],           # sufficient tables first
+            t["stratification"] != "global",    # global before per-class
+            -t["stated_correlation_count"],
+            -t["evidence_record_count"],
+        )
     )
 
     # ── Measurement frequency report ───────────────────────────────────────
@@ -809,11 +882,20 @@ def run_phase_a(db_path: Path, out_path: Path,
             "top_measurements":          freq_report,
         }, f, indent=2, ensure_ascii=False)
 
+    # ── Summary counts ─────────────────────────────────────────────────────
+    global_tables  = [t for t in evidence_tables
+                      if t["stratification"] == "global"]
+    class_tables   = [t for t in evidence_tables
+                      if t["stratification"] != "global"]
+    sufficient_all = [t for t in evidence_tables if t["data_sufficient"]]
+    no_evidence    = [t for t in evidence_tables
+                      if t["evidence_record_count"] == 0]
+    insufficient   = [t for t in evidence_tables
+                      if 0 < t["evidence_record_count"] < 3]
+
     # ── Print corpus gaps ──────────────────────────────────────────────────
     print(f"\n{'='*60}")
     print(f"CORPUS GAPS ({len(corpus_gaps)}) — stated but not yet measurable")
-    print(f"  Signals about what we'd like to know.")
-    print(f"  Review for schema promotion candidates.")
     print(f"{'='*60}")
     gap_types = Counter(g.get("gap_type", "unknown") for g in corpus_gaps)
     for gtype, count in gap_types.most_common():
@@ -841,51 +923,48 @@ def run_phase_a(db_path: Path, out_path: Path,
     # ── Print measurement frequency highlights ─────────────────────────────
     print(f"\n{'='*60}")
     print(f"TOP MEASUREMENT TERMS (additional_measurements, materials only)")
-    print(f"  Fields the community keeps measuring — new hypothesis candidates")
     print(f"{'='*60}")
     for item in freq_report[:20]:
         schema = "in schema" if item["in_schema"] else "NOT in schema"
         print(f"  {item['count']:>3}×  {item['term'][:55]:<55} [{schema}]")
 
     # ── Hypotheses with no/thin evidence ──────────────────────────────────
-    no_evidence  = [t for t in evidence_tables
-                    if t["evidence_record_count"] == 0]
-    insufficient = [t for t in evidence_tables
-                    if 0 < t["evidence_record_count"] < 3]
-    sufficient   = [t for t in evidence_tables if t["data_sufficient"]]
-
     if no_evidence:
         print(f"\n{'='*60}")
-        print(f"MATCHED BUT NO CROSS-SAMPLE EVIDENCE ({len(no_evidence)})")
-        print(f"  Stated by authors, both fields mapped, but no samples")
-        print(f"  have both measured simultaneously.")
+        print(f"NO EVIDENCE ({len(no_evidence)} tables)")
+        print(f"  Both fields mapped, but no samples have both measured.")
         print(f"{'='*60}")
         for t in no_evidence:
-            print(f"  {t['field_a']} × {t['field_b']}: "
+            print(f"  [{t['stratification']}] {t['field_a']} × {t['field_b']}: "
                   f"{t['stated_correlation_count']} stated")
 
     if insufficient:
         print(f"\n{'='*60}")
-        print(f"THIN EVIDENCE — <3 samples ({len(insufficient)})")
-        print(f"  Phase B will run but findings will have low confidence.")
+        print(f"THIN EVIDENCE — <3 samples ({len(insufficient)} tables)")
+        print(f"  Phase B will skip these. Will become sufficient as corpus grows.")
         print(f"{'='*60}")
         for t in insufficient:
-            print(f"  {t['field_a']} × {t['field_b']}: "
+            print(f"  [{t['stratification']}] {t['field_a']} × {t['field_b']}: "
                   f"{t['evidence_record_count']} sample(s)")
 
-    # ── Summary ───────────────────────────────────────────────────────────
+    # ── Summary ────────────────────────────────────────────────────────────
     print(f"\n{'='*60}")
     print(f"Phase A Summary")
     print(f"{'='*60}")
     print(f"  Corpus (total)                 : {len(corpus)}")
     print(f"  Materials characterization     : {len(mat_corpus)}")
+    print(f"  Material classes               : {len(mat_corpus_by_class)}")
     print(f"  Correlations found             : {len(all_correlations)}")
     print(f"  Out of scope                   : {len(out_of_scope)}")
     print(f"  Corpus gaps                    : {len(corpus_gaps)}")
     print(f"  Hypotheses matched             : {len(matched_hypotheses)}")
-    print(f"    No cross-sample evidence     : {len(no_evidence)}")
-    print(f"    Thin evidence (<3 samples)   : {len(insufficient)}")
-    print(f"    Ready for Phase B (>=3)      : {len(sufficient)}")
+    print(f"")
+    print(f"  Evidence tables written        : {len(evidence_tables)}")
+    print(f"    Global (cross-corpus)        : {len(global_tables)}")
+    print(f"    Per-material-class           : {len(class_tables)}")
+    print(f"    Sufficient for Phase B (>=3) : {len(sufficient_all)}")
+    print(f"    Thin (<3, preserved)         : {len(insufficient)}")
+    print(f"    No evidence (preserved)      : {len(no_evidence)}")
     print(f"")
     print(f"  Output files:")
     print(f"    {out_path}")
@@ -904,13 +983,17 @@ def run_phase_a(db_path: Path, out_path: Path,
     return {
         "corpus_size":           len(corpus),
         "materials_corpus":      len(mat_corpus),
+        "material_classes":      len(mat_corpus_by_class),
         "correlations_found":    len(all_correlations),
         "out_of_scope_count":    len(out_of_scope),
         "corpus_gap_count":      len(corpus_gaps),
         "hypotheses_matched":    len(matched_hypotheses),
-        "no_evidence_count":     len(no_evidence),
+        "evidence_tables_total": len(evidence_tables),
+        "global_tables":         len(global_tables),
+        "class_tables":          len(class_tables),
+        "sufficient_count":      len(sufficient_all),
         "insufficient_count":    len(insufficient),
-        "sufficient_count":      len(sufficient),
+        "no_evidence_count":     len(no_evidence),
         "evidence_tables":       evidence_tables,
         "corpus_gaps":           corpus_gaps,
         "out_of_scope":          out_of_scope,

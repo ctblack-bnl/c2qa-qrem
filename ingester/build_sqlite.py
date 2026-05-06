@@ -12,6 +12,12 @@
 # constructed as {first_author}_{year}_{sample_id} so samples are unambiguous
 # across papers when browsing the database.
 #
+# derived_material field: normalized film_material for Phase A stratification.
+#   - Strips parenthetical qualifiers: "Ta (with Al/AlOx junction)" → "Ta"
+#   - Checks against KNOWN_MATERIALS whitelist
+#   - Unknown materials → "other" (never sent to Phase B mining)
+#   - Add new materials to KNOWN_MATERIALS as the corpus grows
+#
 # Usage:
 #   cd ingester
 #   python3 build_sqlite.py
@@ -22,6 +28,56 @@ import sqlite3
 import argparse
 from pathlib import Path
 from derive import derive_all, get_derived_value
+
+# ── Known superconducting materials for Phase A stratification ─────────────────
+#
+# Maps normalized film_material strings to themselves (identity).
+# Anything not in this set → "other" in derived_material column.
+#
+# Rules:
+#   - Use the standard abbreviation enforced by the extraction prompt
+#   - Strip parentheticals before checking: "Ta (with Al/AlOx)" → "Ta"
+#   - Add new materials here as the corpus grows (prompted by ⚠ warning in build output)
+#   - Only intrinsic superconducting film materials — not junction or encapsulation materials
+#
+KNOWN_MATERIALS = {
+    "Ta",       # tantalum
+    "Nb",       # niobium
+    "Al",       # aluminum
+    "Re",       # rhenium
+    "TiN",      # titanium nitride
+    "NbN",      # niobium nitride
+    "NbTiN",    # niobium titanium nitride
+    "TaN",      # tantalum nitride
+    "NbSe2",    # niobium diselenide
+    "PtSi",     # platinum silicide
+    "Ta-Hf",    # tantalum hafnium alloy (any stoichiometry)
+    "Mo3Al2C",  # molybdenum aluminum carbide
+}
+
+
+def normalize_film_material(film_material: str) -> str:
+    """
+    Normalize film_material to a canonical material identity for Phase A
+    stratification. Strips parenthetical qualifiers and checks against
+    KNOWN_MATERIALS whitelist. Unknown materials → 'other'.
+
+    Examples:
+      "Ta"                          → "Ta"
+      "Ta (with Al/AlOx junction)"  → "Ta"
+      "Ta (with AuPd encapsulation)"→ "Ta"
+      "Ta-Hf (83:17)"               → "Ta-Hf"
+      "Re (with Al/AlOx junction)"  → "Re"
+      "NbSe2"                       → "NbSe2"
+      "CrSBr (with Er3+ implant)"   → "other"
+      "LiNbO3"                      → "other"
+    """
+    if not film_material:
+        return "unknown"
+    # Strip parenthetical qualifiers — "(with Al/AlOx junction)", "(83:17)", etc.
+    base = re.sub(r'\s*\(.*', '', film_material).strip()
+    return base if base in KNOWN_MATERIALS else "other"
+
 
 def make_display_name(authors: str, sample_id: str) -> str:
     """
@@ -44,8 +100,10 @@ def make_display_name(authors: str, sample_id: str) -> str:
     clean_sid = str(sample_id).strip().replace(" ", "_").replace("/", "-")
     return f"{first_author}_{year}_{clean_sid}"
 
+
 def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"Reading: {jsonl_path}")
+
     # --- Load all records ---
     records = []
     with open(jsonl_path, "r", encoding="utf-8") as f:
@@ -57,6 +115,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 records.append(json.loads(line))
             except json.JSONDecodeError as e:
                 print(f"  Skipping malformed line: {e}")
+
     print(f"Loaded {len(records)} records")
 
     # --- Load deduplication decisions ---
@@ -72,7 +131,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     keep = decision.get("keep")
                     paper_a = decision.get("paper_a")
                     paper_b = decision.get("paper_b")
-                    # Skip whichever one we are NOT keeping
                     if keep == paper_a:
                         skip_filenames.add(paper_b)
                     elif keep == paper_b:
@@ -89,11 +147,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         print(f"  Filtered {before - len(records)} duplicate record(s)")
 
     # De-duplicate same filename appearing multiple times in JSONL.
-    # This can happen from development experiments or re-processing.
-    # Keep the LAST record for each filename (most recent ingestion).
     seen = {}
     for r in records:
-        seen[r.get("filename")] = r  # last one wins
+        seen[r.get("filename")] = r
     if len(seen) < len(records):
         print(f"  De-duplicated {len(records) - len(seen)} repeated filename(s) — keeping latest record")
     records = list(seen.values())
@@ -126,7 +182,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             human_approved      INTEGER DEFAULT 0,
             num_samples         INTEGER DEFAULT 0,
             error               TEXT,
-            extraction_json     TEXT    -- full JSON for reference
+            extraction_json     TEXT
         );
 
         CREATE TABLE samples (
@@ -134,7 +190,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             paper_id                INTEGER REFERENCES papers(id),
             filename                TEXT,
             sample_id               TEXT,
-            display_name            TEXT,   -- e.g. Bahrami_2026_D1
+            display_name            TEXT,
             -- Sample description
             substrate_material      TEXT,
             substrate_orientation   TEXT,
@@ -165,31 +221,36 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             room_temperature_resistance_Ohm TEXT,
             measured_structure_width_um     TEXT,
             measured_structure_length_um    TEXT,
-            -- Confidence flags (high/medium/low for key fields)
+            -- Confidence flags
             Tc_confidence           TEXT,
             RRR_confidence          TEXT,
             Qi_confidence           TEXT,
             T1_confidence           TEXT,
-            -- Derived quantities (computed by build_sqlite.py from extracted fields)
+            -- Derived quantities (computed by build_sqlite.py)
             derived_resistivity_uOhm_cm      REAL,
             derived_BCS_gap_meV              REAL,
             derived_coherence_length_nm      REAL,
             derived_kinetic_inductance_pH_sq REAL,
             derived_RRR_from_RvT              REAL,
             derived_sheet_resistance_Ohm_sq  REAL,
-            derived_json                     TEXT,  -- full derived quantities JSON
-            -- Similarity profile (Pass 3)
+            derived_json                     TEXT,
+            -- derived_material: normalized film_material for Phase A stratification.
+            -- Strips parentheticals, checks KNOWN_MATERIALS whitelist.
+            -- "other" = unrecognized material, excluded from per-material Phase A tables.
+            -- Update KNOWN_MATERIALS in build_sqlite.py to add new materials.
+            derived_material        TEXT,
+            -- Similarity profile (Pass 3, AI-generated)
             sim_material_class      TEXT,
             sim_transport_regime    TEXT,
-            sim_loss_mechanisms     TEXT,   -- JSON array
+            sim_loss_mechanisms     TEXT,
             sim_device_type         TEXT,
             sim_coherence_tier      TEXT,
-            sim_science_focus       TEXT,   -- JSON array
+            sim_science_focus       TEXT,
             sim_growth_method       TEXT,
-            sim_key_correlations    TEXT,   -- JSON array
+            sim_key_correlations    TEXT,
             sim_profile_notes       TEXT,
             sim_profile_version     TEXT,
-            -- Full sample JSON for reference
+            -- Full sample JSON
             sample_json             TEXT
         );
 
@@ -198,12 +259,12 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             paper_id        INTEGER REFERENCES papers(id),
             filename        TEXT,
             sample_id       TEXT,
-            display_name    TEXT,   -- matches samples.display_name for easy joining
-            item_type       TEXT,   -- additional_measurement, anomalous_observation, correlation, schema_candidate
+            display_name    TEXT,
+            item_type       TEXT,
             description     TEXT,
             value           TEXT,
             source          TEXT,
-            notes           TEXT    -- suspected_relevance, hypothesis, nature, etc.
+            notes           TEXT
         );
     """)
 
@@ -230,14 +291,10 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         outcome = rec.get("outcome", "unknown")
         error = rec.get("error")
         error_str = json.dumps(error) if error else None
-
         samples = ext.get("samples", [])
         num_samples = len(samples)
-
-        # Get authors for display_name construction
         authors = rec.get("authors") or ext.get("authors") or ""
 
-        # Insert paper row
         cur.execute("""
             INSERT INTO papers (
                 filename, processed_at, outcome, relevance, relevance_reason,
@@ -264,10 +321,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         paper_id = cur.lastrowid
         papers_inserted += 1
 
-        # Pull similarity profiles for this record (keyed by sample_id)
         similarity_profiles = rec.get("similarity_profiles") or {}
 
-        # Insert sample rows
         for sample in samples:
             sid = sample.get("sample_id", "unknown")
             display_name = make_display_name(authors, sid)
@@ -275,10 +330,14 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             def gf(field):
                 return get_field(sample, field)
 
-            # Compute derived quantities from extracted fields
+            # Compute derived quantities
             derived = derive_all(sample)
 
-            # Look up similarity profile for this sample
+            # Compute derived_material — deterministic normalization of film_material
+            film_mat_raw = gf("film_material")[0]
+            derived_material = normalize_film_material(film_mat_raw) if film_mat_raw else "unknown"
+
+            # Look up similarity profile
             profile = similarity_profiles.get(sid, {})
             if profile:
                 profiles_found += 1
@@ -309,6 +368,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     derived_RRR_from_RvT,
                     derived_sheet_resistance_Ohm_sq,
                     derived_json,
+                    derived_material,
                     sim_material_class, sim_transport_regime,
                     sim_loss_mechanisms, sim_device_type,
                     sim_coherence_tier, sim_science_focus,
@@ -322,7 +382,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
                     ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?
@@ -367,6 +427,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 get_derived_value(derived, "derived_RRR_from_RvT"),
                 get_derived_value(derived, "derived_sheet_resistance_Ohm_sq"),
                 json.dumps(derived) if derived else None,
+                derived_material,
                 profile.get("material_class"),
                 profile.get("transport_regime"),
                 json.dumps(profile.get("loss_mechanisms") or []),
@@ -398,7 +459,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("suspected_relevance"),
                 ))
                 catchall_inserted += 1
-
             for item in catchall.get("anomalous_observations", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -414,7 +474,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("hypothesis"),
                 ))
                 catchall_inserted += 1
-
             for item in catchall.get("correlations_observed", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -430,7 +489,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("nature"),
                 ))
                 catchall_inserted += 1
-
             for item in catchall.get("schema_promotion_candidates", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -447,23 +505,49 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 ))
                 catchall_inserted += 1
 
+    # --- Unrecognized materials report (for Stage 3 UI warning) ---
+    cur.execute("""
+        SELECT film_material, COUNT(*) as n
+        FROM samples
+        WHERE derived_material = 'other'
+        AND film_material IS NOT NULL
+        AND film_material != ''
+        GROUP BY film_material
+        ORDER BY n DESC
+    """)
+    unrecognized = cur.fetchall()
+
     conn.commit()
     conn.close()
 
+    # --- Summary ---
     print(f"Done.")
     print(f"  Papers inserted  : {papers_inserted}")
     print(f"  Samples inserted : {samples_inserted}")
     print(f"  Catchall items   : {catchall_inserted}")
     print(f"  Profiles found   : {profiles_found} of {samples_inserted} samples")
     print(f"  Database written : {db_path}")
+
+    if unrecognized:
+        print(f"\n  ⚠ Unrecognized film materials ({len(unrecognized)} types assigned to 'other'):")
+        print(f"    These will NOT be stratified in Phase A mining.")
+        print(f"    If any are superconducting materials worth tracking,")
+        print(f"    add them to KNOWN_MATERIALS in build_sqlite.py and rebuild.")
+        for row in unrecognized:
+            print(f"    {str(row[0]):<50} : {row[1]} sample(s)")
+    else:
+        print(f"\n  ✓ All film materials recognized — no 'other' stratification bin")
+
     print()
     print("To browse: open records.db in DB Browser for SQLite (sqlitebrowser.org)")
     print()
     print("Useful queries:")
-    print("  SELECT display_name, film_material, Tc_K, RRR, Qi_internal FROM samples;")
+    print("  SELECT display_name, film_material, derived_material, Tc_K, RRR, Qi_internal FROM samples;")
+    print("  SELECT derived_material, COUNT(*) as n FROM samples GROUP BY derived_material ORDER BY n DESC;")
     print("  SELECT display_name, sim_material_class, sim_device_type, sim_coherence_tier FROM samples WHERE sim_profile_version IS NOT NULL;")
     print("  SELECT display_name, item_type, description FROM catchall_items LIMIT 20;")
     print("  SELECT outcome, COUNT(*) FROM papers GROUP BY outcome;")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

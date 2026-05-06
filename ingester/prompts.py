@@ -572,13 +572,30 @@ _PROFILE_SCHEMA_STR = json.dumps(_PROFILE_SCHEMA, indent=2)
 _PROFILE_VOCAB_STR  = json.dumps(_PROFILE_VOCAB,  indent=2)
 
 
+def _flatten_sample_for_profile(sample: dict) -> dict:
+    """
+    Flatten confidence/source wrapper dicts to plain values for the profile prompt.
+    {"value": "NbSe2", "confidence": "high", "source": "..."} → "NbSe2"
+    """
+    flattened = {}
+    for k, v in sample.items():
+        if isinstance(v, dict) and "value" in v:
+            flattened[k] = v["value"]
+        else:
+            flattened[k] = v
+    return flattened
+
 def build_profile_prompt(sample_record: dict) -> str:
     """
     Build the Pass 3 prompt for a single extracted sample record.
     sample_record should be the full sample dict from the Pass 2 extraction,
     including all structured fields and the complete catchall.
     """
-    sample_json = json.dumps(sample_record, indent=2)
+    if isinstance(sample_record, list):
+        flattened = [_flatten_sample_for_profile(s) for s in sample_record]
+    else:
+        flattened = _flatten_sample_for_profile(sample_record)
+    sample_json = json.dumps(flattened, indent=2)
 
     return f"""
 You are generating a similarity profile for a single materials characterization sample.
@@ -612,6 +629,20 @@ material_class:
   Use the most specific term available — "platinum_silicide" not "other_silicide".
   For junction devices (e.g. Ta with Al/AlOx junction), use the primary film
   material (Ta → "tantalum"), not the junction material.
+
+  Chemical formula → vocabulary term mapping:
+    Nb, niobium film           → niobium
+    Al, aluminum film          → aluminum
+    Ta, tantalum film          → tantalum
+    Re, rhenium film           → rhenium
+    TiN                        → titanium_nitride
+    NbN                        → niobium_nitride
+    NbTiN                      → niobium_titanium_nitride
+    TaN                        → tantalum_nitride
+    Ta-Hf alloy                → tantalum_hafnium
+    NbSe2, niobium diselenide  → niobium_diselenide
+    PtSi, platinum silicide    → platinum_silicide
+    Mo3Al2C                    → other (not yet in vocabulary)
 
 transport_regime:
   Infer from RRR, mean free path vs coherence length ratio, crystal phase,

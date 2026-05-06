@@ -27,8 +27,6 @@
     font-size: 15px;
     min-height: 100vh;
   }
-
-  /* ── Header ── */
   header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -59,8 +57,6 @@
     color: var(--muted);
   }
   .pill span { color: var(--text); font-weight: 500; }
-
-  /* ── Layout ── */
   .layout {
     display: grid;
     grid-template-columns: 260px 1fr;
@@ -107,11 +103,7 @@
   .checkbox-group input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; flex-shrink: 0; }
   .checkbox-group label.checked { color: var(--text); }
   .color-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-
-  /* ── Main ── */
   main { display: flex; flex-direction: column; overflow: hidden; }
-
-  /* ── Top-level tabs ── */
   .tabs {
     display: flex;
     border-bottom: 1px solid var(--border);
@@ -130,8 +122,6 @@
   }
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-  /* ── Sub-toggle (used inside Explore and Search tabs) ── */
   .sub-toggle {
     display: flex;
     gap: 2px;
@@ -158,31 +148,36 @@
     color: var(--accent);
     border: 1px solid var(--border);
   }
-
-  /* ── Tab pane areas ── */
   .tab-pane { flex: 1; display: none; flex-direction: column; overflow: hidden; }
   .tab-pane.active { display: flex; }
-
-  /* ── Plot area (charts) ── */
   .plot-area { flex: 1; padding: 20px; overflow: hidden; display: none; flex-direction: column; }
   .plot-area.active { display: flex; }
   .plot-controls {
     display: flex;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
     align-items: center;
     flex-wrap: wrap;
   }
   .control-group { display: flex; align-items: center; gap: 8px; }
   .control-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
   .control-group select { width: auto; margin-bottom: 0; padding: 5px 10px; font-size: 12px; }
+  /* Click hint */
+  .chart-click-hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    opacity: 0.7;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .chart-click-hint::before { content: '↖'; font-size: 13px; }
   .chart-wrapper { flex: 1; position: relative; min-height: 0; }
-
-  /* ── Table / ranked area ── */
   .table-area { flex: 1; overflow: auto; display: none; }
   .table-area.active { display: block; }
   .table-controls { padding: 16px 20px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-
   table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: 'IBM Plex Mono', monospace; }
   th {
     text-align: left; padding: 10px 14px;
@@ -197,8 +192,6 @@
   .conf-high   { color: var(--accent2); }
   .conf-medium { color: var(--accent); }
   .conf-low    { color: var(--accent3); }
-
-  /* ── Similarity search area ── */
   .similar-area { flex: 1; overflow: auto; display: none; flex-direction: column; }
   .similar-area.active { display: flex; }
   .similar-controls {
@@ -229,12 +222,7 @@
   }
   .similar-run-btn:hover { background: rgba(88,166,255,0.08); }
   .similar-run-btn:disabled { opacity: 0.4; cursor: wait; }
-  .similar-options {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
+  .similar-options { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
   .similar-checkbox-label {
     display: flex;
     align-items: center;
@@ -265,86 +253,206 @@
     transition: border-color 0.15s;
   }
   .similar-result-row:hover { border-color: var(--accent); }
-  .similar-result-top {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 6px;
-  }
-  .similar-rank {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--muted);
-    min-width: 24px;
-  }
-  .similar-name {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 14px;
-    color: var(--accent);
-    flex: 1;
-  }
-  .similar-material {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-  }
-  .similar-score {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .similar-authors {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 8px;
-    padding-left: 34px;
-  }
-  .similar-fields {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    padding-left: 34px;
-  }
+  .similar-result-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .similar-rank { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); min-width: 24px; }
+  .similar-name { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--accent); flex: 1; }
+  .similar-material { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  .similar-score { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .similar-authors { font-size: 13px; color: var(--muted); margin-bottom: 8px; padding-left: 34px; }
+  .similar-fields { display: flex; flex-wrap: wrap; gap: 7px; padding-left: 34px; }
   .similar-field-chip {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--surface);
-    border-radius: 4px;
-    padding: 4px 10px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    border-width: 1px;
-    border-style: solid;
+    display: flex; align-items: center; gap: 5px;
+    background: var(--surface); border-radius: 4px; padding: 4px 10px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    border-width: 1px; border-style: solid;
   }
   .similar-field-name { color: var(--muted); }
   .similar-field-values { color: var(--text); font-weight: 500; }
   .similar-field-proximity { font-size: 11px; font-style: italic; }
-  /* Chip border + proximity label color by match quality */
   .chip-good  { border-color: var(--accent2); }
   .chip-ok    { border-color: var(--accent); }
   .chip-poor  { border-color: var(--border); }
   .similar-field-dist-good  { color: var(--accent2); }
   .similar-field-dist-ok    { color: var(--accent); }
   .similar-field-dist-poor  { color: var(--muted); }
+  .profile-tags-row { display: flex; flex-wrap: wrap; gap: 5px; padding-left: 34px; margin-bottom: 6px; }
+  .profile-tag { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 2px 8px; border-radius: 3px; border: 1px solid; }
+  .profile-tag-match { border-color: var(--accent2); color: var(--accent2); background: rgba(63,185,80,0.08); }
+  .profile-tag-mismatch-count { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); padding: 2px 4px; }
 
-    /* Profile tag row */
-  .profile-tags-row {
+  /* ── Findings tab ── */
+  .findings-area { flex: 1; overflow: auto; padding: 20px; display: none; flex-direction: column; gap: 12px; }
+  .findings-area.active { display: flex; }
+  .findings-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .findings-header-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .findings-filter {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+  }
+  .findings-filter select {
+    width: auto;
+    margin-bottom: 0;
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+  .finding-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    transition: border-color 0.15s;
+  }
+  .finding-card:hover { border-color: var(--border); }
+  .finding-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .finding-type-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .finding-type-positive  { border-color: var(--accent2); color: var(--accent2); background: rgba(86,211,100,0.08); }
+  .finding-type-negative  { border-color: var(--accent3); color: var(--accent3); background: rgba(255,123,114,0.08); }
+  .finding-type-inconclusive { border-color: var(--muted); color: var(--muted); background: rgba(173,186,199,0.06); }
+  .finding-type-derived_field_artifact { border-color: var(--accent4); color: var(--accent4); background: rgba(210,168,255,0.06); }
+  .finding-title {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 500;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .finding-confidence {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .finding-summary {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+  .finding-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .finding-meta-item { display: flex; gap: 5px; align-items: center; }
+  .finding-meta-item span { color: var(--text); }
+  .finding-qrem {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border-radius: 4px;
+    border-left: 2px solid var(--accent);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    display: none;
+  }
+  .finding-qrem.visible { display: block; }
+  .finding-qrem-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .finding-detail {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+    margin: 10px 0;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 4px;
+    border-left: 2px solid var(--border);
+  }
+  .finding-evidence-row {
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 6px 0;
+    padding-left: 4px;
+  }
+  .finding-evidence-supporting { color: var(--accent2); }
+  .finding-evidence-complicating { color: var(--accent3); }
+  .finding-sample-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
-    padding-left: 34px;
-    margin-bottom: 6px;
+    gap: 6px;
+    margin: 8px 0 4px;
+    align-items: center;
   }
-  .profile-tag {
+  .finding-chips-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 2px;
+    flex-shrink: 0;
+  }
+  .finding-sample-chip {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 3px;
     border: 1px solid;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+    opacity: 0.8;
   }
-  .profile-tag-match    { border-color: var(--accent2); color: var(--accent2); background: rgba(63,185,80,0.08); }
-  .profile-tag-mismatch-count { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); padding: 2px 4px; }
-  
+  .finding-sample-chip:hover { opacity: 1; background: rgba(255,255,255,0.05); }
+  .finding-expand-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 8px;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+  }
+  .finding-expand-btn:hover { opacity: 1; }
+  .findings-empty {
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 48px 0;
+    text-align: center;
+  }
+
   /* ── Catchall ── */
   .catchall-area { flex: 1; overflow: auto; padding: 20px; display: none; flex-direction: column; gap: 16px; }
   .catchall-area.active { display: flex; }
@@ -364,7 +472,6 @@
   .catchall-value { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent2); margin-bottom: 4px; }
   .catchall-notes { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
-  /* ── Status bar ── */
   .status-bar {
     background: var(--surface);
     border-top: 1px solid var(--border);
@@ -378,8 +485,6 @@
     z-index: 101;
   }
   .status-bar span { color: var(--text); }
-
-  /* ── Detail panel ── */
   .detail-panel {
     position: fixed; top: 57px; right: 0; bottom: 32px;
     width: 380px; background: var(--surface);
@@ -415,32 +520,19 @@
   .detail-overlay { display: none; position: fixed; inset: 0; z-index: 99; }
   .detail-overlay.open { display: block; }
   .find-similar-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 12px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    color: var(--accent4);
-    cursor: pointer;
-    border: none;
-    background: none;
-    padding: 0;
-    text-decoration: underline;
-    text-decoration-color: transparent;
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent4);
+    cursor: pointer; border: none; background: none; padding: 0;
+    text-decoration: underline; text-decoration-color: transparent;
     transition: text-decoration-color 0.15s;
   }
   .find-similar-link:hover { text-decoration-color: var(--accent4); }
-
-  /* ── Ranked ── */
   .rank-badge { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); min-width: 24px; text-align: right; }
   .ranked-row { cursor: pointer; }
   .ranked-row:hover td { background: var(--surface); }
   .ranked-row:hover .ranked-sample-name { color: var(--accent2); }
   .ranked-sample-name { font-family: 'IBM Plex Mono', monospace; color: var(--accent); transition: color 0.15s; }
   .ranked-value { font-family: 'IBM Plex Mono', monospace; font-weight: 500; color: var(--text); }
-
-  /* ── Generate Profile button ── */
   .generate-profile-btn {
     display: flex; align-items: center; gap: 8px; width: 100%;
     margin-top: 16px; padding: 10px 14px;
@@ -461,7 +553,6 @@
 </style>
 </head>
 <body>
-
 <header>
   <img src="/static/C2QA_logo.png" alt="C2QA" style="height:32px;opacity:0.85;flex-shrink:0;mix-blend-mode:lighten;">
   <div style="width:1px;height:28px;background:var(--border);flex-shrink:0;"></div>
@@ -473,7 +564,6 @@
     <div class="pill">Loading...</div>
   </div>
 </header>
-
 <div class="layout">
   <sidebar>
     <div class="section-label">Filter by material</div>
@@ -493,26 +583,22 @@
     <div class="section-label">Search display name</div>
     <input type="text" class="filter-input" id="nameFilter" placeholder="e.g. Bahrami_2026...">
   </sidebar>
-
   <main>
-    <!-- ── Top-level tabs ── -->
     <div class="tabs">
       <div class="tab active" data-tab="explore">Explore</div>
       <div class="tab" data-tab="search">Search</div>
+      <div class="tab" data-tab="findings">Findings</div>
       <div class="tab" data-tab="catchall">Catchall</div>
     </div>
 
     <!-- ══ EXPLORE tab ══ -->
     <div class="tab-pane active" id="tab-explore">
-      <!-- Sub-toggle: Strip / Scatter -->
       <div style="padding: 12px 20px 0; background: var(--surface); border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:12px;">
         <div class="sub-toggle">
           <button class="sub-btn active" data-explore="strip">Strip</button>
           <button class="sub-btn" data-explore="scatter">Scatter</button>
         </div>
       </div>
-
-      <!-- Strip plot -->
       <div class="plot-area active" id="explore-strip">
         <div class="plot-controls">
           <div class="control-group">
@@ -528,12 +614,11 @@
             </select>
           </div>
         </div>
+        <div class="chart-click-hint">Click any data point for full material information</div>
         <div class="chart-wrapper">
           <canvas id="stripChart"></canvas>
         </div>
       </div>
-
-      <!-- Scatter plot -->
       <div class="plot-area" id="explore-scatter">
         <div class="plot-controls">
           <div class="control-group">
@@ -553,6 +638,7 @@
             </select>
           </div>
         </div>
+        <div class="chart-click-hint">Click any data point for full material information</div>
         <div class="chart-wrapper">
           <canvas id="scatterChart"></canvas>
         </div>
@@ -561,7 +647,6 @@
 
     <!-- ══ SEARCH tab ══ -->
     <div class="tab-pane" id="tab-search">
-      <!-- Sub-toggle: Table / Ranked / Similar -->
       <div style="padding: 12px 20px 0; background: var(--surface); border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:12px;">
         <div class="sub-toggle">
           <button class="sub-btn active" data-search="table">Table</button>
@@ -569,20 +654,13 @@
           <button class="sub-btn" data-search="similar">Similar</button>
         </div>
       </div>
-
-      <!-- Data Table -->
       <div class="table-area active" id="search-table">
         <table style="margin-top:0;">
           <thead>
             <tr>
-              <th>Sample</th>
-              <th>Material</th>
-              <th>Substrate</th>
-              <th>Tc (K)</th>
-              <th>RRR</th>
-              <th>Qi internal</th>
-              <th>T1 (µs)</th>
-              <th>2Q fidelity (%)</th>
+              <th>Sample</th><th>Material</th><th>Substrate</th>
+              <th>Tc (K)</th><th>RRR</th><th>Qi internal</th>
+              <th>T1 (µs)</th><th>2Q fidelity (%)</th>
             </tr>
           </thead>
           <tbody id="tableBody">
@@ -590,8 +668,6 @@
           </tbody>
         </table>
       </div>
-
-      <!-- Ranked List -->
       <div class="table-area" id="search-ranked">
         <div class="table-controls">
           <div class="control-group">
@@ -612,13 +688,9 @@
         <table style="margin-top:12px;">
           <thead>
             <tr>
-              <th style="width:32px;">#</th>
-              <th>Sample</th>
-              <th>Material</th>
-              <th>Substrate</th>
-              <th id="rankedValueHeader">Value</th>
-              <th>Confidence</th>
-              <th>Authors</th>
+              <th style="width:32px;">#</th><th>Sample</th><th>Material</th>
+              <th>Substrate</th><th id="rankedValueHeader">Value</th>
+              <th>Confidence</th><th>Authors</th>
             </tr>
           </thead>
           <tbody id="rankedBody">
@@ -626,24 +698,16 @@
           </tbody>
         </table>
       </div>
-
-      <!-- Similarity Search -->
       <div class="similar-area" id="search-similar">
-        <!-- Controls bar — only visible when a search is active -->
         <div class="similar-controls" id="similarControls" style="display:none;">
           <div class="similar-query-row">
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;">
-              Similar to:
-            </span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;">Similar to:</span>
             <span id="similarQueryLabel" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);flex:1;"></span>
             <label class="similar-checkbox-label" style="margin-left:16px;">
               <input type="checkbox" id="samePubCheckbox" onchange="rerunSimilarSearch()">
               Include same publication
             </label>
-            <button class="similar-run-btn" onclick="clearSimilarSearch()"
-                    style="border-color:var(--muted);color:var(--muted);margin-left:8px;">
-              × Clear
-            </button>
+            <button class="similar-run-btn" onclick="clearSimilarSearch()" style="border-color:var(--muted);color:var(--muted);margin-left:8px;">× Clear</button>
           </div>
         </div>
         <div class="similar-results" id="similarResults">
@@ -651,6 +715,31 @@
             Open any sample from <strong>Explore</strong>, <strong>Table</strong>, or <strong>Ranked</strong>
             and click <em>Find similar</em> to compare across the corpus.
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FINDINGS tab ══ -->
+    <div class="tab-pane" id="tab-findings">
+      <div class="findings-area active" id="findings-inner">
+        <div class="findings-header">
+          <div class="findings-header-title">Corpus Mining Findings</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);">
+            AI-assisted analysis of materials-to-device correlations. All findings reviewed by human scientists.
+          </div>
+          <div class="findings-filter">
+            <span class="control-label">Show:</span>
+            <select id="findingsTypeFilter" onchange="filterFindings()">
+              <option value="">All findings</option>
+              <option value="positive">Positive</option>
+              <option value="negative">Negative</option>
+              <option value="inconclusive">Inconclusive</option>
+              <option value="derived_field_artifact">Derived field artifact</option>
+            </select>
+          </div>
+        </div>
+        <div id="findingsItems">
+          <div class="findings-empty">Loading findings...</div>
         </div>
       </div>
     </div>
@@ -674,7 +763,6 @@
       </div>
     </div>
 
-    <!-- ── Detail slide-in panel ── -->
     <div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
     <div class="detail-panel" id="detailPanel">
       <div class="detail-header">
@@ -685,7 +773,6 @@
         <div style="color:var(--muted);font-size:12px;">Loading...</div>
       </div>
     </div>
-
     <div class="status-bar">
       <div>Samples shown: <span id="statusCount">—</span></div>
       <div>Total in corpus: <span id="statusTotal">—</span></div>
@@ -693,7 +780,6 @@
     </div>
   </main>
 </div>
-
 <script>
 const PALETTE = [
   '#58a6ff','#3fb950','#f78166','#d2a8ff',
@@ -710,14 +796,29 @@ const FIELD_LABELS = {
   sheet_resistance_Ohm_sq: 'Sheet resistance (Ω/□)',
 };
 
+// Shared chart config for readable axis labels
+const CHART_AXIS_STYLE = {
+  color: '#d0d8e0',
+  font: { family: 'IBM Plex Mono', size: 13 }
+};
+const CHART_TITLE_STYLE = {
+  color: '#d0d8e0',
+  font: { family: 'IBM Plex Mono', size: 14 }
+};
+const CHART_LEGEND_STYLE = {
+  color: '#d0d8e0',
+  font: { family: 'IBM Plex Mono', size: 13 },
+  boxWidth: 12
+};
+
 let allSamples = [];
 let allCatchall = [];
+let allFindings = [];
 let colorMap = {};
 let scatterChart = null;
 let stripChart = null;
 
 // ── Sub-toggle logic ──────────────────────────────────────────────────────
-
 document.querySelectorAll('[data-explore]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('[data-explore]').forEach(b => b.classList.remove('active'));
@@ -729,7 +830,6 @@ document.querySelectorAll('[data-explore]').forEach(btn => {
     if (which === 'scatter') renderScatterChart();
   });
 });
-
 document.querySelectorAll('[data-search]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('[data-search]').forEach(b => b.classList.remove('active'));
@@ -743,7 +843,6 @@ document.querySelectorAll('[data-search]').forEach(btn => {
 });
 
 // ── Top-level tab switching ───────────────────────────────────────────────
-
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -751,18 +850,160 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
     if (tab.dataset.tab === 'explore') {
-      // Re-render whichever explore sub is active
       if (document.getElementById('explore-strip').classList.contains('active')) renderStripChart();
       else renderScatterChart();
     }
     if (tab.dataset.tab === 'search') {
       if (document.getElementById('search-ranked').classList.contains('active')) renderRankedList();
     }
+    if (tab.dataset.tab === 'findings') {
+      renderFindings();
+    }
   });
 });
 
-// ── Sample detail panel ───────────────────────────────────────────────────
+// ── Findings ──────────────────────────────────────────────────────────────
+async function loadFindings() {
+  try {
+    const r = await fetch('/api/mining/findings');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Failed to load findings');
+    allFindings = (d.findings || []).filter(f => f.review_status === 'approved');
+    renderFindings();
+  } catch(e) {
+    console.error('Findings load failed', e);
+    document.getElementById('findingsItems').innerHTML =
+      '<div class="findings-empty">Could not load findings. Run corpus mining (Stage 4) to generate findings.</div>';
+  }
+}
 
+function filterFindings() {
+  renderFindings();
+}
+
+function renderFindings() {
+  const container = document.getElementById('findingsItems');
+  const typeFilter = document.getElementById('findingsTypeFilter').value;
+  let findings = allFindings;
+  if (typeFilter) findings = findings.filter(f => (f.writeup || {}).finding_type === typeFilter);
+
+  if (!findings.length) {
+    container.innerHTML = `<div class="findings-empty">${
+      allFindings.length === 0
+        ? 'No approved findings yet. Run corpus mining in the Ingestion Pipeline (Stage 4) and approve findings to display them here.'
+        : 'No findings match the selected filter.'
+    }</div>`;
+    return;
+  }
+
+  const TYPE_ICONS = {
+    positive: '✓',
+    negative: '✗',
+    inconclusive: '~',
+    derived_field_artifact: '⚠',
+  };
+
+  container.innerHTML = findings.map((f, idx) => {
+    const w = f.writeup || {};
+    const ftype = w.finding_type || 'inconclusive';
+    const conf = w.confidence != null ? Math.round(w.confidence * 100) + '%' : '—';
+    const icon = TYPE_ICONS[ftype] || '?';
+    const ev = w.evidence_summary || {};
+    const materials = (ev.materials_covered || []).join(', ') || '—';
+    const nSamples = ev.n_samples || f.evidence_record_count || 0;
+    const nStated = ev.n_stated_by_authors || f.stated_correlation_count || 0;
+    const qrem = w.qrem_implications || '';
+    const hyp = f.hypothesis_key || '';
+
+    // ── Supporting sample chips (clickable) ──
+    // Split "Name1 and Name2" into individual chips so each is clickable
+    const splitNames = (rec) => {
+      const raw = rec.display_name || '';
+      return raw.split(/\s+and\s+/).map(n => n.trim()).filter(Boolean);
+    };
+
+    const sampleChip = (name, reason, color) => {
+      const dn = name.replace(/'/g, "\\'");
+      const safeReason = (reason || '').replace(/"/g, '&quot;');
+      return `<span
+        class="finding-sample-chip"
+        style="border-color:${color};color:${color};"
+        onclick="openDetail('${dn}')"
+        title="${safeReason}"
+      >${name}</span>`;
+    };
+
+    const supportingRecords = (f.supporting_records || []).slice(0, 8);
+    const complicatingRecords = (f.complicating_records || []).slice(0, 8);
+
+    const supportingChips = supportingRecords.length
+      ? `<div class="finding-sample-chips">
+          <span class="finding-chips-label" style="color:var(--accent2)">Supporting:</span>
+          ${supportingRecords.flatMap(r => splitNames(r).map(n => sampleChip(n, r.reason, 'var(--accent2)'))).join('')}
+         </div>`
+      : '';
+
+    const complicatingChips = complicatingRecords.length
+      ? `<div class="finding-sample-chips">
+          <span class="finding-chips-label" style="color:var(--accent3)">Complicating:</span>
+          ${complicatingRecords.flatMap(r => splitNames(r).map(n => sampleChip(n, r.reason, 'var(--accent3)'))).join('')}
+         </div>`
+      : '';
+
+    // ── Detail section (collapsed by default) ──
+    const keySupporting   = ev.key_supporting   ? `<div class="finding-evidence-row finding-evidence-supporting">▲ ${ev.key_supporting}</div>` : '';
+    const keyComplicating = ev.key_complicating ? `<div class="finding-evidence-row finding-evidence-complicating">▼ ${ev.key_complicating}</div>` : '';
+    const altExpl = w.alternative_explanations
+      ? `<div class="finding-evidence-row" style="color:var(--muted);">⟳ <em>Alternative:</em> ${w.alternative_explanations}</div>`
+      : '';
+    const perMat = w.per_material_recommendation
+      ? `<div class="finding-evidence-row" style="color:var(--accent);">→ <em>Next steps:</em> ${w.per_material_recommendation}</div>`
+      : '';
+    const detail = w.finding_detail
+      ? `<div class="finding-detail">${w.finding_detail}</div>`
+      : '';
+
+    const hasDetail = detail || keySupporting || keyComplicating || altExpl || perMat || qrem;
+
+    return `<div class="finding-card">
+      <div class="finding-card-top">
+        <div class="finding-type-badge finding-type-${ftype}">${icon} ${ftype.replace(/_/g,' ')}</div>
+        <div class="finding-title">${w.title || hyp}</div>
+        <div class="finding-confidence">conf: ${conf}</div>
+      </div>
+      <div class="finding-summary">${w.summary || '—'}</div>
+      ${supportingChips}${complicatingChips}
+      ${hasDetail ? `
+        <button class="finding-expand-btn" onclick="toggleFindingDetail(${idx}, this)">▸ Show detail</button>
+        <div class="finding-detail-section" id="finding-detail-${idx}" style="display:none;">
+          ${detail}
+          ${keySupporting}${keyComplicating}${altExpl}${perMat}
+          ${qrem ? `
+            <div class="finding-qrem visible" style="margin-top:10px;">
+              <div class="finding-qrem-label">QREM Mapping Layer Implications</div>
+              ${qrem}
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+      <div class="finding-meta">
+        <div class="finding-meta-item">Samples: <span>${nSamples}</span></div>
+        <div class="finding-meta-item">Author-stated: <span>${nStated}</span></div>
+        <div class="finding-meta-item">Materials: <span>${materials}</span></div>
+        <div class="finding-meta-item">Key: <span style="color:var(--muted);font-size:10px;">${hyp}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleFindingDetail(idx, btn) {
+  const el = document.getElementById(`finding-detail-${idx}`);
+  const visible = el.style.display === 'none';
+  el.style.display = visible ? 'block' : 'none';
+  btn.textContent = visible ? '▾ Hide detail' : '▸ Show detail';
+}
+
+// ── Sample detail panel ───────────────────────────────────────────────────
 const MEASUREMENT_FIELDS = [
   ['Tc_K', 'Tc (K)', 'Tc_confidence'],
   ['RRR', 'RRR', 'RRR_confidence'],
@@ -783,7 +1024,6 @@ const MEASUREMENT_FIELDS = [
   ['derived_BCS_gap_meV', 'BCS gap (meV) ⚙', null],
   ['derived_RRR_from_RvT', 'RRR from R vs T ⚙', null],
 ];
-
 const CATCHALL_COLORS = {
   additional_measurement: '#3fb950',
   anomalous_observation:  '#f78166',
@@ -813,7 +1053,6 @@ function closeDetail() {
 
 function launchSimilar(displayName) {
   closeDetail();
-  // Switch to Search tab → Similar sub
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelector('[data-tab="search"]').classList.add('active');
@@ -823,15 +1062,12 @@ function launchSimilar(displayName) {
   document.getElementById('search-table').classList.remove('active');
   document.getElementById('search-ranked').classList.remove('active');
   document.getElementById('search-similar').classList.add('active');
-  // Run search with this sample
   runSimilarSearch(displayName);
 }
 
 function renderDetail(sample, catchall, displayName) {
   const body = document.getElementById('detailBody');
   let html = '';
-
-  // Description
   html += '<div class="detail-section">';
   html += '<div class="detail-section-label">Sample Description</div>';
   [
@@ -850,8 +1086,6 @@ function renderDetail(sample, catchall, displayName) {
     }
   });
   html += '</div>';
-
-  // Reference
   html += '<div class="detail-section">';
   html += '<div class="detail-section-label">Reference</div>';
   html += `<div class="detail-field"><span class="detail-field-name">Authors</span><span class="detail-field-value">${sample.authors || '—'}</span></div>`;
@@ -860,8 +1094,6 @@ function renderDetail(sample, catchall, displayName) {
     html += `<div class="detail-field"><span class="detail-field-name">DOI</span><span class="detail-field-value"><a href="https://doi.org/${sample.doi}" target="_blank" style="color:var(--accent)">${sample.doi}</a></span></div>`;
   }
   html += '</div>';
-
-  // Measurements
   const measWithValues = MEASUREMENT_FIELDS.filter(([field]) => sample[field] != null);
   if (measWithValues.length > 0) {
     html += '<div class="detail-section">';
@@ -877,8 +1109,6 @@ function renderDetail(sample, catchall, displayName) {
     });
     html += '</div>';
   }
-
-  // Catchall
   if (catchall && catchall.length > 0) {
     html += '<div class="detail-section">';
     html += `<div class="detail-section-label">Additional Data (${catchall.length} items)</div>`;
@@ -893,8 +1123,6 @@ function renderDetail(sample, catchall, displayName) {
     });
     html += '</div>';
   }
-
-  // QREM Profile + Find Similar
   const safe = displayName.replace(/'/g, "\\'");
   html += `
     <div class="detail-section">
@@ -908,11 +1136,8 @@ function renderDetail(sample, catchall, displayName) {
       </button>
     </div>
   `;
-
   body.innerHTML = html;
 }
-
-// ── Generate Qubit Profile ────────────────────────────────────────────────
 
 async function generateProfile(displayName) {
   const btn    = document.getElementById('generateProfileBtn');
@@ -945,47 +1170,36 @@ async function generateProfile(displayName) {
 }
 
 // ── Similarity Search ─────────────────────────────────────────────────────
-
-let _currentSimilarQuery = null;  // tracks the active query name
-
+let _currentSimilarQuery = null;
 async function runSimilarSearch(queryName) {
-  // queryName is always passed explicitly from launchSimilar() or rerunSimilarSearch()
   const samePub   = document.getElementById('samePubCheckbox').checked;
   const resultsEl = document.getElementById('similarResults');
   const controls  = document.getElementById('similarControls');
   const label     = document.getElementById('similarQueryLabel');
-
   _currentSimilarQuery = queryName;
   controls.style.display = 'block';
   label.textContent = queryName;
   resultsEl.innerHTML = '<div class="similar-empty">Searching…</div>';
-
   try {
     const url = `/api/similar?display_name=${encodeURIComponent(queryName)}&n=12&same_pub=${samePub}`;
     const r   = await fetch(url);
     const d   = await r.json();
-
     if (!d.ok) {
       resultsEl.innerHTML = `<div class="similar-empty" style="color:var(--accent3)">Error: ${d.error}</div>`;
       return;
     }
-
     if (!d.results || d.results.length === 0) {
       resultsEl.innerHTML = '<div class="similar-empty">No comparable samples found — try checking "Include same publication".</div>';
       return;
     }
-
     renderSimilarResults(d.results, queryName);
   } catch(e) {
     resultsEl.innerHTML = `<div class="similar-empty" style="color:var(--accent3)">Error: ${e.message}</div>`;
   }
 }
-
 function rerunSimilarSearch() {
-  // Called when the "Include same publication" checkbox changes
   if (_currentSimilarQuery) runSimilarSearch(_currentSimilarQuery);
 }
-
 function clearSimilarSearch() {
   _currentSimilarQuery = null;
   document.getElementById('similarControls').style.display = 'none';
@@ -996,7 +1210,6 @@ function clearSimilarSearch() {
       and click <em>Find similar</em> to compare across the corpus.
     </div>`;
 }
-
 function renderSimilarResults(results, queryName) {
   const resultsEl = document.getElementById('similarResults');
   const query = allSamples.find(s => s.display_name === queryName);
@@ -1010,47 +1223,34 @@ function renderSimilarResults(results, queryName) {
     : `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px;">
         Query: <span style="color:var(--accent)">${queryName}</span> · ${results.length} matches
        </div>`;
-
   const rows = results.map((res, i) => {
     const matColor = colorMap[res.film_material] || 'var(--muted)';
-
-    // ── Profile tag row ──
     let profileTagsHtml = '';
     if (res.profile_tags && res.profile_tags.length > 0) {
       let matchTags = [];
       let mismatchCount = 0;
       res.profile_tags.forEach(t => {
         if (t.type === 'single') {
-          if (t.match) {
-            matchTags.push(`<span class="profile-tag profile-tag-match" title="${t.label}">✓ ${t.query_value}</span>`);
-          } else {
-            mismatchCount++;
-          }
+          if (t.match) matchTags.push(`<span class="profile-tag profile-tag-match" title="${t.label}">✓ ${t.query_value}</span>`);
+          else mismatchCount++;
         } else {
-          // list field — only show shared items
           if (t.shared && t.shared.length > 0) {
-            t.shared.forEach(s =>
-              matchTags.push(`<span class="profile-tag profile-tag-match" title="${t.label}">✓ ${s.replace(/_/g,' ')}</span>`)
-            );
+            t.shared.forEach(s => matchTags.push(`<span class="profile-tag profile-tag-match" title="${t.label}">✓ ${s.replace(/_/g,' ')}</span>`));
           }
         }
       });
       let html = matchTags.join('');
-      if (mismatchCount > 0) {
-        html += `<span class="profile-tag-mismatch-count">${mismatchCount} dimension${mismatchCount > 1 ? 's' : ''} differ</span>`;
-      }
+      if (mismatchCount > 0) html += `<span class="profile-tag-mismatch-count">${mismatchCount} dimension${mismatchCount > 1 ? 's' : ''} differ</span>`;
       if (html) profileTagsHtml = `<div class="profile-tags-row">${html}</div>`;
     }
-
-    // ── Numeric chips (top 3 — profile row takes some space) ──
     const topFields = res.matched_fields.slice(0, 3);
     const chips = topFields.map(f => {
       const qv = formatVal(f.query_value);
       const cv = formatVal(f.candidate_value);
       const isGood = f.normalized_distance < 0.3;
       const isOk   = f.normalized_distance < 0.8;
-      const chipClass     = isGood ? 'chip-good'  : isOk ? 'chip-ok'  : 'chip-poor';
-      const distClass     = isGood ? 'similar-field-dist-good' : isOk ? 'similar-field-dist-ok' : 'similar-field-dist-poor';
+      const chipClass  = isGood ? 'chip-good'  : isOk ? 'chip-ok'  : 'chip-poor';
+      const distClass  = isGood ? 'similar-field-dist-good' : isOk ? 'similar-field-dist-ok' : 'similar-field-dist-poor';
       const proximityWord = isGood ? 'close' : isOk ? 'near' : 'distant';
       return `<div class="similar-field-chip ${chipClass}">
         <span class="similar-field-name">${f.label}:</span>
@@ -1058,16 +1258,12 @@ function renderSimilarResults(results, queryName) {
         <span class="similar-field-proximity ${distClass}">${proximityWord}</span>
       </div>`;
     }).join('');
-
     const overlapNote = res.overlap_count > 3
       ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);padding-left:30px;display:block;margin-top:4px;">+${res.overlap_count - 3} more shared numeric fields</span>`
       : '';
-
-    // Scoring mode badge — show when not hybrid so user knows why
     const modeBadge = res.scoring_mode !== 'hybrid'
       ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-left:8px;">${res.scoring_mode}</span>`
       : '';
-
     const safeDispName = res.display_name.replace(/'/g, "\\'");
     return `<div class="similar-result-row" onclick="openDetail('${safeDispName}')">
       <div class="similar-result-top">
@@ -1082,10 +1278,8 @@ function renderSimilarResults(results, queryName) {
       ${overlapNote}
     </div>`;
   }).join('');
-
   resultsEl.innerHTML = queryInfo + rows;
 }
-
 function formatVal(v) {
   if (v == null) return '—';
   if (typeof v === 'number') {
@@ -1096,14 +1290,10 @@ function formatVal(v) {
   return String(v);
 }
 
-
-
 // ── Boot ──────────────────────────────────────────────────────────────────
-
 async function boot() {
-  await Promise.all([loadFields(), loadCatchall(), loadCoverage()]);
+  await Promise.all([loadFields(), loadCatchall(), loadCoverage(), loadFindings()]);
 }
-
 async function loadFields() {
   try {
     const r = await fetch('/api/fields');
@@ -1117,14 +1307,12 @@ async function loadFields() {
     await loadSamples();
   } catch(e) { console.error('Fields load failed', e); }
 }
-
 function populateSelect(id, fields, defaultField) {
   const sel = document.getElementById(id);
   sel.innerHTML = fields.map(f =>
     `<option value="${f.field}" ${f.field === defaultField ? 'selected' : ''}>${f.label} (${f.count})</option>`
   ).join('');
 }
-
 async function loadCoverage() {
   try {
     const r = await fetch('/api/coverage');
@@ -1141,7 +1329,6 @@ async function loadCoverage() {
     document.getElementById('statusTotal').textContent = c.total_samples;
   } catch(e) { console.error('Coverage load failed', e); }
 }
-
 async function loadSamples() {
   try {
     const r = await fetch('/api/samples');
@@ -1155,7 +1342,6 @@ async function loadSamples() {
     renderScatterChart();
   } catch(e) { console.error('Samples load failed', e); }
 }
-
 async function loadCatchall() {
   try {
     const r = await fetch('/api/catchall');
@@ -1167,7 +1353,6 @@ async function loadCatchall() {
 }
 
 // ── Filters ───────────────────────────────────────────────────────────────
-
 function getFilteredSamples() {
   const checkedMaterials = Array.from(
     document.querySelectorAll('#materialFilters input:checked')
@@ -1190,7 +1375,6 @@ function getFilteredSamples() {
     return true;
   });
 }
-
 function buildMaterialFilters() {
   const classes = [...new Set(allSamples.map(s => s.sim_material_class).filter(Boolean))].sort();
   classes.forEach((c, i) => { colorMap[c] = PALETTE[i % PALETTE.length]; });
@@ -1203,7 +1387,6 @@ function buildMaterialFilters() {
     </label>
   `).join('');
 }
-
 function buildSubstrateFilter() {
   const substrates = [...new Set(allSamples.map(s => s.substrate_material).filter(Boolean))].sort();
   const sel = document.getElementById('substrateFilter');
@@ -1213,7 +1396,6 @@ function buildSubstrateFilter() {
     sel.appendChild(opt);
   });
 }
-
 function onFilterChange() {
   document.querySelectorAll('#materialFilters label').forEach(label => {
     label.classList.toggle('checked', label.querySelector('input').checked);
@@ -1227,7 +1409,6 @@ function onFilterChange() {
 }
 
 // ── Label truncation ──────────────────────────────────────────────────────
-
 function trunc(str, maxLen=22) {
   if (!str) return str;
   const symMatch = str.match(/\(([A-Z][a-zA-Z0-9\-]*)\)$/);
@@ -1236,7 +1417,6 @@ function trunc(str, maxLen=22) {
 }
 
 // ── Strip Chart ───────────────────────────────────────────────────────────
-
 function renderStripChart(samples) {
   samples = samples || getFilteredSamples();
   const field   = document.getElementById('stripField').value;
@@ -1286,13 +1466,13 @@ function renderStripChart(samples) {
         }
       },
       plugins: {
-        legend: { labels: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 }, boxWidth: 12 } },
+        legend: { labels: CHART_LEGEND_STYLE },
         tooltip: {
           mode: 'nearest', intersect: true,
           backgroundColor: '#1c2128', borderColor: '#21262d', borderWidth: 1,
-          titleColor: '#58a6ff', bodyColor: '#e6edf3',
-          titleFont: { family: 'IBM Plex Mono', size: 12 },
-          bodyFont:  { family: 'IBM Plex Sans', size: 12 },
+          titleColor: '#79b8ff', bodyColor: '#f0f6fc',
+          titleFont: { family: 'IBM Plex Mono', size: 13 },
+          bodyFont:  { family: 'IBM Plex Sans', size: 13 },
           callbacks: {
             title: (items) => items[0].raw.displayName,
             label: (item)  => {
@@ -1310,7 +1490,7 @@ function renderStripChart(samples) {
         x: {
           type: 'linear', min: -0.6, max: labels.length - 0.4,
           ticks: {
-            color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 },
+            ...CHART_AXIS_STYLE,
             stepSize: 1,
             callback: (val) => { const i = Math.round(val); return (i >= 0 && i < labels.length) ? trunc(labels[i]) : ''; },
             maxRotation: 30,
@@ -1318,9 +1498,9 @@ function renderStripChart(samples) {
           grid: { color: '#21262d' },
         },
         y: {
-          title: { display: true, text: FIELD_LABELS[field] || field, color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } },
+          title: { display: true, text: FIELD_LABELS[field] || field, ...CHART_TITLE_STYLE },
           grid: { color: '#21262d' },
-          ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } },
+          ticks: CHART_AXIS_STYLE,
         }
       }
     }
@@ -1329,7 +1509,6 @@ function renderStripChart(samples) {
 }
 
 // ── Scatter Chart ─────────────────────────────────────────────────────────
-
 function renderScatterChart(samples) {
   samples = samples || getFilteredSamples();
   const xField  = document.getElementById('xField').value;
@@ -1367,12 +1546,12 @@ function renderScatterChart(samples) {
         }
       },
       plugins: {
-        legend: { labels: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 }, boxWidth: 12 } },
+        legend: { labels: CHART_LEGEND_STYLE },
         tooltip: {
           backgroundColor: '#1c2128', borderColor: '#21262d', borderWidth: 1,
-          titleColor: '#58a6ff', bodyColor: '#e6edf3',
-          titleFont: { family: 'IBM Plex Mono', size: 12 },
-          bodyFont:  { family: 'IBM Plex Sans', size: 12 },
+          titleColor: '#79b8ff', bodyColor: '#f0f6fc',
+          titleFont: { family: 'IBM Plex Mono', size: 13 },
+          bodyFont:  { family: 'IBM Plex Sans', size: 13 },
           callbacks: {
             title: (items) => items[0].raw.label,
             label: (item)  => {
@@ -1389,12 +1568,14 @@ function renderScatterChart(samples) {
       },
       scales: {
         x: {
-          title: { display: true, text: FIELD_LABELS[xField] || xField, color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } },
-          grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }
+          title: { display: true, text: FIELD_LABELS[xField] || xField, ...CHART_TITLE_STYLE },
+          grid: { color: '#21262d' },
+          ticks: CHART_AXIS_STYLE,
         },
         y: {
-          title: { display: true, text: FIELD_LABELS[yField] || yField, color: '#8b949e', font: { family: 'IBM Plex Mono', size: 11 } },
-          grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { family: 'IBM Plex Mono', size: 10 } }
+          title: { display: true, text: FIELD_LABELS[yField] || yField, ...CHART_TITLE_STYLE },
+          grid: { color: '#21262d' },
+          ticks: CHART_AXIS_STYLE,
         }
       }
     }
@@ -1402,7 +1583,6 @@ function renderScatterChart(samples) {
 }
 
 // ── Table ─────────────────────────────────────────────────────────────────
-
 function renderTable(samples) {
   const tbody = document.getElementById('tableBody');
   if (!samples.length) {
@@ -1429,7 +1609,6 @@ function renderTable(samples) {
 }
 
 // ── Ranked List ───────────────────────────────────────────────────────────
-
 function renderRankedList(samples) {
   samples = samples || getFilteredSamples();
   const field  = document.getElementById('rankedField').value;
@@ -1477,9 +1656,8 @@ function renderRankedList(samples) {
 }
 
 // ── Catchall ──────────────────────────────────────────────────────────────
-
 function renderCatchall(items) {
-  const container   = document.getElementById('catchallItems');
+  const container = document.getElementById('catchallItems');
   if (!items.length) { container.innerHTML = '<div style="color:var(--muted);">No items found.</div>'; return; }
   const typeColors = {
     correlation: '#58a6ff', schema_candidate: '#d2a8ff',
@@ -1504,7 +1682,6 @@ function renderCatchall(items) {
 }
 
 // ── Control listeners ─────────────────────────────────────────────────────
-
 document.getElementById('stripField').addEventListener('change',    () => renderStripChart());
 document.getElementById('stripGroupBy').addEventListener('change',  () => renderStripChart());
 document.getElementById('xField').addEventListener('change',        () => renderScatterChart());
@@ -1519,7 +1696,6 @@ document.getElementById('catchallTypeFilter').addEventListener('change', functio
   const type = this.value;
   renderCatchall(type ? allCatchall.filter(i => i.item_type === type) : allCatchall);
 });
-
 boot();
 </script>
 </body>

@@ -338,6 +338,21 @@ def load_mining_findings() -> list:
                 findings.append(json.loads(line))
             except json.JSONDecodeError:
                 pass
+
+    TYPE_ORDER = {
+        "positive":              0,
+        "negative":              1,
+        "inconclusive":          2,
+        "derived_field_artifact": 3,
+    }
+
+    findings.sort(key=lambda f: (
+        TYPE_ORDER.get(
+            (f.get("writeup") or {}).get("finding_type"), 99
+        ),
+        -(f.get("writeup") or {}).get("confidence", 0),
+    ))
+
     return findings
 
 

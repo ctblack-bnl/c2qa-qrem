@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T14:06:20.837018",
+  "generated_at": "2026-05-05T10:05:23.257034",
   "materials_samples_scanned": 151,
   "top_measurements": [
     {
@@ -65,6 +65,28 @@
           "sample": "Nho_2026_Small-delta_device",
           "film": "Al",
           "description": "Film thickness pair for junction leads"
+        }
+      ]
+    },
+    {
+      "term": "Tc_K",
+      "count": 18,
+      "in_schema": true,
+      "examples": [
+        {
+          "sample": "Chowdhury_2026_transmon-charge-drive-simulation",
+          "film": "Al",
+          "description": "Superconducting gap energy for bulk aluminum used in all calculations"
+        },
+        {
+          "sample": "Nho_2026_Big-delta_device",
+          "film": "Al",
+          "description": "Superconducting gap difference delta_Delta/h between junction leads"
+        },
+        {
+          "sample": "Nho_2026_Big-delta_device",
+          "film": "Al",
+          "description": "Superconducting gap Delta/h of the film"
         }
       ]
     },
@@ -267,28 +289,6 @@
       ]
     },
     {
-      "term": "derived_BCS_gap_meV",
-      "count": 10,
-      "in_schema": true,
-      "examples": [
-        {
-          "sample": "Chowdhury_2026_transmon-charge-drive-simulation",
-          "film": "Al",
-          "description": "Superconducting gap energy for bulk aluminum used in all calculations"
-        },
-        {
-          "sample": "Nho_2026_Big-delta_device",
-          "film": "Al",
-          "description": "Superconducting gap difference delta_Delta/h between junction leads"
-        },
-        {
-          "sample": "Nho_2026_Big-delta_device",
-          "film": "Al",
-          "description": "Superconducting gap Delta/h of the film"
-        }
-      ]
-    },
-    {
       "term": "Relaxation energy in ground state (dg)",
       "count": 10,
       "in_schema": false,
@@ -395,28 +395,6 @@
           "sample": "Lambert_2025_Cr(III)_in_AlN_[CrAl0]",
           "film": "Cr substitutional impurity (neutral charge state, d3)",
           "description": "Equilibrium geometry difference (delta Q)"
-        }
-      ]
-    },
-    {
-      "term": "Tc_K",
-      "count": 8,
-      "in_schema": true,
-      "examples": [
-        {
-          "sample": "García-Arellano_2025_Flake_4",
-          "film": "CrSBr (with Er3+ implant)",
-          "description": "Temperature of Er3+ PL minimum (proxy for local AFM transition temperature)"
-        },
-        {
-          "sample": "García-Arellano_2025_Flake_5",
-          "film": "CrSBr (with Er3+ implant)",
-          "description": "Temperature of Er3+ PL minimum (proxy for local AFM transition temperature)"
-        },
-        {
-          "sample": "García-Arellano_2025_Flake_6",
-          "film": "CrSBr (with Er3+ implant)",
-          "description": "AFM transition temperature at B=0 (PL minimum)"
         }
       ]
     },
@@ -879,6 +857,28 @@
           "sample": "Hays_2025_harmonium-optimized",
           "film": "Al (with Al/AlOx junction)",
           "description": "Estimated out-of-manifold heating time from quasiparticles"
+        }
+      ]
+    },
+    {
+      "term": "json:surface_participation_ratio",
+      "count": 4,
+      "in_schema": true,
+      "examples": [
+        {
+          "sample": "Dai_2025_F-SPA_(Filter-coupled_SNAIL_Parametric_Amplifier)",
+          "film": "Al",
+          "description": "Josephson participation ratio pJ_a of resonant mode"
+        },
+        {
+          "sample": "Bahrami_2026_D3",
+          "film": "Ta",
+          "description": "QTLS,0 (inverse linear TLS absorption) from delta_f/f vs surface participation ratio for microstruct"
+        },
+        {
+          "sample": "Bland_2025_Ta-on-Si_resonators_(surface_loss_characterization)",
+          "film": "Ta",
+          "description": "Resonator SPR (pMS) range for coplanar waveguide resonators"
         }
       ]
     }

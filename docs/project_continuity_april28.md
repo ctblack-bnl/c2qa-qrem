@@ -7,7 +7,7 @@
 
 | # | Component | Status |
 |---|---|---|
-| 1 | **Baby QREM** — circuit + hardware profile → resource estimate | Stages 1-3 complete. Modular profile system operational. UI live. Stage 4 (sensitivity analysis) pending. |
+| 1 | **Baby QREM** — circuit + hardware profile → resource estimate | Stages 1-3 complete. **Rescoping in progress:** stripping modular overhead, focusing on single-module materials-informed estimator with rich noise modeling. See Baby QREM Rescoping section. |
 | 2 | **Publications Ingester** — reads PDFs, extracts structured materials data | Operational. Three-pass pipeline (relevance, extraction, similarity profile). 97 papers, 155 samples, ~1,318 catchall items, 100% profile coverage. |
 | 3 | **Materials Database + Explorer** — SQLite + browser UI | Explore/Search/Catchall tabs. Hybrid similarity search live. Material class sidebar. Hosted at https://c2qa-materials-explorer.onrender.com |
 | 4 | **Corpus Mining Pipeline** — AI-powered hypothesis extraction from corpus | **NEW — built April 28.** Three-phase A→B→C pipeline. Human review UI integrated into ingestion pipeline as Stage 4. `findings.jsonl` append-only ledger. |
@@ -40,8 +40,10 @@ Scientific Papers
           → [5] Materials Predictor → [6] Mapping Layer
 ```
 
-**The scientific question the full pipeline answers:**
-*"I have a superconducting film with these material properties. If I build a qubit from it and use it in a modular architecture to run this quantum algorithm, how many modules would I need?"*
+**The scientific question the materials pipeline answers:**
+*"I have a superconducting film with these material properties. If I build a qubit from it and run this quantum circuit, how many physical qubits do I need?"*
+
+The modular architecture question ("how many modules?") is a separate Center-wide research effort involving computer scientists, algorithms, and error correction teams. Materials and devices feed into it, but the architectural challenges are not materials challenges. The materials → single-module estimator connection is the right scope for this project.
 
 ---
 
@@ -160,6 +162,64 @@ Validated with `test_corpus_fetch.py` — 10/10 tests passing. Real corpus numbe
 
 ---
 
+## Baby QREM — Strategic Rescoping (April 28)
+
+### The Core Reframe
+
+Baby QREM will be simplified to focus on the **materials → single-module resource estimator** connection. The modular overhead calculations (module count, inter-module operations, purification rounds, communication qubits) are being removed. This is not a loss — it's a sharpening.
+
+The modular architecture is a Center-wide research problem involving computer scientists, algorithms people, and error correction experts. Materials and devices feed into it, but the architectural challenges are not materials challenges. A clean single-module estimator that takes materials inputs and produces physical qubit counts is the right scope and is genuinely useful.
+
+### What the Simplified Estimator Does
+
+```
+QASM circuit
+    ↓
+Stage 1 — Parse (already working)
+  gate list, qubit count, T gate count
+    ↓
+Stage 2 — Analyze (add circuit depth)
+  critical path depth via topological sort
+  (drop: interaction graph, hub qubits, module partitioning)
+    ↓
+Stage 3 — Single-module estimate (simplify)
+  gate fidelity → physical error rate
+  circuit depth → logical error rate target
+  → code distance d
+  → physical qubits per logical qubit (2d²-1)
+  → total physical qubits for this circuit
+  (drop: module count, inter-module ops, purification, communication qubits)
+    ↓
+Materials inputs from corpus
+  T1, T2, gate fidelity → hardware profile [MEASURED] or [ASSUMED]
+  RRR, loss tangent → implied T1 via mapping layer (future)
+  Noise spectrum → coherence budget breakdown (future)
+```
+
+### Why Circuit Depth Is Needed
+
+Circuit depth is the length of the critical path through the QASM circuit — the longest sequence of gates that must execute sequentially. A deeper circuit needs a lower logical error rate per gate, which requires higher code distance and more physical qubits. The parser already extracts the full gate list; we just need to add critical path calculation (topological sort, ~20-30 lines).
+
+**Note on connectivity:** Within a single module, qubit connectivity affects runtime via SWAP routing overhead (physically distant qubits require SWAP chains to interact — roughly 3 gates each). For the simplified estimator, assume perfect intra-module connectivity and flag this explicitly as assumption #1. This gives a lower bound on resource cost. Connectivity becomes important when modeling realistic chip layouts, which is a future addition.
+
+### What the Estimator Can Do Beyond Basic Code Distance
+
+Even without modularity, the single-module estimator can be rich:
+- **Gate fidelity → code distance** — the basic connection
+- **T1, T2 → coherence budget** — how much error budget is consumed by relaxation vs dephasing
+- **Loss tangent, surface oxide → implied T1** — indirect materials path via mapping layer
+- **RRR → quasiparticle density → T1 contribution** — materials property in coherence chain
+- **Vortex activation temperature → microwave loss → T1** — full materials chain for Ta films
+- **Sensitivity analysis** — "if RRR improves from 45 to 65, what happens to code distance?" — the most useful output for materials scientists
+
+### Next Steps for Baby QREM
+
+1. Add circuit depth calculation to Stage 2 (critical path via topological sort)
+2. Strip Stage 3 down to single-module: code distance + physical qubit count only
+3. Remove interconnect and module profile dropdowns from UI; simplify to qubit profile only
+4. Add coherence budget breakdown output — T1 loss attribution by mechanism
+5. Wire sensitivity analysis: materials property → implied T1 → code distance change
+
 ## Key Architectural Insights — April 28
 
 ### Per-material-class analysis
@@ -225,33 +285,39 @@ python3 backfill_similarity_profiles.py
 
 ## Coding Priorities — Next Sessions
 
-**Next session (schema promotion — unlocks better mining):**
+**Next session — two parallel tracks:**
 
-1. **Schema promotion implementation** — add sheet kinetic inductance, mean free path, vortex activation temperature as named columns in `build_sqlite.py`, reading from `catchall_items.value`. Rebuild SQLite. Re-run Phase A — expect significantly more hypotheses with cross-sample evidence. This directly improves Phase B output quality.
+**Track A: Mining improvement**
 
-2. **Stage 4 schema evolution UI** — surface measurement frequency report in ingestion pipeline UI for human approval of promotions. Threshold: >5% of materials samples. Fits naturally as a sub-step within Stage 4 before running mining.
+1. **Schema promotion implementation** — add sheet kinetic inductance, mean free path, vortex activation temperature as named columns in `build_sqlite.py`, reading from `catchall_items.value`. Rebuild SQLite. Re-run Phase A — expect significantly more hypotheses with cross-sample evidence.
+
+2. **Per-material-class Phase A** — modify Phase A to build evidence tables stratified by material class (Ta, Ta-Hf, NbSe2, NbN). This is the architectural fix Phase B identified — cross-material analysis is confounded by material identity. The Bahrami Ta series (8 samples, wide mean free path range, vortex activation temperature measured) is particularly promising.
+
+**Track B: Baby QREM simplification**
+
+3. **Simplify Baby QREM** — strip modular overhead from Stage 3; add circuit depth to Stage 2; simplify UI to single-qubit profile dropdown. Primary output: code distance and physical qubit count per logical qubit, driven by materials inputs. See Baby QREM Rescoping section.
+
+4. **Coherence budget output** — add T1 loss attribution breakdown to Baby QREM output: TLS, quasiparticle, vortex motion, radiation contributions. Makes the materials → resource connection explicit.
 
 **Medium effort (one session each):**
 
-3. **Per-material-class Phase A** — modify Phase A to also build evidence tables stratified by `sim_material_class`. Ta, Ta-Hf, NbSe2, NbN each have enough samples for focused analysis. This is the architectural fix that Phase B identified as needed.
+5. **Stage 4 schema evolution UI** — surface measurement frequency report in ingestion pipeline for human approval of field promotions.
 
-4. **QREM Stage 4** — sensitivity analysis, threshold detection, what-if engine. "If I improve RRR from 45 to 65, how much does module count change?" Routes material property improvements through the full pipeline to system-level impact. Requires mapping layer to have initial entries first.
+6. **Explorer Findings tab** — read-only view of approved `findings.jsonl` on hosted Explorer. Updates on git push.
 
-5. **Explorer Findings tab** — read-only view of approved `findings.jsonl` on the hosted Explorer. Each finding card shows title, type, confidence, QREM implications. Updates on git push. Completes the local→remote workflow for mining results.
+7. **Sensitivity analysis in Baby QREM** — "if RRR improves from 45 to 65, what happens to code distance?" Routes material property improvements through the full single-module pipeline. This is the key output for materials scientists.
 
-6. **Ic/Jc disambiguation** — new `derive.py` functions for material Jc and junction Jc. New schema columns. Disambiguation in extraction prompt. Requires new schema fields for film width and junction dimensions.
+8. **Ic/Jc disambiguation** — new `derive.py` functions, new schema columns, extraction prompt disambiguation.
 
 **Larger effort (multiple sessions):**
 
-7. **Materials Predictor** — Gaussian process regression per material class. Gives predicted T1/Qi + uncertainty bounds grounded in specific corpus samples. Similarity search is the foundation; regression is the next layer.
+9. **Materials Predictor** — Gaussian process regression per material class.
 
-8. **Mining config file** — extract `FIELD_MAP`, `DEVICE_PHYSICS_TERMS`, domain prompt context to `mining_config.yaml`. Makes pipeline domain-generalizable. Do after end-to-end validation.
+10. **Mining config file** — extract domain-specific config to `mining_config.yaml` for generalizability.
 
-9. **Neutral atom hardware profile** — YAML file following existing structure. Enables cross-platform comparison for Stage 4.
+11. **Corpus expansion** — older literature ingestion; policy/priority question.
 
-10. **Corpus expansion** — corpus currently covers only 2025-2026 papers. Ingesting older literature is a policy/priority question; the pipeline handles it.
-
-11. **Supplementary information linking** — DOI-based naming convention links SI files to companion papers at ingestion time. SI files currently ingested as independent records. See Data Provenance section below.
+12. **Supplementary information linking** — SI files linked to companion papers via DOI-based naming.
 
 ---
 
@@ -290,12 +356,12 @@ The PUK concept scales to a general **federated knowledge graph for quantum comp
 - **Derived quantities live in SQLite, not JSONL** — computed at build time, no re-ingestion needed.
 - **Configuration as data, not code** — hardware profiles, mining field maps, domain context are YAML/config files, not hardcoded logic.
 - **Explicit assumptions in every output** — QREM documents all simplifying assumptions; mining pipeline documents all classification decisions.
-- **Two-tier separation** — Tier 1 (qubit physics, solid ground) always separated from Tier 2 (modular overhead, shakier ground).
+- **Single-module first** — materials → single-module resource estimator is the primary deliverable. Modular overhead (Tier 2) is a separate Center-wide research problem; materials feed into it but do not drive it.
 - **Schema evolution is frequency-driven** — promotion candidates surface from measurement frequency across corpus, not per-paper AI judgment.
 - **Geometry-independent properties only** — only intrinsic material properties (sheet Lk, Jc-material, mean free path) are promotable to named columns. Geometry-dependent measurements (total Lk, Ic) stay in catchall.
 - **Process variables vs signals** — Block 2 (deposition method, temperature, annealing) are inputs you control; Block 3 (Tc, RRR, T1) are outputs you measure.
 
 ---
 
-*Last updated: April 28, 2026*
+*Last updated: April 28, 2026 (evening)*
 *Developed in collaboration between C2QA center director and Claude (Anthropic)*

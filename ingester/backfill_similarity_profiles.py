@@ -7,7 +7,20 @@
 #
 # Usage:
 #   cd ingester
-#   python3 backfill_similarity_profiles.py [--dry-run] [--limit N]
+#   python3 backfill_similarity_profiles.py [--dry-run] [--limit N] [--filter PATTERN]
+#
+# Examples:
+#   # Backfill all records missing profiles
+#   python3 backfill_similarity_profiles.py
+#
+#   # Force reprocess a specific paper (even if it already has a profile)
+#   python3 backfill_similarity_profiles.py --filter Zaman
+#
+#   # Dry run to see what would be processed
+#   python3 backfill_similarity_profiles.py --filter Zaman --dry-run
+#
+#   # Test on first 3 records needing profiles
+#   python3 backfill_similarity_profiles.py --limit 3
 #
 # Output:
 #   Writes records_with_profiles.jsonl alongside the original.
@@ -19,14 +32,14 @@
 #
 # Design:
 #   - Reads records.jsonl line by line
-#   - For records with outcome='ingested' and no similarity_profile:
+#   - For records with outcome='ingested' and no similarity_profile
+#     (or matching --filter pattern):
 #       runs Pass 3 for each sample in the record
 #       appends the profiles to the record under 'similarity_profiles'
 #         (keyed by sample_id)
 #   - All other records are passed through unchanged
 #   - Progress is printed to stdout
 #   - Errors on individual records are logged and skipped — never fatal
-
 import argparse
 import json
 import sys
@@ -53,8 +66,6 @@ def call_claude_for_profiles(client, sample_records: list, filename: str) -> dic
     Returns a dict keyed by sample_id → profile dict.
     Raises on API error.
     """
-    # Build a combined record for the prompt — all samples from this paper together
-    # so Claude has full context (e.g. can compare samples within the paper)
     prompt = build_profile_prompt(sample_records)
 
     # Scale token budget with number of samples — each profile is ~200-300 tokens
@@ -74,7 +85,6 @@ def call_claude_for_profiles(client, sample_records: list, filename: str) -> dic
         raw = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
 
     profiles_list = json.loads(raw)
-
     if not isinstance(profiles_list, list):
         raise ValueError(f"Expected JSON array, got {type(profiles_list)}")
 
@@ -91,17 +101,18 @@ def call_claude_for_profiles(client, sample_records: list, filename: str) -> dic
     return result
 
 
-def backfill(dry_run: bool = False, limit: int = None):
+def backfill(dry_run: bool = False, limit: int = None, filter_pattern: str = None):
     if not JSONL_IN.exists():
         print(f"ERROR: {JSONL_IN} not found")
         sys.exit(1)
 
     print(f"C2QA Materials — Pass 3 Similarity Profile Backfill")
-    print(f"  Input:   {JSONL_IN}")
-    print(f"  Output:  {JSONL_OUT}")
-    print(f"  Dry run: {dry_run}")
+    print(f"  Input:          {JSONL_IN}")
+    print(f"  Output:         {JSONL_OUT}")
+    print(f"  Dry run:        {dry_run}")
+    print(f"  Filter pattern: {filter_pattern or '(none — missing profiles only)'}")
     if limit:
-        print(f"  Limit:   {limit} records")
+        print(f"  Limit:          {limit} records")
     print()
 
     client = make_client()
@@ -119,65 +130,105 @@ def backfill(dry_run: bool = False, limit: int = None):
 
     print(f"Read {len(records)} records from JSONL")
 
-    # Count what needs profiling
-    needs_profile = [
-        r for r in records
-        if r.get("outcome") == "ingested"
-        and not r.get("similarity_profiles")
-        and r.get("extraction_json", {}).get("samples")
-    ]
-    already_done = sum(1 for r in records if r.get("similarity_profiles"))
-    skipped_not_ingested = len(records) - len(needs_profile) - already_done
+    # Classify records
+    def needs_processing(record):
+        """
+        A record needs processing if:
+          - outcome is 'ingested'
+          - has samples to profile
+          AND either:
+            - has no similarity_profiles yet (normal backfill), OR
+            - matches the filter pattern (forced reprocess)
+        """
+        if record.get("outcome") != "ingested":
+            return False
+        if not record.get("extraction_json", {}).get("samples"):
+            return False
+        has_profile = bool(record.get("similarity_profiles"))
+        force_this  = (filter_pattern is not None and
+                       filter_pattern.lower() in record.get("filename", "").lower())
+        if force_this:
+            return True
+        return not has_profile
 
-    print(f"  Already have profiles: {already_done}")
-    print(f"  Need profiling:        {len(needs_profile)}")
-    print(f"  Skipped (not ingested or no samples): {skipped_not_ingested}")
+    to_process = [r for r in records if needs_processing(r)]
+    already_done = sum(
+        1 for r in records
+        if r.get("similarity_profiles")
+        and not (filter_pattern and
+                 filter_pattern.lower() in r.get("filename", "").lower())
+    )
+    skipped_other = len(records) - len(to_process) - already_done
+
+    print(f"  Already have profiles (keeping): {already_done}")
+    print(f"  To process:                      {len(to_process)}")
+    if filter_pattern:
+        forced   = sum(1 for r in to_process if r.get("similarity_profiles"))
+        missing  = sum(1 for r in to_process if not r.get("similarity_profiles"))
+        print(f"    Forced reprocess (--filter):   {forced}")
+        print(f"    Missing profiles:              {missing}")
+    print(f"  Skipped (not ingested / no samples): {skipped_other}")
     print()
 
     if limit:
-        needs_profile = needs_profile[:limit]
+        to_process = to_process[:limit]
         print(f"  Processing first {limit} records (--limit flag)")
         print()
 
-    if dry_run:
-        print("DRY RUN — no API calls, no output file written.")
-        print("Records that would be profiled:")
-        for r in needs_profile:
-            samples = r.get("extraction_json", {}).get("samples", [])
-            print(f"  {r.get('filename', '?')} — {len(samples)} samples")
+    if not to_process:
+        print("Nothing to process — all eligible records already have profiles.")
+        if filter_pattern:
+            print(f"  (No records matched filter pattern '{filter_pattern}')")
         return
 
-    # Process
+    if dry_run:
+        print("DRY RUN — no API calls, no output file written.")
+        print("Records that would be processed:")
+        for r in to_process:
+            samples  = r.get("extraction_json", {}).get("samples", [])
+            has_prof = "REPROCESS" if r.get("similarity_profiles") else "NEW"
+            print(f"  [{has_prof}] {r.get('filename', '?')} — {len(samples)} sample(s)")
+        return
+
+    # Build a set of filenames to process for fast lookup
+    to_process_filenames = {r.get("filename") for r in to_process}
+
+    # Process — iterate all records in order, replacing those that need it
     updated_records = []
     n_success = 0
     n_failed  = 0
+    process_counter = 0
 
     for i, record in enumerate(records):
         filename = record.get("filename", f"record_{i}")
 
-        # Pass through records that don't need profiling
-        if record.get("outcome") != "ingested" \
-                or record.get("similarity_profiles") \
-                or not record.get("extraction_json", {}).get("samples"):
+        # Pass through records not in our processing set
+        if filename not in to_process_filenames:
             updated_records.append(record)
             continue
 
         # Skip if beyond limit
-        if limit and n_success + n_failed >= limit:
+        if limit and process_counter >= limit:
             updated_records.append(record)
             continue
 
         samples = record["extraction_json"]["samples"]
-        n = len(samples)
-        print(f"[{n_success + n_failed + 1}/{len(needs_profile)}] {filename} — {n} sample(s)")
+        n       = len(samples)
+        process_counter += 1
+        reprocess_flag = " [REPROCESS]" if record.get("similarity_profiles") else " [NEW]"
+        print(f"[{process_counter}/{len(to_process)}] {filename} — "
+              f"{n} sample(s){reprocess_flag}")
 
         try:
             profiles = call_claude_for_profiles(client, samples, filename)
 
             # Validate we got a profile for each sample
-            missing = [s.get("sample_id") for s in samples if s.get("sample_id") not in profiles]
-            if missing:
-                print(f"  WARNING: missing profiles for sample_ids: {missing}")
+            missing_sids = [
+                s.get("sample_id") for s in samples
+                if s.get("sample_id") not in profiles
+            ]
+            if missing_sids:
+                print(f"  WARNING: missing profiles for sample_ids: {missing_sids}")
 
             # Report what we got
             for sid, profile in profiles.items():
@@ -185,15 +236,22 @@ def backfill(dry_run: bool = False, limit: int = None):
                 dev   = profile.get("device_type", "?")
                 tier  = profile.get("coherence_tier", "?")
                 focus = ", ".join(profile.get("science_focus", []))
-                print(f"  {sid}: {mat} / {dev} / {tier} / [{focus}]")
+                old_mat = ""
+                if record.get("similarity_profiles", {}).get(sid):
+                    old = record["similarity_profiles"][sid].get("material_class", "?")
+                    if old != mat:
+                        old_mat = f" (was: {old})"
+                print(f"  {sid}: {mat}{old_mat} / {dev} / {tier} / [{focus}]")
 
-            # Attach profiles to record
+            # Attach updated profiles to record
             updated_record = dict(record)
             updated_record["similarity_profiles"] = profiles
             updated_records.append(updated_record)
             n_success += 1
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             print(f"  ERROR: {e}")
             # Pass through unchanged — don't lose the record
             updated_records.append(record)
@@ -211,17 +269,20 @@ def backfill(dry_run: bool = False, limit: int = None):
 
     print()
     print(f"Done.")
-    print(f"  Profiles generated: {n_success}")
-    print(f"  Failed:             {n_failed}")
-    print(f"  Output:             {JSONL_OUT}")
+    print(f"  Profiles generated/updated : {n_success}")
+    print(f"  Failed (kept original)     : {n_failed}")
+    print(f"  Output                     : {JSONL_OUT}")
     print()
     print("Next steps:")
-    print("  1. Inspect a few profiles: python3 -c \"import json; [print(json.dumps(r.get('similarity_profiles',{}), indent=2)) for r in [json.loads(l) for l in open('../data/ingested/records_with_profiles.jsonl')] if r.get('similarity_profiles')][:3]\"")
+    print("  1. Inspect updated profiles:")
+    print("       python3 -c \"import json; [print(r['filename'], json.dumps(r.get('similarity_profiles',{}), indent=2)) for r in [json.loads(l) for l in open('../data/ingested/records_with_profiles.jsonl')] if 'Zaman' in r.get('filename','')]\"")
     print("  2. If satisfied, swap files:")
     print("       mv ../data/ingested/records.jsonl ../data/ingested/records_backup.jsonl")
     print("       mv ../data/ingested/records_with_profiles.jsonl ../data/ingested/records.jsonl")
     print("  3. Rebuild SQLite:")
     print("       python3 build_sqlite.py")
+    print("  4. Re-run Phase A:")
+    print("       python3 pipeline_mining.py phase-a")
 
 
 if __name__ == "__main__":
@@ -236,5 +297,14 @@ if __name__ == "__main__":
         "--limit", type=int, default=None,
         help="Process at most N records (useful for testing)"
     )
+    parser.add_argument(
+        "--filter", type=str, default=None,
+        dest="filter_pattern",
+        help=(
+            "Force reprocess records whose filename contains this string, "
+            "even if they already have profiles. Case-insensitive. "
+            "Example: --filter Zaman"
+        )
+    )
     args = parser.parse_args()
-    backfill(dry_run=args.dry_run, limit=args.limit)
+    backfill(dry_run=args.dry_run, limit=args.limit, filter_pattern=args.filter_pattern)
