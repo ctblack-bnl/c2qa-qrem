@@ -1212,7 +1212,10 @@ async function openDetail(displayName) {
 }
 
 function closeDetail() {
-  document.getElementById('detailPanel').classList.remove('open');
+  const panel = document.getElementById('detailPanel');
+  panel.style.transition = 'transform 0.25s ease';
+  panel.style.transform = '';   // clear inline style so CSS class takes over
+  panel.classList.remove('open');
   document.getElementById('detailOverlay').classList.remove('open');
 }
 
@@ -1897,10 +1900,11 @@ boot();
     const deltaY = currentY - startY;
     if (deltaY > 80) {
       // Swipe far enough — close
+      panel.style.transform = '';  // clear inline, let closeDetail handle it
       closeDetail();
     } else {
-      // Snap back open
-      panel.style.transform = 'translateY(0)';
+      // Snap back open — clear inline transform, CSS open class takes over
+      panel.style.transform = '';
     }
   }
 
