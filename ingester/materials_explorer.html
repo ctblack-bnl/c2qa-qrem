@@ -550,6 +550,116 @@
   }
   .profile-result.success { background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.3); color: var(--accent2); display: block; }
   .profile-result.error   { background: rgba(247,129,102,0.08); border: 1px solid rgba(247,129,102,0.3); color: var(--accent3); display: block; }
+
+  /* ── Mobile filter button (hidden on desktop) ── */
+  .mobile-filter-btn {
+    display: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .mobile-filter-btn:hover { color: var(--text); border-color: var(--accent); }
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 199;
+  }
+  .sidebar-overlay.open { display: block; }
+
+  /* ── Responsive breakpoint ── */
+  @media (max-width: 768px) {
+    /* Header */
+    header {
+      padding: 10px 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    header .subtitle { display: none; }
+    header h1 { font-size: 14px; }
+    .coverage-pills {
+      margin-left: 0;
+      order: 3;
+      width: 100%;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .pill { font-size: 11px; padding: 3px 8px; }
+    .mobile-filter-btn { display: block; margin-left: auto; order: 2; }
+
+    /* Layout — single column, sidebar becomes overlay */
+    .layout {
+      grid-template-columns: 1fr;
+      height: calc(100vh - 80px);
+    }
+    sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 280px;
+      z-index: 200;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      padding-top: 60px;
+    }
+    sidebar.open {
+      transform: translateX(0);
+    }
+
+    /* Tabs */
+    .tabs { padding: 0 8px; overflow-x: auto; }
+    .tab { font-size: 12px; padding: 10px 12px; white-space: nowrap; }
+
+    /* Sub-toggle — hide Scatter on mobile */
+    [data-explore="scatter"] { display: none; }
+
+    /* Charts */
+    .plot-area { padding: 12px; }
+    .plot-controls { gap: 8px; }
+    .control-group select { font-size: 11px; padding: 4px 8px; }
+    .chart-click-hint { font-size: 10px; }
+
+    /* Detail drawer — full width, slides up from bottom */
+    .detail-panel {
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      height: 85vh;
+      border-left: none;
+      border-top: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+      transform: translateY(100%);
+    }
+    .detail-panel.open { transform: translateY(0); }
+
+    /* Findings cards */
+    .finding-card { padding: 12px 14px; }
+    .finding-card-top { flex-wrap: wrap; gap: 8px; }
+    .finding-title { font-size: 13px; }
+    .finding-confidence { width: 100%; text-align: left; }
+    .finding-sample-chips { gap: 5px; }
+    .finding-sample-chip { font-size: 10px; padding: 2px 6px; }
+
+    /* Catchall */
+    .catchall-item { grid-template-columns: 1fr; }
+
+    /* Status bar */
+    .status-bar { padding: 5px 12px; font-size: 10px; gap: 12px; }
+
+    /* Tables — horizontal scroll */
+    .table-area { overflow-x: auto; }
+  }
 </style>
 </head>
 <body>
@@ -563,9 +673,11 @@
   <div class="coverage-pills" id="coveragePills">
     <div class="pill">Loading...</div>
   </div>
+  <button class="mobile-filter-btn" id="mobileFilterBtn" onclick="toggleMobileSidebar()">⚙ Filters</button>
 </header>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 <div class="layout">
-  <sidebar>
+  <sidebar id="mainSidebar">
     <div class="section-label">Filter by material</div>
     <div class="checkbox-group" id="materialFilters">
       <div style="color:var(--muted);font-size:12px;">Loading...</div>
@@ -1697,6 +1809,25 @@ document.getElementById('catchallTypeFilter').addEventListener('change', functio
   renderCatchall(type ? allCatchall.filter(i => i.item_type === type) : allCatchall);
 });
 boot();
+
+// ── Mobile sidebar toggle ─────────────────────────────────────────────────
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('mainSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const isOpen  = sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', !isOpen);
+  overlay.classList.toggle('open', !isOpen);
+}
+function closeMobileSidebar() {
+  document.getElementById('mainSidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+// Close sidebar after filter change on mobile
+const _origFilterChange = onFilterChange;
+function onFilterChange() {
+  _origFilterChange();
+  if (window.innerWidth <= 768) closeMobileSidebar();
+}
 </script>
 </body>
 </html>
