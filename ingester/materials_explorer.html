@@ -655,10 +655,63 @@
     .catchall-item { grid-template-columns: 1fr; }
 
     /* Status bar */
-    .status-bar { padding: 5px 12px; font-size: 10px; gap: 12px; }
+    .status-bar { padding: 5px 12px; font-size: 11px; gap: 12px; }
 
-    /* Tables — horizontal scroll */
+    /* Tables — horizontal scroll + larger text */
     .table-area { overflow-x: auto; }
+    table { font-size: 14px; }
+    th { font-size: 12px; }
+    td { padding: 10px 14px; }
+
+    /* General text bumps */
+    body { font-size: 16px; }
+    .tab { font-size: 14px; padding: 11px 13px; }
+    .finding-title { font-size: 14px; }
+    .finding-summary { font-size: 14px; }
+    .finding-detail { font-size: 14px; }
+    .finding-evidence-row { font-size: 13px; }
+    .finding-meta { font-size: 12px; }
+    .finding-type-badge { font-size: 12px; }
+    .finding-confidence { font-size: 13px; }
+    .catchall-description { font-size: 15px; }
+    .catchall-notes { font-size: 14px; }
+    .catchall-value { font-size: 14px; }
+    .catchall-display-name { font-size: 13px; }
+    .detail-title { font-size: 14px; }
+    /* Drawer close button — larger touch target, more visible */
+    .detail-close {
+      font-size: 26px;
+      color: var(--text);
+      padding: 4px 8px;
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Swipe indicator at top of drawer */
+    .detail-panel::before {
+      content: '';
+      display: block;
+      width: 36px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 10px auto 0;
+      flex-shrink: 0;
+    }
+    .detail-field { font-size: 14px; }
+    .detail-field-name { font-size: 13px; }
+    .detail-section-label { font-size: 12px; }
+    .detail-catchall-desc { font-size: 13px; }
+    .detail-catchall-notes { font-size: 13px; }
+    .similar-name { font-size: 15px; }
+    .similar-authors { font-size: 14px; }
+    .similar-field-chip { font-size: 13px; }
+    .ranked-sample-name { font-size: 14px; }
+    .section-label { font-size: 12px; }
+    select, .filter-input { font-size: 15px; }
+    .checkbox-group label { font-size: 13px; }
   }
 </style>
 </head>
@@ -1809,6 +1862,56 @@ document.getElementById('catchallTypeFilter').addEventListener('change', functio
   renderCatchall(type ? allCatchall.filter(i => i.item_type === type) : allCatchall);
 });
 boot();
+
+// ── Mobile drawer swipe-to-close ──────────────────────────────────────────
+(function() {
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
+
+  function onTouchStart(e) {
+    const panel = document.getElementById('detailPanel');
+    if (!panel.classList.contains('open')) return;
+    startY = e.touches[0].clientY;
+    currentY = startY;
+    isDragging = true;
+    panel.style.transition = 'none';
+  }
+
+  function onTouchMove(e) {
+    if (!isDragging) return;
+    const panel = document.getElementById('detailPanel');
+    currentY = e.touches[0].clientY;
+    const deltaY = currentY - startY;
+    if (deltaY > 0) {
+      panel.style.transform = `translateY(${deltaY}px)`;
+      e.preventDefault();
+    }
+  }
+
+  function onTouchEnd(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    const panel = document.getElementById('detailPanel');
+    panel.style.transition = 'transform 0.25s ease';
+    const deltaY = currentY - startY;
+    if (deltaY > 80) {
+      // Swipe far enough — close
+      closeDetail();
+    } else {
+      // Snap back open
+      panel.style.transform = 'translateY(0)';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const panel = document.getElementById('detailPanel');
+    panel.addEventListener('touchstart', onTouchStart, { passive: true });
+    panel.addEventListener('touchmove', onTouchMove, { passive: false });
+    panel.addEventListener('touchend', onTouchEnd, { passive: true });
+  });
+})();
+
 
 // ── Mobile sidebar toggle ─────────────────────────────────────────────────
 function toggleMobileSidebar() {
