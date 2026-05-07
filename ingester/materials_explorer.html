@@ -162,6 +162,21 @@
   .control-group { display: flex; align-items: center; gap: 8px; }
   .control-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
   .control-group select { width: auto; margin-bottom: 0; padding: 5px 10px; font-size: 12px; }
+  /* CSV export button */
+  .csv-export-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+  .csv-export-btn:hover { color: var(--accent2); border-color: var(--accent2); }
   /* Click hint */
   .chart-click-hint {
     font-family: 'IBM Plex Mono', monospace;
@@ -279,7 +294,6 @@
   .profile-tag { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 2px 8px; border-radius: 3px; border: 1px solid; }
   .profile-tag-match { border-color: var(--accent2); color: var(--accent2); background: rgba(63,185,80,0.08); }
   .profile-tag-mismatch-count { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); padding: 2px 4px; }
-
   /* ── Findings tab ── */
   .findings-area { flex: 1; overflow: auto; padding: 20px; display: none; flex-direction: column; gap: 12px; }
   .findings-area.active { display: flex; }
@@ -452,7 +466,6 @@
     padding: 48px 0;
     text-align: center;
   }
-
   /* ── Catchall ── */
   .catchall-area { flex: 1; overflow: auto; padding: 20px; display: none; flex-direction: column; gap: 16px; }
   .catchall-area.active { display: flex; }
@@ -471,7 +484,6 @@
   .catchall-description { font-weight: 500; margin-bottom: 4px; font-size: 14px; }
   .catchall-value { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent2); margin-bottom: 4px; }
   .catchall-notes { font-size: 13px; color: var(--muted); line-height: 1.5; }
-
   .status-bar {
     background: var(--surface);
     border-top: 1px solid var(--border);
@@ -550,7 +562,6 @@
   }
   .profile-result.success { background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.3); color: var(--accent2); display: block; }
   .profile-result.error   { background: rgba(247,129,102,0.08); border: 1px solid rgba(247,129,102,0.3); color: var(--accent3); display: block; }
-
   /* ── Mobile filter button (hidden on desktop) ── */
   .mobile-filter-btn {
     display: none;
@@ -574,10 +585,8 @@
     z-index: 199;
   }
   .sidebar-overlay.open { display: block; }
-
   /* ── Responsive breakpoint ── */
   @media (max-width: 768px) {
-    /* Header */
     header {
       padding: 10px 16px;
       flex-wrap: wrap;
@@ -594,8 +603,6 @@
     }
     .pill { font-size: 11px; padding: 3px 8px; }
     .mobile-filter-btn { display: block; margin-left: auto; order: 2; }
-
-    /* Layout — single column, sidebar becomes overlay */
     .layout {
       grid-template-columns: 1fr;
       height: calc(100vh - 80px);
@@ -614,21 +621,14 @@
     sidebar.open {
       transform: translateX(0);
     }
-
-    /* Tabs */
     .tabs { padding: 0 8px; overflow-x: auto; }
     .tab { font-size: 12px; padding: 10px 12px; white-space: nowrap; }
-
-    /* Sub-toggle — hide Scatter on mobile */
     [data-explore="scatter"] { display: none; }
-
-    /* Charts */
     .plot-area { padding: 12px; }
     .plot-controls { gap: 8px; }
     .control-group select { font-size: 11px; padding: 4px 8px; }
     .chart-click-hint { font-size: 10px; }
-
-    /* Detail drawer — full width, slides up from bottom */
+    .csv-export-btn { font-size: 10px; padding: 4px 8px; }
     .detail-panel {
       top: auto;
       bottom: 0;
@@ -642,28 +642,18 @@
       transform: translateY(100%);
     }
     .detail-panel.open { transform: translateY(0); }
-
-    /* Findings cards */
     .finding-card { padding: 12px 14px; }
     .finding-card-top { flex-wrap: wrap; gap: 8px; }
     .finding-title { font-size: 13px; }
     .finding-confidence { width: 100%; text-align: left; }
     .finding-sample-chips { gap: 5px; }
     .finding-sample-chip { font-size: 10px; padding: 2px 6px; }
-
-    /* Catchall */
     .catchall-item { grid-template-columns: 1fr; }
-
-    /* Status bar */
     .status-bar { padding: 5px 12px; font-size: 11px; gap: 12px; }
-
-    /* Tables — horizontal scroll + larger text */
     .table-area { overflow-x: auto; }
     table { font-size: 14px; }
     th { font-size: 12px; }
     td { padding: 10px 14px; }
-
-    /* General text bumps */
     body { font-size: 16px; }
     .tab { font-size: 14px; padding: 11px 13px; }
     .finding-title { font-size: 14px; }
@@ -678,7 +668,6 @@
     .catchall-value { font-size: 14px; }
     .catchall-display-name { font-size: 13px; }
     .detail-title { font-size: 14px; }
-    /* Drawer close button — larger touch target, more visible */
     .detail-close {
       font-size: 26px;
       color: var(--text);
@@ -689,7 +678,6 @@
       align-items: center;
       justify-content: center;
     }
-    /* Swipe indicator at top of drawer */
     .detail-panel::before {
       content: '';
       display: block;
@@ -755,7 +743,6 @@
       <div class="tab" data-tab="findings">Findings</div>
       <div class="tab" data-tab="catchall">Catchall</div>
     </div>
-
     <!-- ══ EXPLORE tab ══ -->
     <div class="tab-pane active" id="tab-explore">
       <div style="padding: 12px 20px 0; background: var(--surface); border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:12px;">
@@ -778,6 +765,7 @@
               <option value="deposition_method">Deposition method</option>
             </select>
           </div>
+          <button class="csv-export-btn" onclick="exportStripCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
         </div>
         <div class="chart-click-hint">Click any data point for full material information</div>
         <div class="chart-wrapper">
@@ -802,6 +790,7 @@
               <option value="deposition_method">Deposition method</option>
             </select>
           </div>
+          <button class="csv-export-btn" onclick="exportScatterCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
         </div>
         <div class="chart-click-hint">Click any data point for full material information</div>
         <div class="chart-wrapper">
@@ -809,7 +798,6 @@
         </div>
       </div>
     </div>
-
     <!-- ══ SEARCH tab ══ -->
     <div class="tab-pane" id="tab-search">
       <div style="padding: 12px 20px 0; background: var(--surface); border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:12px;">
@@ -883,7 +871,6 @@
         </div>
       </div>
     </div>
-
     <!-- ══ FINDINGS tab ══ -->
     <div class="tab-pane" id="tab-findings">
       <div class="findings-area active" id="findings-inner">
@@ -908,7 +895,6 @@
         </div>
       </div>
     </div>
-
     <!-- ══ CATCHALL tab ══ -->
     <div class="tab-pane" id="tab-catchall">
       <div class="catchall-area active" id="catchall-inner">
@@ -927,7 +913,6 @@
         </div>
       </div>
     </div>
-
     <div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
     <div class="detail-panel" id="detailPanel">
       <div class="detail-header">
@@ -960,8 +945,6 @@ const FIELD_LABELS = {
   surface_oxide_nm: 'Surface oxide thickness (nm)',
   sheet_resistance_Ohm_sq: 'Sheet resistance (Ω/□)',
 };
-
-// Shared chart config for readable axis labels
 const CHART_AXIS_STYLE = {
   color: '#d0d8e0',
   font: { family: 'IBM Plex Mono', size: 13 }
@@ -975,13 +958,76 @@ const CHART_LEGEND_STYLE = {
   font: { family: 'IBM Plex Mono', size: 13 },
   boxWidth: 12
 };
-
 let allSamples = [];
 let allCatchall = [];
 let allFindings = [];
 let colorMap = {};
 let scatterChart = null;
 let stripChart = null;
+
+// ── CSV Export ────────────────────────────────────────────────────────────
+function downloadCSV(rows, filename) {
+  if (!rows || rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const escape = (v) => {
+    if (v == null) return '';
+    const s = String(v);
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => escape(r[h])).join(','))
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportStripCSV() {
+  const field   = document.getElementById('stripField').value;
+  const groupBy = document.getElementById('stripGroupBy').value;
+  const samples = getFilteredSamples();
+  const fieldLabel = FIELD_LABELS[field] || field;
+  const rows = samples
+    .filter(s => s[field] != null)
+    .map(s => ({
+      display_name:       s.display_name || '',
+      [fieldLabel]:       s[field],
+      [groupBy]:          s[groupBy] || '',
+      film_material:      s.film_material || '',
+      substrate_material: s.substrate_material || '',
+      authors:            s.authors || '',
+    }));
+  const ts = new Date().toISOString().slice(0,10);
+  downloadCSV(rows, `c2qa_strip_${field}_${ts}.csv`);
+}
+
+function exportScatterCSV() {
+  const xField  = document.getElementById('xField').value;
+  const yField  = document.getElementById('yField').value;
+  const colorBy = document.getElementById('colorBy').value;
+  const samples = getFilteredSamples();
+  const xLabel = FIELD_LABELS[xField] || xField;
+  const yLabel = FIELD_LABELS[yField] || yField;
+  const rows = samples
+    .filter(s => s[xField] != null && s[yField] != null)
+    .map(s => ({
+      display_name:       s.display_name || '',
+      [xLabel]:           s[xField],
+      [yLabel]:           s[yField],
+      [colorBy]:          s[colorBy] || '',
+      film_material:      s.film_material || '',
+      substrate_material: s.substrate_material || '',
+      authors:            s.authors || '',
+    }));
+  const ts = new Date().toISOString().slice(0,10);
+  downloadCSV(rows, `c2qa_scatter_${xField}_vs_${yField}_${ts}.csv`);
+}
 
 // ── Sub-toggle logic ──────────────────────────────────────────────────────
 document.querySelectorAll('[data-explore]').forEach(btn => {
@@ -1006,7 +1052,6 @@ document.querySelectorAll('[data-search]').forEach(btn => {
     if (which === 'ranked') renderRankedList();
   });
 });
-
 // ── Top-level tab switching ───────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -1026,7 +1071,6 @@ document.querySelectorAll('.tab').forEach(tab => {
     }
   });
 });
-
 // ── Findings ──────────────────────────────────────────────────────────────
 async function loadFindings() {
   try {
@@ -1041,17 +1085,14 @@ async function loadFindings() {
       '<div class="findings-empty">Could not load findings. Run corpus mining (Stage 4) to generate findings.</div>';
   }
 }
-
 function filterFindings() {
   renderFindings();
 }
-
 function renderFindings() {
   const container = document.getElementById('findingsItems');
   const typeFilter = document.getElementById('findingsTypeFilter').value;
   let findings = allFindings;
   if (typeFilter) findings = findings.filter(f => (f.writeup || {}).finding_type === typeFilter);
-
   if (!findings.length) {
     container.innerHTML = `<div class="findings-empty">${
       allFindings.length === 0
@@ -1060,14 +1101,12 @@ function renderFindings() {
     }</div>`;
     return;
   }
-
   const TYPE_ICONS = {
     positive: '✓',
     negative: '✗',
     inconclusive: '~',
     derived_field_artifact: '⚠',
   };
-
   container.innerHTML = findings.map((f, idx) => {
     const w = f.writeup || {};
     const ftype = w.finding_type || 'inconclusive';
@@ -1079,14 +1118,10 @@ function renderFindings() {
     const nStated = ev.n_stated_by_authors || f.stated_correlation_count || 0;
     const qrem = w.qrem_implications || '';
     const hyp = f.hypothesis_key || '';
-
-    // ── Supporting sample chips (clickable) ──
-    // Split "Name1 and Name2" into individual chips so each is clickable
     const splitNames = (rec) => {
       const raw = rec.display_name || '';
       return raw.split(/\s+and\s+/).map(n => n.trim()).filter(Boolean);
     };
-
     const sampleChip = (name, reason, color) => {
       const dn = name.replace(/'/g, "\\'");
       const safeReason = (reason || '').replace(/"/g, '&quot;');
@@ -1097,25 +1132,20 @@ function renderFindings() {
         title="${safeReason}"
       >${name}</span>`;
     };
-
     const supportingRecords = (f.supporting_records || []).slice(0, 8);
     const complicatingRecords = (f.complicating_records || []).slice(0, 8);
-
     const supportingChips = supportingRecords.length
       ? `<div class="finding-sample-chips">
           <span class="finding-chips-label" style="color:var(--accent2)">Supporting:</span>
           ${supportingRecords.flatMap(r => splitNames(r).map(n => sampleChip(n, r.reason, 'var(--accent2)'))).join('')}
          </div>`
       : '';
-
     const complicatingChips = complicatingRecords.length
       ? `<div class="finding-sample-chips">
           <span class="finding-chips-label" style="color:var(--accent3)">Complicating:</span>
           ${complicatingRecords.flatMap(r => splitNames(r).map(n => sampleChip(n, r.reason, 'var(--accent3)'))).join('')}
          </div>`
       : '';
-
-    // ── Detail section (collapsed by default) ──
     const keySupporting   = ev.key_supporting   ? `<div class="finding-evidence-row finding-evidence-supporting">▲ ${ev.key_supporting}</div>` : '';
     const keyComplicating = ev.key_complicating ? `<div class="finding-evidence-row finding-evidence-complicating">▼ ${ev.key_complicating}</div>` : '';
     const altExpl = w.alternative_explanations
@@ -1127,9 +1157,7 @@ function renderFindings() {
     const detail = w.finding_detail
       ? `<div class="finding-detail">${w.finding_detail}</div>`
       : '';
-
     const hasDetail = detail || keySupporting || keyComplicating || altExpl || perMat || qrem;
-
     return `<div class="finding-card">
       <div class="finding-card-top">
         <div class="finding-type-badge finding-type-${ftype}">${icon} ${ftype.replace(/_/g,' ')}</div>
@@ -1160,14 +1188,12 @@ function renderFindings() {
     </div>`;
   }).join('');
 }
-
 function toggleFindingDetail(idx, btn) {
   const el = document.getElementById(`finding-detail-${idx}`);
   const visible = el.style.display === 'none';
   el.style.display = visible ? 'block' : 'none';
   btn.textContent = visible ? '▾ Hide detail' : '▸ Show detail';
 }
-
 // ── Sample detail panel ───────────────────────────────────────────────────
 const MEASUREMENT_FIELDS = [
   ['Tc_K', 'Tc (K)', 'Tc_confidence'],
@@ -1195,7 +1221,6 @@ const CATCHALL_COLORS = {
   correlation:            '#58a6ff',
   schema_candidate:       '#d2a8ff',
 };
-
 async function openDetail(displayName) {
   document.getElementById('detailTitle').textContent = displayName;
   document.getElementById('detailBody').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Loading...</div>';
@@ -1210,15 +1235,13 @@ async function openDetail(displayName) {
     document.getElementById('detailBody').innerHTML = `<div style="color:var(--accent3)">Error: ${e}</div>`;
   }
 }
-
 function closeDetail() {
   const panel = document.getElementById('detailPanel');
   panel.style.transition = 'transform 0.25s ease';
-  panel.style.transform = '';   // clear inline style so CSS class takes over
+  panel.style.transform = '';
   panel.classList.remove('open');
   document.getElementById('detailOverlay').classList.remove('open');
 }
-
 function launchSimilar(displayName) {
   closeDetail();
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1232,7 +1255,6 @@ function launchSimilar(displayName) {
   document.getElementById('search-similar').classList.add('active');
   runSimilarSearch(displayName);
 }
-
 function renderDetail(sample, catchall, displayName) {
   const body = document.getElementById('detailBody');
   let html = '';
@@ -1306,7 +1328,6 @@ function renderDetail(sample, catchall, displayName) {
   `;
   body.innerHTML = html;
 }
-
 async function generateProfile(displayName) {
   const btn    = document.getElementById('generateProfileBtn');
   const result = document.getElementById('profileResult');
@@ -1336,7 +1357,6 @@ async function generateProfile(displayName) {
     btn.textContent = '⚙ Generate Qubit Profile';
   }
 }
-
 // ── Similarity Search ─────────────────────────────────────────────────────
 let _currentSimilarQuery = null;
 async function runSimilarSearch(queryName) {
@@ -1457,7 +1477,6 @@ function formatVal(v) {
   }
   return String(v);
 }
-
 // ── Boot ──────────────────────────────────────────────────────────────────
 async function boot() {
   await Promise.all([loadFields(), loadCatchall(), loadCoverage(), loadFindings()]);
@@ -1519,7 +1538,6 @@ async function loadCatchall() {
     renderCatchall(allCatchall);
   } catch(e) { console.error('Catchall load failed', e); }
 }
-
 // ── Filters ───────────────────────────────────────────────────────────────
 function getFilteredSamples() {
   const checkedMaterials = Array.from(
@@ -1580,7 +1598,6 @@ function onFilterChange() {
   renderRankedList(filtered);
   document.getElementById('statusCount').textContent = filtered.length;
 }
-
 // ── Label truncation ──────────────────────────────────────────────────────
 function trunc(str, maxLen=22) {
   if (!str) return str;
@@ -1588,7 +1605,6 @@ function trunc(str, maxLen=22) {
   if (symMatch && symMatch[1].length <= 8) return symMatch[1];
   return str.length > maxLen ? str.slice(0, maxLen).trimEnd() + '…' : str;
 }
-
 // ── Strip Chart ───────────────────────────────────────────────────────────
 function renderStripChart(samples) {
   samples = samples || getFilteredSamples();
@@ -1597,8 +1613,8 @@ function renderStripChart(samples) {
   const groups  = {};
   samples.forEach(s => {
     const rawKey = s[groupBy] || 'Unknown';
-    const key = (groupBy === 'film_material' && s.derived_material) 
-      ? s.derived_material 
+    const key = (groupBy === 'film_material' && s.derived_material)
+      ? s.derived_material
       : rawKey;
     const val = s[field];
     if (val != null) {
@@ -1683,7 +1699,6 @@ function renderStripChart(samples) {
   });
   document.getElementById('statusCount').textContent = samples.length;
 }
-
 // ── Scatter Chart ─────────────────────────────────────────────────────────
 function renderScatterChart(samples) {
   samples = samples || getFilteredSamples();
@@ -1696,7 +1711,7 @@ function renderScatterChart(samples) {
     const key = (colorBy === 'film_material' && s.derived_material)
       ? s.derived_material
       : rawKey;
-    const x = s[xField], y = s[yField];;
+    const x = s[xField], y = s[yField];
     if (x != null && y != null) {
       if (!groups[key]) groups[key] = [];
       groups[key].push({ x, y, label: s.display_name, sample: s });
@@ -1760,7 +1775,6 @@ function renderScatterChart(samples) {
     }
   });
 }
-
 // ── Table ─────────────────────────────────────────────────────────────────
 function renderTable(samples) {
   const tbody = document.getElementById('tableBody');
@@ -1786,7 +1800,6 @@ function renderTable(samples) {
     </tr>
   `).join('');
 }
-
 // ── Ranked List ───────────────────────────────────────────────────────────
 function renderRankedList(samples) {
   samples = samples || getFilteredSamples();
@@ -1833,7 +1846,6 @@ function renderRankedList(samples) {
     </tr>`;
   }).join('');
 }
-
 // ── Catchall ──────────────────────────────────────────────────────────────
 function renderCatchall(items) {
   const container = document.getElementById('catchallItems');
@@ -1859,7 +1871,6 @@ function renderCatchall(items) {
     </div>
   `).join('');
 }
-
 // ── Control listeners ─────────────────────────────────────────────────────
 document.getElementById('stripField').addEventListener('change',    () => renderStripChart());
 document.getElementById('stripGroupBy').addEventListener('change',  () => renderStripChart());
@@ -1876,13 +1887,11 @@ document.getElementById('catchallTypeFilter').addEventListener('change', functio
   renderCatchall(type ? allCatchall.filter(i => i.item_type === type) : allCatchall);
 });
 boot();
-
 // ── Mobile drawer swipe-to-close ──────────────────────────────────────────
 (function() {
   let startY = 0;
   let currentY = 0;
   let isDragging = false;
-
   function onTouchStart(e) {
     const panel = document.getElementById('detailPanel');
     if (!panel.classList.contains('open')) return;
@@ -1891,7 +1900,6 @@ boot();
     isDragging = true;
     panel.style.transition = 'none';
   }
-
   function onTouchMove(e) {
     if (!isDragging) return;
     const panel = document.getElementById('detailPanel');
@@ -1902,7 +1910,6 @@ boot();
       e.preventDefault();
     }
   }
-
   function onTouchEnd(e) {
     if (!isDragging) return;
     isDragging = false;
@@ -1910,15 +1917,12 @@ boot();
     panel.style.transition = 'transform 0.25s ease';
     const deltaY = currentY - startY;
     if (deltaY > 80) {
-      // Swipe far enough — close
-      panel.style.transform = '';  // clear inline, let closeDetail handle it
+      panel.style.transform = '';
       closeDetail();
     } else {
-      // Snap back open — clear inline transform, CSS open class takes over
       panel.style.transform = '';
     }
   }
-
   document.addEventListener('DOMContentLoaded', () => {
     const panel = document.getElementById('detailPanel');
     panel.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -1926,8 +1930,6 @@ boot();
     panel.addEventListener('touchend', onTouchEnd, { passive: true });
   });
 })();
-
-
 // ── Mobile sidebar toggle ─────────────────────────────────────────────────
 function toggleMobileSidebar() {
   const sidebar = document.getElementById('mainSidebar');
@@ -1940,7 +1942,6 @@ function closeMobileSidebar() {
   document.getElementById('mainSidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('open');
 }
-// Close sidebar after filter change on mobile
 const _origFilterChange = onFilterChange;
 function onFilterChange() {
   _origFilterChange();
