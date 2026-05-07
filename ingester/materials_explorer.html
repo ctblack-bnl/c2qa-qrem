@@ -1546,6 +1546,11 @@ function getFilteredSamples() {
 function buildMaterialFilters() {
   const classes = [...new Set(allSamples.map(s => s.sim_material_class).filter(Boolean))].sort();
   classes.forEach((c, i) => { colorMap[c] = PALETTE[i % PALETTE.length]; });
+  allSamples.forEach(s => {
+    if (s.derived_material && !colorMap[s.derived_material]) {
+      colorMap[s.derived_material] = colorMap[s.sim_material_class] || PALETTE[Object.keys(colorMap).length % PALETTE.length];
+    }
+  });
   const container = document.getElementById('materialFilters');
   container.innerHTML = classes.map(c => `
     <label class="checked">
@@ -1591,7 +1596,10 @@ function renderStripChart(samples) {
   const groupBy = document.getElementById('stripGroupBy').value;
   const groups  = {};
   samples.forEach(s => {
-    const key = s[groupBy] || 'Unknown';
+    const rawKey = s[groupBy] || 'Unknown';
+    const key = (groupBy === 'film_material' && s.derived_material) 
+      ? s.derived_material 
+      : rawKey;
     const val = s[field];
     if (val != null) {
       if (!groups[key]) groups[key] = [];
@@ -1684,8 +1692,11 @@ function renderScatterChart(samples) {
   const colorBy = document.getElementById('colorBy').value;
   const groups  = {};
   samples.forEach(s => {
-    const key = s[colorBy] || 'Unknown';
-    const x = s[xField], y = s[yField];
+    const rawKey = s[colorBy] || 'Unknown';
+    const key = (colorBy === 'film_material' && s.derived_material)
+      ? s.derived_material
+      : rawKey;
+    const x = s[xField], y = s[yField];;
     if (x != null && y != null) {
       if (!groups[key]) groups[key] = [];
       groups[key].push({ x, y, label: s.display_name, sample: s });

@@ -472,6 +472,7 @@ def fetch_samples():
     cur.execute(f"""
         SELECT s.display_name, s.sample_id, s.filename,
                s.film_material, s.film_crystal_phase,
+               s.derived_material,
                s.substrate_material, s.deposition_method,
                s.Tc_confidence, s.RRR_confidence,
                s.Qi_confidence, s.T1_confidence,
