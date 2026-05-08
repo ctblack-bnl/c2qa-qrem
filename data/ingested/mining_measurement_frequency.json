@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-05-05T10:05:23.257034",
-  "materials_samples_scanned": 151,
+  "generated_at": "2026-05-07T22:11:34.593924",
+  "materials_samples_scanned": 154,
   "top_measurements": [
     {
-      "term": "json:kinetic_inductance_pH_sq",
+      "term": "kinetic_inductance_sheet_pH_sq",
       "count": 49,
       "in_schema": true,
       "examples": [
@@ -92,9 +92,14 @@
     },
     {
       "term": "T1_us",
-      "count": 16,
+      "count": 17,
       "in_schema": true,
       "examples": [
+        {
+          "sample": "Marcenac_2026_NV-center-room-temperature",
+          "film": null,
+          "description": "T1 at saturation laser intensity (AOM leakage limited)"
+        },
         {
           "sample": "Wu_2026_Superconducting_transmon_qubit_(Rigetti_foundry)",
           "film": null,
@@ -104,11 +109,6 @@
           "sample": "Lambert_2025_Cr(III)_in_AlN_[CrAl0]",
           "film": "Cr substitutional impurity (neutral charge state, d3)",
           "description": "Zero-phonon line energy for lowest-energy spin-flip transition (4T1 -> 2E)"
-        },
-        {
-          "sample": "Lambert_2025_Cr(III)_in_AlN_[CrAl0]",
-          "film": "Cr substitutional impurity (neutral charge state, d3)",
-          "description": "Vertical absorption excitation energy (4T1 -> 2E)"
         }
       ]
     },
@@ -267,7 +267,7 @@
       ]
     },
     {
-      "term": "json:vortex_activation_temperature_K",
+      "term": "vortex_activation_temperature_K",
       "count": 11,
       "in_schema": true,
       "examples": [
@@ -285,6 +285,28 @@
           "sample": "Bahrami_2026_D2",
           "film": "Ta",
           "description": "Vortex activation temperature Tact"
+        }
+      ]
+    },
+    {
+      "term": "json:anharmonicity_MHz",
+      "count": 10,
+      "in_schema": true,
+      "examples": [
+        {
+          "sample": "Joshi_2025_Transmon_System_1_(3D_Al_cavity)",
+          "film": null,
+          "description": "Anharmonicity"
+        },
+        {
+          "sample": "Joshi_2025_Transmon_System_2_(3D_Al_cavity)",
+          "film": null,
+          "description": "Anharmonicity"
+        },
+        {
+          "sample": "Liu_2026_Q1_(data_qubit,_cooldown_A)",
+          "film": "Al (Xmon transmon)",
+          "description": "Transmon anharmonicity alpha_q"
         }
       ]
     },
@@ -311,29 +333,7 @@
       ]
     },
     {
-      "term": "json:anharmonicity_MHz",
-      "count": 9,
-      "in_schema": true,
-      "examples": [
-        {
-          "sample": "Joshi_2025_Transmon_System_1_(3D_Al_cavity)",
-          "film": null,
-          "description": "Anharmonicity"
-        },
-        {
-          "sample": "Joshi_2025_Transmon_System_2_(3D_Al_cavity)",
-          "film": null,
-          "description": "Anharmonicity"
-        },
-        {
-          "sample": "Dai_2026_3D_transmon_(fixed-frequency)",
-          "film": "Nb/Al",
-          "description": "Transmon anharmonicity"
-        }
-      ]
-    },
-    {
-      "term": "json:mean_free_path_nm",
+      "term": "mean_free_path_nm",
       "count": 9,
       "in_schema": true,
       "examples": [
@@ -839,6 +839,28 @@
       ]
     },
     {
+      "term": "Readout resonator frequency",
+      "count": 4,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Joshi_2025_Transmon_System_1_(3D_Al_cavity)",
+          "film": null,
+          "description": "Readout resonator frequency"
+        },
+        {
+          "sample": "Joshi_2025_Transmon_System_2_(3D_Al_cavity)",
+          "film": null,
+          "description": "Readout resonator frequency"
+        },
+        {
+          "sample": "Liu_2026_Q1_(data_qubit,_cooldown_A)",
+          "film": "Al (Xmon transmon)",
+          "description": "Readout resonator frequency"
+        }
+      ]
+    },
+    {
       "term": "json:quasiparticle_density_per_um3",
       "count": 4,
       "in_schema": true,
@@ -857,28 +879,6 @@
           "sample": "Hays_2025_harmonium-optimized",
           "film": "Al (with Al/AlOx junction)",
           "description": "Estimated out-of-manifold heating time from quasiparticles"
-        }
-      ]
-    },
-    {
-      "term": "json:surface_participation_ratio",
-      "count": 4,
-      "in_schema": true,
-      "examples": [
-        {
-          "sample": "Dai_2025_F-SPA_(Filter-coupled_SNAIL_Parametric_Amplifier)",
-          "film": "Al",
-          "description": "Josephson participation ratio pJ_a of resonant mode"
-        },
-        {
-          "sample": "Bahrami_2026_D3",
-          "film": "Ta",
-          "description": "QTLS,0 (inverse linear TLS absorption) from delta_f/f vs surface participation ratio for microstruct"
-        },
-        {
-          "sample": "Bland_2025_Ta-on-Si_resonators_(surface_loss_characterization)",
-          "film": "Ta",
-          "description": "Resonator SPR (pMS) range for coplanar waveguide resonators"
         }
       ]
     }

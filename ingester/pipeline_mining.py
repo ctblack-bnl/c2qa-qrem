@@ -72,19 +72,19 @@ FIELD_MAP: Dict[str, str] = {
     "residual resistance ratio":    "RRR",
     "residual resistivity ratio":   "RRR",
     "film purity":                  "RRR",
-    "mean free path":               "json:mean_free_path_nm",
+    "mean free path":               "mean_free_path_nm",
     "sheet resistance":             "sheet_resistance_Ohm_sq",
-    "kinetic inductance":           "json:kinetic_inductance_pH_sq",
-    "lk,sq":                        "json:kinetic_inductance_pH_sq",
-    "lk ":                          "json:kinetic_inductance_pH_sq",
+    "kinetic inductance":           "kinetic_inductance_sheet_pH_sq",
+    "lk,sq":                        "kinetic_inductance_sheet_pH_sq",
+    "lk ":                          "kinetic_inductance_sheet_pH_sq",
     "london penetration depth":     "json:London_penetration_depth_nm",
     "penetration depth":            "json:London_penetration_depth_nm",
     "upper critical field":         "json:upper_critical_field_T",
     "hc2":                          "json:upper_critical_field_T",
     "coherence length":             "derived_coherence_length_nm",
-    "vortex activation":            "json:vortex_activation_temperature_K",
-    "vortex motion":                "json:vortex_activation_temperature_K",
-    "tact":                         "json:vortex_activation_temperature_K",
+    "vortex activation":            "vortex_activation_temperature_K",
+    "vortex motion":                "vortex_activation_temperature_K",
+    "tact":                         "vortex_activation_temperature_K",
 
     # Dielectric and surface loss
     "loss tangent":                 "loss_tangent_substrate",
@@ -210,6 +210,9 @@ NAMED_COLUMNS = {
     "derived_resistivity_uOhm_cm", "derived_BCS_gap_meV",
     "derived_coherence_length_nm", "derived_kinetic_inductance_pH_sq",
     "derived_RRR_from_RvT", "derived_sheet_resistance_Ohm_sq",
+    "mean_free_path_nm",
+    "vortex_activation_temperature_K",
+    "kinetic_inductance_sheet_pH_sq",
 }
 
 
@@ -445,6 +448,9 @@ def load_corpus(db_path: Path) -> List[dict]:
             s.derived_kinetic_inductance_pH_sq,
             s.derived_RRR_from_RvT,
             s.derived_sheet_resistance_Ohm_sq,
+            s.mean_free_path_nm,
+            s.vortex_activation_temperature_K,
+            s.kinetic_inductance_sheet_pH_sq,
             p.authors, p.doi, p.title, p.journal
         FROM samples s
         JOIN papers p ON s.paper_id = p.id
@@ -476,6 +482,9 @@ def load_corpus(db_path: Path) -> List[dict]:
         "derived_resistivity_uOhm_cm", "derived_BCS_gap_meV",
         "derived_coherence_length_nm", "derived_kinetic_inductance_pH_sq",
         "derived_RRR_from_RvT", "derived_sheet_resistance_Ohm_sq",
+    "mean_free_path_nm",
+    "vortex_activation_temperature_K",
+    "kinetic_inductance_sheet_pH_sq",
     ]
 
     samples_by_name = {}
