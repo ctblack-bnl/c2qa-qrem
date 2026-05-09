@@ -744,7 +744,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 )
             )
             self._json(200, {"ok": True, "count": len(findings), "findings": findings})
-            
+        
+        elif path == "/api/schema/candidates":
+            freq_path = REPO_ROOT / "data" / "ingested" / "mining_measurement_frequency.json"
+            if not freq_path.exists():
+                self._json(200, {"ok": True, "candidates": []})
+                return
+            try:
+                # get fields promote_fields.py knows about
+                list_result = subprocess.run(
+                    ["python3", str(SERVE_DIR / "promote_fields.py"), "--list"],
+                    capture_output=True, text=True, cwd=str(SERVE_DIR)
+                )
+                promotable = set()
+                for line in list_result.stdout.splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("Defined") and not line.startswith("Pattern") and not line.startswith("Units"):
+                        promotable.add(line)
+                data = json.loads(freq_path.read_text())
+                candidates = [
+                    m for m in data.get("top_measurements", [])
+                    if not m.get("in_schema") and m.get("term") in promotable
+                ]
+                candidates.sort(key=lambda x: -x["count"])
+                self._json(200, {"ok": True, "candidates": candidates})
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
+                
         elif path == "/api/mining/status":
             with _mining_lock:
                 state = dict(_mining_state)
@@ -889,6 +915,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
 
+        elif self.path == "/api/schema/promote":
+            field = body.get("field")
+            if not field:
+                self._json(400, {"ok": False, "error": "field required"})
+                return
+            try:
+                promote_result = subprocess.run(
+                    ["python3", str(SERVE_DIR / "promote_fields.py"), "--field", field],
+                    capture_output=True, text=True, cwd=str(SERVE_DIR)
+                )
+                if promote_result.returncode != 0:
+                    self._json(200, {
+                        "ok": False,
+                        "output": promote_result.stdout + promote_result.stderr
+                    })
+                    return
+                build_result = subprocess.run(
+                    ["python3", str(SERVE_DIR / "build_sqlite.py")],
+                    capture_output=True, text=True, cwd=str(SERVE_DIR)
+                )
+                Handler.invalidate_cache()
+                self._json(200, {
+                    "ok": build_result.returncode == 0,
+                    "output": promote_result.stdout + build_result.stdout + build_result.stderr
+                })
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
+        
         elif self.path == "/api/mining/reject":
             hyp_key = body.get("hypothesis_key")
             if not hyp_key:

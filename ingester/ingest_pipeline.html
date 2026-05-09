@@ -534,6 +534,14 @@
             Then git push → Explorer updates on Render
           </span>
         </div>
+        <!-- Schema promotion candidates -->
+        <div id="promotionArea" style="display:none;margin-top:24px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;
+                      color:var(--muted);margin-bottom:10px;letter-spacing:0.05em;">
+            SCHEMA PROMOTION CANDIDATES
+          </div>
+          <div id="promotionList"></div>
+        </div>
       </div>
 
     </div>
@@ -823,9 +831,80 @@ async function loadFindings() {
       };
     }
     renderFindings();
+    await loadPromotionCandidates();
   } catch(e) {
     appendMiningLog('Error loading findings: ' + e, 'fail');
   }
+}
+
+async function loadPromotionCandidates() {
+  try {
+    const r = await fetch('/api/schema/candidates');
+    const d = await r.json();
+    if (!d.ok || !d.candidates.length) return;
+    const area = document.getElementById('promotionArea');
+    const list = document.getElementById('promotionList');
+    area.style.display = 'block';
+    list.innerHTML = d.candidates.map(c => renderPromotionCard(c)).join('');
+  } catch(e) {
+    console.error('Failed to load promotion candidates', e);
+  }
+}
+
+function renderPromotionCard(c) {
+  const field = c.term.replace(/^json:/, '');
+  const safeField = field.replace(/'/g, "\\'");
+  return `
+  <div class="finding-card" id="promo-card-${field}" style="margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--fg)">${field}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">
+          appears in ${c.count} samples
+        </div>
+      </div>
+      <button class="btn btn-success btn-sm"
+              onclick="promoteField('${safeField}')">Promote</button>
+      <button class="btn btn-sm"
+              style="background:var(--card);color:var(--muted);border:1px solid var(--border)"
+              onclick="deferField('${safeField}')">Defer</button>
+    </div>
+    <div id="promo-log-${field}"
+         style="display:none;padding:8px 16px;font-family:'IBM Plex Mono',monospace;
+                font-size:11px;color:var(--muted);border-top:1px solid var(--border)"></div>
+  </div>`;
+}
+
+async function promoteField(field) {
+  const log = document.getElementById(`promo-log-${field}`);
+  log.style.display = 'block';
+  log.textContent = 'Promoting…';
+  try {
+    const r = await fetch('/api/schema/promote', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({field})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      log.style.color = 'var(--green)';
+      log.textContent = '✓ Promoted and database rebuilt.';
+      const card = document.getElementById(`promo-card-${field}`);
+      card.style.opacity = '0.5';
+      card.style.pointerEvents = 'none';
+    } else {
+      log.style.color = '#ff7b72';
+      log.textContent = d.output || 'Promotion failed.';
+    }
+  } catch(e) {
+    log.style.color = '#ff7b72';
+    log.textContent = 'Error: ' + e;
+  }
+}
+
+function deferField(field) {
+  const card = document.getElementById(`promo-card-${field}`);
+  if (card) card.remove();
 }
 
 function renderFindings() {
