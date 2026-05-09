@@ -1074,10 +1074,10 @@ document.querySelectorAll('.tab').forEach(tab => {
 // ── Findings ──────────────────────────────────────────────────────────────
 async function loadFindings() {
   try {
-    const r = await fetch('/api/mining/findings');
+    const r = await fetch('/api/approved_findings');
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || 'Failed to load findings');
-    allFindings = (d.findings || []).filter(f => f.review_status === 'approved');
+    allFindings = d.findings || [];  // already deduplicated and sorted server-side
     renderFindings();
   } catch(e) {
     console.error('Findings load failed', e);

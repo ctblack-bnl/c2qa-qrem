@@ -369,6 +369,24 @@ def append_approved_finding(finding: dict):
     with open(APPROVED_FINDINGS_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(finding, ensure_ascii=False, default=str) + "\n")
 
+def load_approved_findings() -> dict:
+    """Read findings.jsonl and return latest approved entry per hypothesis_key."""
+    if not APPROVED_FINDINGS_PATH.exists():
+        return {}
+    by_key = {}
+    with open(APPROVED_FINDINGS_PATH, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                key = entry.get("hypothesis_key")
+                if key:
+                    by_key[key] = entry  # last write wins
+            except json.JSONDecodeError:
+                pass
+    return by_key
 
 # ── Duplicate detection ───────────────────────────────────────────────────────
 
@@ -714,6 +732,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             findings = load_mining_findings()
             self._json(200, {"ok": True, "count": len(findings), "findings": findings})
 
+        elif path == "/api/approved_findings":
+            by_key = load_approved_findings()
+            # sort: positive first, then negative, inconclusive, derived; highest conf first
+            order = {"positive": 0, "negative": 1, "inconclusive": 2, "derived_field_artifact": 3}
+            findings = sorted(
+                by_key.values(),
+                key=lambda f: (
+                    order.get((f.get("writeup") or {}).get("finding_type", ""), 99),
+                    -(f.get("phase_b_confidence") or (f.get("writeup") or {}).get("confidence") or 0)
+                )
+            )
+            self._json(200, {"ok": True, "count": len(findings), "findings": findings})
+            
         elif path == "/api/mining/status":
             with _mining_lock:
                 state = dict(_mining_state)
@@ -826,10 +857,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == "/api/mining/approve":
             hyp_key = body.get("hypothesis_key")
+            force   = body.get("force", False)
             if not hyp_key:
                 self._json(400, {"ok": False, "error": "hypothesis_key required"})
                 return
             try:
+                approved = load_approved_findings()
+                if hyp_key in approved and not force:
+                    prev = approved[hyp_key]
+                    self._json(200, {
+                        "ok":              True,
+                        "already_approved": True,
+                        "previous_date":   prev.get("reviewed_at", "unknown"),
+                    })
+                    return
                 findings = load_mining_findings()
                 updated  = False
                 for f in findings:
@@ -841,7 +882,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         break
                 if updated:
                     save_mining_findings(findings)
-                    self._json(200, {"ok": True})
+                    self._json(200, {"ok": True, "already_approved": False})
                 else:
                     self._json(404, {"ok": False,
                                      "error": f"Finding not found: {hyp_key}"})

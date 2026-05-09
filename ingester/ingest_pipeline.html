@@ -550,6 +550,7 @@ let dupPairs       = [];
 let decidedCount   = 0;
 let miningPollInt  = null;
 let findings       = [];   // loaded finding records
+let approvedKeys = {};
 
 // ═══════════════════════════════════════════════════════════
 // Stage 1 — Ingestion
@@ -802,13 +803,25 @@ function appendMiningLog(text, cls) {
 // ── Load and render findings ───────────────────────────────
 async function loadFindings() {
   try {
-    const r = await fetch('/api/mining/findings');
-    const d = await r.json();
-    if (!d.ok) {
-      appendMiningLog('Could not load findings: ' + d.error, 'fail');
+    const [mineRes, approvedRes] = await Promise.all([
+      fetch('/api/mining/findings'),
+      fetch('/api/approved_findings'),
+    ]);
+    const mineData     = await mineRes.json();
+    const approvedData = await approvedRes.json();
+    if (!mineData.ok) {
+      appendMiningLog('Could not load findings: ' + mineData.error, 'fail');
       return;
     }
-    findings = d.findings;
+    findings = mineData.findings;
+    // build a lookup: hypothesis_key -> {date, status} from canonical ledger
+    approvedKeys = {};
+    for (const f of (approvedData.findings || [])) {
+      approvedKeys[f.hypothesis_key] = {
+        date:   f.reviewed_at || 'unknown',
+        status: f.review_status || 'approved',
+      };
+    }
     renderFindings();
   } catch(e) {
     appendMiningLog('Error loading findings: ' + e, 'fail');
@@ -861,6 +874,10 @@ function renderFindingCard(f, i) {
   const statusClass = {approved: 'approved', rejected: 'rejected', revising: 'revising'}[status] || '';
   const statusTag = status !== 'pending'
     ? `<span class="finding-status-tag status-tag-${status}">${status.toUpperCase()}</span>` : '';
+  const priorInfo = (typeof approvedKeys !== 'undefined') && approvedKeys[f.hypothesis_key];
+  const priorBadge = priorInfo
+    ? `<span style="font-size:11px;color:var(--orange);margin-left:6px">↻ previously ${priorInfo.status} ${priorInfo.date}</span>`
+    : '';
 
   // Supporting records
   const supRecords = (f.supporting_records || []).slice(0, 5).map(r =>
@@ -902,6 +919,7 @@ function renderFindingCard(f, i) {
       <span class="finding-title">${title}</span>
       <span class="finding-conf">conf: ${confPct}</span>
       ${statusTag}
+      ${priorBadge}
       <span class="finding-expand">›</span>
     </div>
     <div class="finding-card-body">
@@ -963,13 +981,47 @@ async function approveFinding(i) {
       body: JSON.stringify({hypothesis_key: f.hypothesis_key})
     });
     const d = await r.json();
-    if (d.ok) {
-      findings[i].review_status = 'approved';
-      refreshCard(i);
-      updateReviewSummary();
-      checkAllReviewed();
+    if (!d.ok) { console.error('Approve failed', d.error); return; }
+
+    if (d.already_approved) {
+      // show inline warning with replace option
+      const card = document.getElementById(`finding-card-${i}`);
+      const existing = card.querySelector('.already-approved-warning');
+      if (existing) { existing.remove(); return; }  // toggle off if clicked twice
+      const warn = document.createElement('div');
+      warn.className = 'already-approved-warning';
+      warn.style.cssText = 'margin:8px 0;padding:8px 12px;background:var(--card);border:1px solid var(--orange);border-radius:6px;font-size:12px;color:var(--orange);display:flex;align-items:center;gap:12px';
+      warn.innerHTML = `<span>Previously approved on ${d.previous_date}.</span>
+        <button class="btn btn-sm" style="background:var(--orange);color:#000;padding:3px 10px"
+          onclick="forceApproveFinding(${i}, this.parentElement)">Replace</button>`;
+      card.querySelector('.finding-actions').prepend(warn);
+      return;
     }
-  } catch(e) { console.error('Approve failed', e); }
+
+    findings[i].review_status = 'approved';
+    approvedKeys[f.hypothesis_key] = {date: new Date().toISOString().slice(0,10), status: 'approved'};
+    refreshCard(i);
+    updateReviewSummary();
+    checkAllReviewed();
+  } catch(e) { console.error('Approve error', e); }
+}
+
+async function forceApproveFinding(i, warnEl) {
+  const f = findings[i];
+  try {
+    const r = await fetch('/api/mining/approve', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({hypothesis_key: f.hypothesis_key, force: true})
+    });
+    const d = await r.json();
+    if (!d.ok) { console.error('Force approve failed', d.error); return; }
+    findings[i].review_status = 'approved';
+    approvedKeys[f.hypothesis_key] = {date: new Date().toISOString().slice(0,10), status: 'approved'};
+    refreshCard(i);
+    updateReviewSummary();
+    checkAllReviewed();
+  } catch(e) { console.error('Force approve error', e); }
 }
 
 async function rejectFinding(i) {
