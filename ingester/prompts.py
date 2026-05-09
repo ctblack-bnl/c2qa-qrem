@@ -294,9 +294,11 @@ Alloys with composition — keep composition but use symbols:
   Ta-Hf alloy (83% Ta, 17% Hf)    → Ta-Hf (83:17)
   Ta0.83Hf0.17                     → Ta-Hf (83:17)
 
-Multi-layer or junction devices — describe concisely:
-  Nb circuit layer with Al junctions  → Nb/Al
-  Ta film with Al/AlOx junction       → Ta (with Al/AlOx junction)
+Multi-layer or junction devices — film_material is the superconducting
+film identity ONLY. Junction material goes in junction_material field.
+  Nb circuit layer with Al junctions  → film_material: Nb, junction_material: Al/AlOx/Al
+  Ta film with Al/AlOx junction       → film_material: Ta, junction_material: Al/AlOx/Al
+  Never put junction or encapsulation context in film_material parentheses.
 
 Crystal phase — always include in film_crystal_phase field, not in film_material:
   alpha-Ta, bcc-Ta                 → film_material: Ta, film_crystal_phase: alpha-Ta (bcc)
