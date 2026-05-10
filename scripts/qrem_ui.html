@@ -48,7 +48,7 @@
     position: relative;
     z-index: 10;
     border-bottom: 1px solid var(--border);
-    padding: 18px 32px;
+    padding: 10px 32px;
     display: flex;
     align-items: center;
     gap: 20px;
@@ -263,7 +263,7 @@
     font-size: 12px;
   }
   .analysis-table td {
-    padding: 5px 0;
+    padding: 2px 0;
     color: var(--text-dim);
     vertical-align: top;
   }
@@ -293,7 +293,7 @@
 
   /* ── Top right — metric cards ────────────────────────────── */
   .panel-metrics {
-    padding: 16px 28px 14px;
+    padding: 8px 28px 8px;
     border-bottom: 1px solid var(--border);
   }
   .metrics-grid {
@@ -305,7 +305,7 @@
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: 3px;
-    padding: 14px 14px 12px;
+    padding: 9px 12px 8px;
     position: relative;
     overflow: hidden;
     opacity: 0;
@@ -369,7 +369,7 @@
   }
   .metric-value {
     font-family: var(--mono);
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 300;
     color: var(--text);
     line-height: 1;
@@ -387,7 +387,7 @@
 
   /* ── Bottom right — chart ────────────────────────────────── */
   .panel-chart {
-    padding: 0 28px 20px;
+    padding: 0 28px 10px;
     display: flex;
     flex-direction: column;
   }
@@ -450,10 +450,10 @@
   }
   .panel-below-chart {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 0;
     border-top: 1px solid var(--border);
-    padding: 16px 28px 80px; /* bottom pad for status bar */
+    padding: 10px 28px 40px; /* bottom pad for status bar */
   }
   .below-panel {
     padding: 0 20px 0 0;
@@ -531,7 +531,7 @@
 
     <!-- Target circuit success rate -->
     <div>
-      <div class="section-label">Target Circuit Success Rate</div>
+      <div class="section-label">Target Circuit Success</div>
       <select id="target-success-rate">
         <option value="0.90">90% — exploratory</option>
         <option value="0.99" selected>99% — standard</option>
@@ -542,7 +542,7 @@
 
     <!-- T1 slider -->
     <div>
-      <div class="section-label">T1 — Energy Relaxation Time</div>
+      <div class="section-label">T1 — Energy Relaxation</div>
       <div class="slider-row">
         <span class="slider-label">T1</span>
         <span class="slider-value" id="t1-display">200 µs</span>
@@ -558,7 +558,7 @@
 
     <!-- T2 slider -->
     <div>
-      <div class="section-label">T2 — Dephasing Time</div>
+      <div class="section-label">T2 — Dephasing</div>
       <div class="slider-row">
         <span class="slider-label">T2</span>
         <span class="slider-value" id="t2-display">400 µs</span>
@@ -593,16 +593,29 @@
 
     <!-- Error banner -->
     <div class="error-banner" id="error-banner"></div>
-
-    <!-- Assumptions -->
-    <div style="flex:1">
-      <div class="section-label">Simplifying Assumptions</div>
-      <div class="assumptions-list" id="assumptions-list">
-        <div class="assumption-item" style="opacity:0.5; border-color: #1e3a5f">
-          Loading…
+    <!-- Assumptions + Circuit Analysis — collapsed by default -->
+    <details style="margin-top:4px">
+      <summary style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);cursor:pointer;padding:6px 0;list-style:none">
+        ▸ Reference Details
+      </summary>
+      <div style="margin-top:10px">
+        <div class="section-label">Simplifying Assumptions</div>
+        <div class="assumptions-list" id="assumptions-list">
+          <div class="assumption-item" style="opacity:0.5; border-color: #1e3a5f">Loading…</div>
         </div>
       </div>
-    </div>
+      <div style="margin-top:14px">
+        <div class="section-label">Circuit Analysis</div>
+        <table class="analysis-table">
+          <tr><td>Circuit depth</td><td id="ca-depth">—</td></tr>
+          <tr><td>Single-qubit gates</td><td id="ca-sq">—</td></tr>
+          <tr><td>Two-qubit gates</td><td id="ca-tq">—</td></tr>
+          <tr><td>Measurements</td><td id="ca-meas">—</td></tr>
+          <tr><td>Locality score</td><td id="ca-locality">—</td></tr>
+          <tr><td>Hub qubits</td><td id="ca-hubs">—</td></tr>
+        </table>
+      </div>
+    </details>
 
   </aside>
 
@@ -701,30 +714,9 @@
 
   <!-- ── Below chart: Circuit Analysis + Error Attribution side by side ── -->
   <div class="panel-below-chart" id="panel-below-chart" style="display:none">
-
-    <!-- Circuit Analysis -->
-    <div class="below-panel">
-      <div class="section-label">Circuit Analysis</div>
-      <table class="analysis-table">
-        <tr><td>Circuit depth</td><td id="ca-depth">—</td></tr>
-        <tr><td>Single-qubit gates</td><td id="ca-sq">—</td></tr>
-        <tr><td>Two-qubit gates</td><td id="ca-tq">—</td></tr>
-        <tr><td>Measurements</td><td id="ca-meas">—</td></tr>
-        <tr><td>Locality score</td><td id="ca-locality">—</td></tr>
-        <tr><td>Hub qubits</td><td id="ca-hubs">—</td></tr>
-      </table>
-    </div>
-
-    <!-- Error Attribution -->
+    <!-- Error Attribution — full width; ε_T1 row is future drawer trigger for Part B -->
     <div class="below-panel" id="coherence-budget">
       <div class="section-label">Error Attribution</div>
-      <table class="analysis-table">
-        <tr><td>T1</td><td id="cb-T1">—</td></tr>
-        <tr><td>T2</td><td id="cb-T2">—</td></tr>
-        <tr><td>Gate time</td><td id="cb-gate-time">—</td></tr>
-        <tr><td>T1-limited ceiling</td><td id="cb-ceiling">—</td></tr>
-        <tr><td>Derived fidelity</td><td id="cb-effective">—</td></tr>
-      </table>
       <div style="margin-top:10px; margin-bottom:6px">
         <div class="section-label" style="font-size:10px; margin-bottom:6px">Gate Error Decomposition</div>
         <div id="cb-bar" style="display:flex; height:14px; border-radius:3px; overflow:hidden; margin-bottom:8px">
@@ -733,8 +725,9 @@
           <div id="cb-bar-control" style="background:#1e3a5f; transition:width 0.4s"></div>
         </div>
         <table class="analysis-table" id="cb-breakdown-table">
-          <tr>
-            <td><span style="display:inline-block;width:8px;height:8px;background:#00d4ff;border-radius:2px;margin-right:5px"></span>ε<sub>T1</sub> (relaxation)</td>
+          <!-- ε_T1 row: Part B drawer trigger — clicking opens T1 loss mechanism breakdown -->
+          <tr id="eps-T1-row" style="cursor:pointer" title="Click to explore T1 loss mechanisms (coming soon)">
+            <td><span style="display:inline-block;width:8px;height:8px;background:#00d4ff;border-radius:2px;margin-right:5px"></span>ε<sub>T1</sub> (relaxation) <span style="font-size:10px;color:var(--text-muted)">▸</span></td>
             <td id="cb-eps-T1">—</td>
             <td id="cb-frac-T1" style="color:var(--text-muted); font-size:11px">—</td>
           </tr>
@@ -771,10 +764,6 @@
   <div class="status-item">
     <span class="status-key">logical error rate</span>
     <span class="status-val" id="status-logical-err">—</span>
-  </div>
-  <div class="status-item">
-    <span class="status-key">platform</span>
-    <span class="status-val" id="status-platform">superconducting / surface code</span>
   </div>
   <div class="status-item" style="margin-left:auto">
     <span class="status-key">C2QA Baby QREM</span>
@@ -1049,6 +1038,7 @@ function updateCards(result) {
     card.classList.add('visible');
   };
 
+  set('val-fidelity', (result.coherence_budget?.derived_fidelity_pct ?? result.coherence_budget?.effective_fidelity_pct)?.toFixed(3) + '%', 'card-fidelity', '');
   set('val-code-dist',    result.code_distance,                        'card-code-dist',    'highlight');
   set('val-phys-logical', fmtNum(result.physical_qubits_per_logical),  'card-phys-logical', 'highlight');
   set('val-logical',      result.num_logical_qubits,                   'card-logical',      '');
@@ -1079,8 +1069,6 @@ function updateCards(result) {
   document.getElementById('status-logical-err').textContent =
     ler === null ? 'n/a (above threshold)' :
     ler < 0.001 ? ler.toExponential(2) : ler.toFixed(6);
-  document.getElementById('status-platform').textContent =
-    (result.platform || 'superconducting') + ' / surface code';
   document.getElementById('platform-badge').textContent =
     result.platform || 'superconducting';
 
