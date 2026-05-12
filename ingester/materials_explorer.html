@@ -1869,7 +1869,7 @@ function renderCatchall(items) {
   container.innerHTML = items.map(item => `
     <div class="catchall-item">
       <div class="catchall-meta">
-        <div class="catchall-display-name">${item.display_name || '—'}</div>
+        <div class="catchall-display-name" style="cursor:pointer;" onclick="openDetail('${(item.display_name || '').replace(/'/g, "\\'")}')">${item.display_name || '—'}</div>
         <div class="catchall-type" style="color:${typeColors[item.item_type] || 'var(--muted)'}">
           ${item.item_type.replace(/_/g,' ')}
         </div>
