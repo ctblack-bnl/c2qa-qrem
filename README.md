@@ -14,7 +14,7 @@ A modular, staged pipeline for quantum resource estimation and materials charact
 
 **Publications Ingester** — reads scientific papers (PDFs) and automatically extracts structured materials characterization data into a database. Three-pass pipeline: relevance classification, full extraction, and similarity profile generation. Handles idempotent processing and human review flagging. Includes a browser-based ingestion pipeline UI.
 
-**Materials Database + Explorer** — a structured, queryable store of materials characterization records following the Five-Center Materials Working Group schema (v0.7, six blocks). Populated by the ingester. Browsable via the Materials Explorer UI with four tabs: Explore, Search, Findings, and Catchall.
+**Materials Database + Explorer** — a structured, queryable store of materials characterization records following the Five-Center Materials Working Group schema (v0.8, six blocks). Populated by the ingester. Browsable via the C2QA QIS Materials Explorer UI with four tabs: Explore, Search, Findings, and Catchall. Explorer filters by normalized substrate (Silicon, Sapphire, Silicon Carbide, Diamond, Other) and groups by normalized deposition method (DC Sputtering, RF Sputtering, Ebeam Evaporation, etc.) — collapsing raw string variants to clean canonical labels.
 
 **Corpus Mining Pipeline** — operates over all ingested records to extract, reason about, and formalize materials-to-device connection hypotheses. Three phases: Phase A (mechanical evidence extraction and co-occurrence analysis, per material class), Phase B (AI reasoning constrained to evidence tables), Phase C (AI write-up of structured findings). Approved findings enter `findings.jsonl` and feed the mapping layer.
 
@@ -221,7 +221,7 @@ python3 build_sqlite.py
 Open `data/ingested/records.db` in DB Browser for SQLite (free, sqlitebrowser.org). Three tables:
 
 - **papers** — one row per paper: outcome, DOI, title, authors, journal, sample count
-- **samples** — one row per extracted sample: all schema fields, derived quantities (prefixed `derived_`), similarity profile dimensions (prefixed `sim_`), `derived_material` column for mining stratification
+- **samples** — one row per extracted sample: all schema fields, derived quantities (prefixed `derived_`), similarity profile dimensions (prefixed `sim_`), `derived_material` (for mining stratification), `derived_substrate` and `derived_deposition_method` (normalized canonical values for Explorer filtering and grouping)
 - **catchall_items** — one row per catchall entry: additional measurements, anomalous observations, correlations
 
 The SQLite database is derived and rebuildable at any time from the JSONL ledger. It is not a source of truth.
@@ -282,17 +282,17 @@ Every ingested record starts with `human_reviewed: false` and `human_approved: f
 
 ---
 
-## Current Corpus State (May 2026)
+## Current Corpus State (May 11, 2026)
 
 | Metric | Value |
 |---|---|
-| Papers processed | 98 |
+| Papers processed | 115 |
 | Papers ingested | ~57 |
 | Skip rate | ~44% |
-| Samples extracted | 155 |
-| Catchall items | ~1,318 |
+| Samples extracted | 158 |
+| Catchall items | ~1,378 |
 | Author-stated correlations | 41 |
-| Similarity profiles | 155 (100%) |
+| Similarity profiles | 158 (100%) |
 | Coverage: Tc | 39% |
 | Coverage: RRR | 20% |
 | Coverage: Qi | 17% |
@@ -300,7 +300,8 @@ Every ingested record starts with `human_reviewed: false` and `human_approved: f
 
 **Material breakdown:** Ta (35), other (27), Al (16), unknown (13), NbSe2 (12), Re (12), Ta-Hf (12), PtSi (11), Mo3Al2C (5), NbN (5), TaN (2), Nb (1)
 
-**Mining results:** 1 positive finding (Tc vs deposition temperature in Ta-Hf, confidence 0.72); remaining findings inconclusive — expected at current corpus size.
+**Mining results:** 19 sufficient evidence tables (global + per-material-class). 1 positive finding: Tc vs deposition temperature in Ta-Hf (83:17), confidence 0.72. Remaining findings inconclusive — expected at current corpus size.
+
 
 ---
 
@@ -351,11 +352,11 @@ Every ingested record starts with `human_reviewed: false` and `human_approved: f
 
 Full design rationale, interface contracts, and implementation details:
 
-- `quantum_resource_estimator_spec_v08.md` — Baby QREM pipeline architecture, materials-first estimation model, tiered fallback hierarchy, hardware profiles, development sequence
+- `quantum_resource_estimator_spec_v09.md` — Baby QREM pipeline architecture, materials-first estimation model, tiered fallback hierarchy, hardware profiles, development sequence
 - `publications_ingester_spec_v08.md` — ingester design, three-pass pipeline, corpus mining architecture, per-material stratification, schema evolution
-- `materials_characterization_schema_v07.md` — six-block schema, all fields, similarity profile vocabulary, governance, schema evolution process
+- `materials_characterization_schema_v08.md` — six-block schema, all fields, similarity profile vocabulary, governance, schema evolution process
 - `qrem_scientific_vision.md` — the three modes of materials-to-device connection (direct measurement, known physics, corpus-discovered), scientific rationale for the pipeline architecture
-- `project_continuity_may05.md` — current development state, next coding priorities, running the full system
+- `project_continuity_may11.md` — current development state, next coding priorities, running the full system
 
 ---
 
