@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>C2QA Materials Explorer</title>
+<title>C2QA QIS Materials Explorer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
@@ -60,7 +60,7 @@
   .layout {
     display: grid;
     grid-template-columns: 260px 1fr;
-    height: calc(100vh - 57px);
+    height: calc(100vh - 90px);
   }
   sidebar {
     display: block;
@@ -150,12 +150,12 @@
   }
   .tab-pane { flex: 1; display: none; flex-direction: column; overflow: hidden; }
   .tab-pane.active { display: flex; }
-  .plot-area { flex: 1; padding: 20px; overflow: hidden; display: none; flex-direction: column; }
+  .plot-area { flex: 1; padding: 16px 20px 48px; overflow: hidden; display: none; flex-direction: column; }
   .plot-area.active { display: flex; }
   .plot-controls {
     display: flex;
     gap: 12px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     align-items: center;
     flex-wrap: wrap;
   }
@@ -183,13 +183,18 @@
     font-size: 11px;
     color: var(--accent);
     opacity: 0.7;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     display: flex;
     align-items: center;
     gap: 6px;
   }
   .chart-click-hint::before { content: '↖'; font-size: 13px; }
-  .chart-wrapper { flex: 1; position: relative; min-height: 0; }
+  /* FIX #1: constrain chart height so it doesn't overflow the window */
+  .chart-wrapper {
+    position: relative;
+    height: 380px;
+    flex: none;
+  }
   .table-area { flex: 1; overflow: auto; display: none; }
   .table-area.active { display: block; }
   .table-controls { padding: 16px 20px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
@@ -629,6 +634,7 @@
     .control-group select { font-size: 11px; padding: 4px 8px; }
     .chart-click-hint { font-size: 10px; }
     .csv-export-btn { font-size: 10px; padding: 4px 8px; }
+    .chart-wrapper { max-height: 320px; }
     .detail-panel {
       top: auto;
       bottom: 0;
@@ -708,8 +714,8 @@
   <img src="/static/C2QA_logo.png" alt="C2QA" style="height:32px;opacity:0.85;flex-shrink:0;mix-blend-mode:lighten;">
   <div style="width:1px;height:28px;background:var(--border);flex-shrink:0;"></div>
   <div>
-    <h1>C2QA // Materials Explorer</h1>
-    <div class="subtitle">Superconducting qubit materials characterization database</div>
+    <!-- FIX #5: renamed title and subtitle -->
+    <h1>C2QA | QIS Materials Explorer</h1>
   </div>
   <div class="coverage-pills" id="coveragePills">
     <div class="pill">Loading...</div>
@@ -723,6 +729,7 @@
     <div class="checkbox-group" id="materialFilters">
       <div style="color:var(--muted);font-size:12px;">Loading...</div>
     </div>
+    <!-- FIX #4: substrate filter now uses derived_substrate canonical values -->
     <div class="section-label">Filter by substrate</div>
     <select id="substrateFilter">
       <option value="">All substrates</option>
@@ -733,8 +740,9 @@
       <option value="high">High only</option>
       <option value="high,medium">High + Medium</option>
     </select>
-    <div class="section-label">Search display name</div>
-    <input type="text" class="filter-input" id="nameFilter" placeholder="e.g. Bahrami_2026...">
+    <!-- FIX #2: renamed label to be more descriptive -->
+    <div class="section-label">Filter by author / paper</div>
+    <input type="text" class="filter-input" id="nameFilter" placeholder="e.g. Bahrami, Yang...">
   </sidebar>
   <main>
     <div class="tabs">
@@ -759,10 +767,11 @@
           </div>
           <div class="control-group">
             <span class="control-label">Group by</span>
+            <!-- FIX #6: group by options now use derived (normalized) fields -->
             <select id="stripGroupBy">
-              <option value="film_material">Film material</option>
-              <option value="substrate_material">Substrate</option>
-              <option value="deposition_method">Deposition method</option>
+              <option value="derived_material">Film material</option>
+              <option value="derived_substrate">Substrate</option>
+              <option value="derived_deposition_method">Deposition method</option>
             </select>
           </div>
           <button class="csv-export-btn" onclick="exportStripCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
@@ -784,10 +793,11 @@
           </div>
           <div class="control-group">
             <span class="control-label">Color by</span>
+            <!-- FIX #6: color by options also use derived fields -->
             <select id="colorBy">
-              <option value="film_material">Film material</option>
-              <option value="substrate_material">Substrate</option>
-              <option value="deposition_method">Deposition method</option>
+              <option value="derived_material">Film material</option>
+              <option value="derived_substrate">Substrate</option>
+              <option value="derived_deposition_method">Deposition method</option>
             </select>
           </div>
           <button class="csv-export-btn" onclick="exportScatterCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
@@ -964,7 +974,6 @@ let allFindings = [];
 let colorMap = {};
 let scatterChart = null;
 let stripChart = null;
-
 // ── CSV Export ────────────────────────────────────────────────────────────
 function downloadCSV(rows, filename) {
   if (!rows || rows.length === 0) return;
@@ -987,7 +996,6 @@ function downloadCSV(rows, filename) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
 function exportStripCSV() {
   const field   = document.getElementById('stripField').value;
   const groupBy = document.getElementById('stripGroupBy').value;
@@ -1006,7 +1014,6 @@ function exportStripCSV() {
   const ts = new Date().toISOString().slice(0,10);
   downloadCSV(rows, `c2qa_strip_${field}_${ts}.csv`);
 }
-
 function exportScatterCSV() {
   const xField  = document.getElementById('xField').value;
   const yField  = document.getElementById('yField').value;
@@ -1028,7 +1035,6 @@ function exportScatterCSV() {
   const ts = new Date().toISOString().slice(0,10);
   downloadCSV(rows, `c2qa_scatter_${xField}_vs_${yField}_${ts}.csv`);
 }
-
 // ── Sub-toggle logic ──────────────────────────────────────────────────────
 document.querySelectorAll('[data-explore]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1077,7 +1083,7 @@ async function loadFindings() {
     const r = await fetch('/api/approved_findings');
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || 'Failed to load findings');
-    allFindings = d.findings || [];  // already deduplicated and sorted server-side
+    allFindings = d.findings || [];
     renderFindings();
   } catch(e) {
     console.error('Findings load failed', e);
@@ -1547,9 +1553,15 @@ function getFilteredSamples() {
   const confidence = document.getElementById('confidenceFilter').value;
   const nameSearch = document.getElementById('nameFilter').value.toLowerCase();
   return allSamples.filter(s => {
+    // Material filter uses sim_material_class (sidebar checkboxes)
     if (checkedMaterials.length && !checkedMaterials.includes(s.sim_material_class || '')) return false;
-    if (substrate && s.substrate_material !== substrate) return false;
+    // FIX #4: substrate filter now matches against derived_substrate
+    if (substrate && s.derived_substrate !== substrate) return false;
+    // FIX #2: name search works as substring match on display_name
     if (nameSearch && !(s.display_name || '').toLowerCase().includes(nameSearch)) return false;
+    // FIX #3: confidence filter — sample passes if ANY key field meets the threshold
+    // (unchanged logic, but confirmed working: a sample with no confidence fields
+    //  at all is correctly excluded when a filter is active)
     if (confidence === 'high') {
       if (!['high'].includes(s.Tc_confidence) && !['high'].includes(s.RRR_confidence) &&
           !['high'].includes(s.Qi_confidence) && !['high'].includes(s.T1_confidence)) return false;
@@ -1564,6 +1576,7 @@ function getFilteredSamples() {
 function buildMaterialFilters() {
   const classes = [...new Set(allSamples.map(s => s.sim_material_class).filter(Boolean))].sort();
   classes.forEach((c, i) => { colorMap[c] = PALETTE[i % PALETTE.length]; });
+  // Also map derived_material keys to colors for chart grouping
   allSamples.forEach(s => {
     if (s.derived_material && !colorMap[s.derived_material]) {
       colorMap[s.derived_material] = colorMap[s.sim_material_class] || PALETTE[Object.keys(colorMap).length % PALETTE.length];
@@ -1578,8 +1591,11 @@ function buildMaterialFilters() {
     </label>
   `).join('');
 }
+// FIX #4: substrate filter now uses derived_substrate — canonical short list
 function buildSubstrateFilter() {
-  const substrates = [...new Set(allSamples.map(s => s.substrate_material).filter(Boolean))].sort();
+  const substrates = [...new Set(allSamples.map(s => s.derived_substrate).filter(Boolean))]
+    .filter(s => s !== 'Unknown')
+    .sort();
   const sel = document.getElementById('substrateFilter');
   substrates.forEach(s => {
     const opt = document.createElement('option');
@@ -1601,8 +1617,7 @@ function onFilterChange() {
 // ── Label truncation ──────────────────────────────────────────────────────
 function trunc(str, maxLen=22) {
   if (!str) return str;
-  const symMatch = str.match(/\(([A-Z][a-zA-Z0-9\-]*)\)$/);
-  if (symMatch && symMatch[1].length <= 8) return symMatch[1];
+  // With normalized derived fields, labels are already short — just cap length
   return str.length > maxLen ? str.slice(0, maxLen).trimEnd() + '…' : str;
 }
 // ── Strip Chart ───────────────────────────────────────────────────────────
@@ -1610,12 +1625,11 @@ function renderStripChart(samples) {
   samples = samples || getFilteredSamples();
   const field   = document.getElementById('stripField').value;
   const groupBy = document.getElementById('stripGroupBy').value;
+  // FIX #6: groupBy values are now derived_material / derived_substrate /
+  // derived_deposition_method — all already normalized, no further mapping needed
   const groups  = {};
   samples.forEach(s => {
-    const rawKey = s[groupBy] || 'Unknown';
-    const key = (groupBy === 'film_material' && s.derived_material)
-      ? s.derived_material
-      : rawKey;
+    const key = s[groupBy] || 'Unknown';
     const val = s[field];
     if (val != null) {
       if (!groups[key]) groups[key] = [];
@@ -1624,7 +1638,7 @@ function renderStripChart(samples) {
   });
   const labels   = Object.keys(groups).sort();
   const datasets = labels.map((label, i) => {
-    const color = groupBy === 'film_material'
+    const color = groupBy === 'derived_material'
       ? (colorMap[label] || PALETTE[i % PALETTE.length])
       : PALETTE[i % PALETTE.length];
     return {
@@ -1705,12 +1719,10 @@ function renderScatterChart(samples) {
   const xField  = document.getElementById('xField').value;
   const yField  = document.getElementById('yField').value;
   const colorBy = document.getElementById('colorBy').value;
+  // FIX #6: colorBy values are now derived fields — already normalized
   const groups  = {};
   samples.forEach(s => {
-    const rawKey = s[colorBy] || 'Unknown';
-    const key = (colorBy === 'film_material' && s.derived_material)
-      ? s.derived_material
-      : rawKey;
+    const key = s[colorBy] || 'Unknown';
     const x = s[xField], y = s[yField];
     if (x != null && y != null) {
       if (!groups[key]) groups[key] = [];
@@ -1720,8 +1732,8 @@ function renderScatterChart(samples) {
   const datasets = Object.entries(groups).map(([key, points], i) => ({
     label: key,
     data: points,
-    backgroundColor: (colorBy === 'film_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length]) + 'cc',
-    borderColor:      colorBy === 'film_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length],
+    backgroundColor: (colorBy === 'derived_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length]) + 'cc',
+    borderColor:      colorBy === 'derived_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length],
     pointRadius: 7, pointHoverRadius: 10,
   }));
   if (scatterChart) scatterChart.destroy();
@@ -1942,9 +1954,16 @@ function closeMobileSidebar() {
   document.getElementById('mainSidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('open');
 }
-const _origFilterChange = onFilterChange;
 function onFilterChange() {
-  _origFilterChange();
+  document.querySelectorAll('#materialFilters label').forEach(label => {
+    label.classList.toggle('checked', label.querySelector('input').checked);
+  });
+  const filtered = getFilteredSamples();
+  renderStripChart(filtered);
+  renderScatterChart(filtered);
+  renderTable(filtered);
+  renderRankedList(filtered);
+  document.getElementById('statusCount').textContent = filtered.length;
   if (window.innerWidth <= 768) closeMobileSidebar();
 }
 </script>

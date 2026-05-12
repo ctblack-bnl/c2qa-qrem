@@ -18,6 +18,24 @@
 #   - Unknown materials → "other" (never sent to Phase B mining)
 #   - Add new materials to KNOWN_MATERIALS as the corpus grows
 #
+# derived_substrate field: normalized substrate_material to canonical short list.
+#   - "Si (high-resistivity, >20 kΩ cm)" → "Silicon"
+#   - "Al2O3 (HEMEX sapphire)", "c-axis sapphire" → "Sapphire"
+#   - "SiC" → "Silicon Carbide"
+#   - "diamond" → "Diamond"
+#   - Everything else → "Other"
+#
+# derived_deposition_method field: normalized deposition_method to canonical short list.
+#   - "DC magnetron sputtering", "UHV dc magnetron sputtering" → "DC Sputtering"
+#   - "RF magnetron sputtering" → "RF Sputtering"
+#   - "e-beam evaporation", "ebeam evaporation" → "Ebeam Evaporation"
+#   - "thermal evaporation" → "Thermal Evaporation"
+#   - "MBE", "molecular beam epitaxy" → "MBE"
+#   - "ALD", "atomic layer deposition" → "ALD"
+#   - "CVD" → "CVD"
+#   - "PLD", "pulsed laser deposition" → "PLD"
+#   - Everything else (incl. patterning methods like EBL) → "Other"
+#
 # Usage:
 #   cd ingester
 #   python3 build_sqlite.py
@@ -79,11 +97,145 @@ def normalize_film_material(film_material: str) -> str:
     return base if base in KNOWN_MATERIALS else "other"
 
 
+def normalize_substrate(substrate_material: str) -> str:
+    """
+    Normalize substrate_material to a canonical short list for Explorer filtering.
+    Collapses many vendor/grade/orientation variants to a single common name.
+
+    Canonical values: Silicon, Sapphire, Silicon Carbide, Diamond, Other
+
+    Examples:
+      "Si"                                          → "Silicon"
+      "Si (high-resistivity)"                       → "Silicon"
+      "Si (high-resistivity, >20 kΩ cm, float zone)"→ "Silicon"
+      "Si/SiO2 (B-doped Si with ...)"               → "Silicon"
+      "SiO2/Si (285 nm SiO2)"                       → "Silicon"
+      "Al2O3"                                       → "Sapphire"
+      "Al2O3 (sapphire)"                            → "Sapphire"
+      "Al2O3 (HEMEX sapphire)"                      → "Sapphire"
+      "c-Al2O3"                                     → "Sapphire"
+      "c-axis sapphire (HEMEX)"                     → "Sapphire"
+      "SiC"                                         → "Silicon Carbide"
+      "silicon carbide"                             → "Silicon Carbide"
+      "diamond"                                     → "Diamond"
+      "GaN (wurtzite)"                              → "Other"
+      "ZnO (hydrothermal)"                          → "Other"
+      "Al (3D rectangular waveguide cavity)"        → "Other"
+    """
+    if not substrate_material:
+        return "Unknown"
+    s = substrate_material.strip().lower()
+
+    # Sapphire — check before Si to avoid "Si" matching in "SiO2/Si"
+    # Al2O3 is the formula for sapphire; c-Al2O3 and "sapphire" are common names
+    if any(x in s for x in ['al2o3', 'sapphire', 'c-al2o3']):
+        return "Sapphire"
+
+    # Silicon Carbide — check before plain Si
+    if re.search(r'\bsic\b', s) or 'silicon carbide' in s:
+        return "Silicon Carbide"
+
+    # Silicon — matches "si", "si (", "si/sio2", "sio2/si", but NOT "sic" or "al2o3"
+    # Use word-boundary match on "si" to avoid matching e.g. "resistivity"
+    if re.search(r'\bsi\b', s) or 'silicon' in s:
+        return "Silicon"
+
+    # Diamond
+    if 'diamond' in s:
+        return "Diamond"
+
+    return "Other"
+
+
+def normalize_deposition_method(deposition_method: str) -> str:
+    """
+    Normalize deposition_method to a canonical short list for Explorer grouping.
+    Handles capitalization variants, verbose descriptions, and filters out
+    patterning methods (EBL) that sometimes appear in this field.
+
+    Canonical values: DC Sputtering, RF Sputtering, Ebeam Evaporation,
+                      Thermal Evaporation, MBE, ALD, CVD, PLD, Other
+
+    Examples:
+      "DC magnetron sputtering"             → "DC Sputtering"
+      "dc magnetron sputtering"             → "DC Sputtering"
+      "UHV dc magnetron sputtering"         → "DC Sputtering"
+      "DC magnetron sputtering (Ar)"        → "DC Sputtering"
+      "sputtering"                          → "DC Sputtering"  (unqualified → DC, most common)
+      "RF magnetron sputtering"             → "RF Sputtering"
+      "RF sputtering"                       → "RF Sputtering"
+      "e-beam evaporation"                  → "Ebeam Evaporation"
+      "ebeam evaporation"                   → "Ebeam Evaporation"
+      "electron beam evaporation"           → "Ebeam Evaporation"
+      "ebeam lithography (EBL...)"          → "Other"  (patterning method, not deposition)
+      "thermal evaporation"                 → "Thermal Evaporation"
+      "evaporation"                         → "Thermal Evaporation"  (unqualified → thermal)
+      "MBE"                                 → "MBE"
+      "molecular beam epitaxy"              → "MBE"
+      "gas-source molecular beam"           → "MBE"
+      "ALD"                                 → "ALD"
+      "atomic layer deposition"             → "ALD"
+      "CVD"                                 → "CVD"
+      "chemical vapor deposition"           → "CVD"
+      "PLD"                                 → "PLD"
+      "pulsed laser deposition"             → "PLD"
+      "not specified for Ta b..."           → "Other"
+    """
+    if not deposition_method:
+        return "Unknown"
+    s = deposition_method.strip().lower()
+
+    # MBE — check early, "molecular beam" is distinctive
+    if 'mbe' in s or 'molecular beam' in s:
+        return "MBE"
+
+    # ALD — check early, "atomic layer" is distinctive
+    if 'ald' in s or 'atomic layer' in s:
+        return "ALD"
+
+    # CVD
+    if s == 'cvd' or 'chemical vapor' in s or re.search(r'\bcvd\b', s):
+        return "CVD"
+
+    # PLD
+    if s == 'pld' or 'pulsed laser' in s or re.search(r'\bpld\b', s):
+        return "PLD"
+
+    # Ebeam evaporation — before generic evaporation check
+    # Exclude lithography/EBL (patterning method that appears in this field occasionally)
+    if 'e-beam' in s or 'ebeam' in s or 'electron beam' in s:
+        if 'lithograph' in s or 'ebl' in s:
+            return "Other"
+        return "Ebeam Evaporation"
+
+    # Thermal evaporation — explicit or unqualified "evaporation"
+    if 'thermal evap' in s or ('thermal' in s and 'evap' in s):
+        return "Thermal Evaporation"
+    if 'evap' in s:
+        return "Thermal Evaporation"
+
+    # RF sputtering — check RF before DC since both may contain "magnetron sputtering"
+    if 'rf' in s and ('sputter' in s or 'magnetron' in s):
+        return "RF Sputtering"
+
+    # DC sputtering — explicit DC, or magnetron without RF qualifier, or plain sputtering
+    if ('dc' in s and ('sputter' in s or 'magnetron' in s)):
+        return "DC Sputtering"
+    if 'magnetron' in s and 'sputter' in s:
+        return "DC Sputtering"
+    if 'sputter' in s:
+        # Unqualified sputtering → DC (by far the most common default)
+        return "DC Sputtering"
+
+    return "Other"
+
+
 def make_display_name(authors: str, sample_id: str) -> str:
     """
     Build a human-readable display name for a sample.
     Format: {first_author_lastname}_{year}_{sample_id}
     Example: "Bahrami_2026_D1", "Yang_2026_Ta-Hf_1ks_750C"
+
     Authors string is typically "First Author et al., YYYY" or similar.
     We extract the first word (lastname) and the 4-digit year.
     """
@@ -96,6 +248,7 @@ def make_display_name(authors: str, sample_id: str) -> str:
         # Extract 4-digit year
         year_match = re.search(r'\b(20\d{2})\b', authors)
         year = year_match.group(1) if year_match else "????"
+
     # Clean sample_id for use in a display name
     clean_sid = str(sample_id).strip().replace(" ", "_").replace("/", "-")
     return f"{first_author}_{year}_{clean_sid}"
@@ -191,6 +344,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             filename                TEXT,
             sample_id               TEXT,
             display_name            TEXT,
+
             -- Sample description
             substrate_material      TEXT,
             substrate_orientation   TEXT,
@@ -202,6 +356,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             annealing_temperature_C TEXT,
             annealing_duration_s    TEXT,
             junction_present        TEXT,
+
             -- Measurements
             Tc_K                    TEXT,
             RRR                     TEXT,
@@ -216,29 +371,43 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             T2_echo_us              TEXT,
             gate_1q_fidelity_pct    TEXT,
             gate_2q_fidelity_pct    TEXT,
+
             -- R vs T derived fields
             normal_state_resistance_Ohm     TEXT,
             room_temperature_resistance_Ohm TEXT,
             measured_structure_width_um     TEXT,
             measured_structure_length_um    TEXT,
+
             -- Confidence flags
             Tc_confidence           TEXT,
             RRR_confidence          TEXT,
             Qi_confidence           TEXT,
             T1_confidence           TEXT,
+
             -- Derived quantities (computed by build_sqlite.py)
             derived_resistivity_uOhm_cm      REAL,
             derived_BCS_gap_meV              REAL,
             derived_coherence_length_nm      REAL,
             derived_kinetic_inductance_pH_sq REAL,
-            derived_RRR_from_RvT              REAL,
+            derived_RRR_from_RvT             REAL,
             derived_sheet_resistance_Ohm_sq  REAL,
             derived_json                     TEXT,
+
             -- derived_material: normalized film_material for Phase A stratification.
             -- Strips parentheticals, checks KNOWN_MATERIALS whitelist.
             -- "other" = unrecognized material, excluded from per-material Phase A tables.
             -- Update KNOWN_MATERIALS in build_sqlite.py to add new materials.
             derived_material        TEXT,
+
+            -- derived_substrate: normalized substrate_material for Explorer filtering.
+            -- Canonical values: Silicon, Sapphire, Silicon Carbide, Diamond, Other
+            derived_substrate       TEXT,
+
+            -- derived_deposition_method: normalized deposition_method for Explorer grouping.
+            -- Canonical values: DC Sputtering, RF Sputtering, Ebeam Evaporation,
+            --                   Thermal Evaporation, MBE, ALD, CVD, PLD, Other
+            derived_deposition_method TEXT,
+
             -- Similarity profile (Pass 3, AI-generated)
             sim_material_class      TEXT,
             sim_transport_regime    TEXT,
@@ -250,6 +419,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             sim_key_correlations    TEXT,
             sim_profile_notes       TEXT,
             sim_profile_version     TEXT,
+
             -- Full sample JSON
             sample_json             TEXT
         );
@@ -291,6 +461,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         outcome = rec.get("outcome", "unknown")
         error = rec.get("error")
         error_str = json.dumps(error) if error else None
+
         samples = ext.get("samples", [])
         num_samples = len(samples)
         authors = rec.get("authors") or ext.get("authors") or ""
@@ -337,6 +508,14 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             film_mat_raw = gf("film_material")[0]
             derived_material = normalize_film_material(film_mat_raw) if film_mat_raw else "unknown"
 
+            # Compute derived_substrate — normalized substrate for Explorer filtering
+            substrate_raw = gf("substrate_material")[0]
+            derived_substrate = normalize_substrate(substrate_raw) if substrate_raw else "Unknown"
+
+            # Compute derived_deposition_method — normalized deposition method for Explorer grouping
+            deposition_raw = gf("deposition_method")[0]
+            derived_deposition_method = normalize_deposition_method(deposition_raw) if deposition_raw else "Unknown"
+
             # Look up similarity profile
             profile = similarity_profiles.get(sid, {})
             if profile:
@@ -369,6 +548,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     derived_sheet_resistance_Ohm_sq,
                     derived_json,
                     derived_material,
+                    derived_substrate,
+                    derived_deposition_method,
                     sim_material_class, sim_transport_regime,
                     sim_loss_mechanisms, sim_device_type,
                     sim_coherence_tier, sim_science_focus,
@@ -383,6 +564,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
+                    ?, ?,
                     ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?
@@ -428,6 +610,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 get_derived_value(derived, "derived_sheet_resistance_Ohm_sq"),
                 json.dumps(derived) if derived else None,
                 derived_material,
+                derived_substrate,
+                derived_deposition_method,
                 profile.get("material_class"),
                 profile.get("transport_regime"),
                 json.dumps(profile.get("loss_mechanisms") or []),
@@ -444,6 +628,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
 
             # Insert catchall items
             catchall = sample.get("catchall", {})
+
             for item in catchall.get("additional_measurements", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -459,6 +644,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("suspected_relevance"),
                 ))
                 catchall_inserted += 1
+
             for item in catchall.get("anomalous_observations", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -474,6 +660,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("hypothesis"),
                 ))
                 catchall_inserted += 1
+
             for item in catchall.get("correlations_observed", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -489,6 +676,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("nature"),
                 ))
                 catchall_inserted += 1
+
             for item in catchall.get("schema_promotion_candidates", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -517,6 +705,18 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     """)
     unrecognized = cur.fetchall()
 
+    # --- Unrecognized substrates report ---
+    cur.execute("""
+        SELECT substrate_material, COUNT(*) as n
+        FROM samples
+        WHERE derived_substrate = 'Other'
+        AND substrate_material IS NOT NULL
+        AND substrate_material != ''
+        GROUP BY substrate_material
+        ORDER BY n DESC
+    """)
+    unrecognized_substrates = cur.fetchall()
+
     conn.commit()
     conn.close()
 
@@ -538,12 +738,21 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     else:
         print(f"\n  ✓ All film materials recognized — no 'other' stratification bin")
 
+    if unrecognized_substrates:
+        print(f"\n  ℹ Substrates mapped to 'Other' ({len(unrecognized_substrates)} types):")
+        print(f"    These appear in Explorer as 'Other'. Add to normalize_substrate()")
+        print(f"    if any should be broken out as a distinct canonical category.")
+        for row in unrecognized_substrates:
+            print(f"    {str(row[0]):<60} : {row[1]} sample(s)")
+
     print()
     print("To browse: open records.db in DB Browser for SQLite (sqlitebrowser.org)")
     print()
     print("Useful queries:")
     print("  SELECT display_name, film_material, derived_material, Tc_K, RRR, Qi_internal FROM samples;")
     print("  SELECT derived_material, COUNT(*) as n FROM samples GROUP BY derived_material ORDER BY n DESC;")
+    print("  SELECT derived_substrate, COUNT(*) as n FROM samples GROUP BY derived_substrate ORDER BY n DESC;")
+    print("  SELECT derived_deposition_method, COUNT(*) as n FROM samples GROUP BY derived_deposition_method ORDER BY n DESC;")
     print("  SELECT display_name, sim_material_class, sim_device_type, sim_coherence_tier FROM samples WHERE sim_profile_version IS NOT NULL;")
     print("  SELECT display_name, item_type, description FROM catchall_items LIMIT 20;")
     print("  SELECT outcome, COUNT(*) FROM papers GROUP BY outcome;")
