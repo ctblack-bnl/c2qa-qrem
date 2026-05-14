@@ -393,6 +393,15 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             derived_sheet_resistance_Ohm_sq  REAL,
             derived_json                     TEXT,
 
+            -- derived_Qi: best available Qi for plotting. Single-photon preferred
+            -- (qubit operating regime; TLS unsaturated). Falls back to internal Qi
+            -- which may be measured at higher power with TLS partially saturated.
+            derived_Qi                       REAL,
+
+            -- derived_T2_us: best available T2 for plotting.
+            -- Echo preferred (refocuses low-frequency noise); falls back to Ramsey.
+            derived_T2_us                    REAL,
+
             -- derived_material: normalized film_material for Phase A stratification.
             -- Strips parentheticals, checks KNOWN_MATERIALS whitelist.
             -- "other" = unrecognized material, excluded from per-material Phase A tables.
@@ -516,6 +525,14 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             deposition_raw = gf("deposition_method")[0]
             derived_deposition_method = normalize_deposition_method(deposition_raw) if deposition_raw else "Unknown"
 
+            # derived_Qi — single-photon Qi preferred (qubit operating regime, TLS unsaturated);
+            # falls back to internal Qi (may be measured at higher power, TLS partially saturated)
+            derived_Qi = gf("Qi_single_photon")[0] or gf("Qi_internal_quality_factor")[0]
+
+            # derived_T2_us — echo preferred (refocuses low-frequency noise);
+            # falls back to Ramsey
+            derived_T2_us = gf("T2_echo_us")[0] or gf("T2_ramsey_us")[0]
+
             # Look up similarity profile
             profile = similarity_profiles.get(sid, {})
             if profile:
@@ -550,6 +567,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     derived_material,
                     derived_substrate,
                     derived_deposition_method,
+                    derived_Qi,
+                    derived_T2_us,
                     sim_material_class, sim_transport_regime,
                     sim_loss_mechanisms, sim_device_type,
                     sim_coherence_tier, sim_science_focus,
@@ -564,6 +583,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
+                    ?, ?,
                     ?, ?,
                     ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
@@ -612,6 +632,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 derived_material,
                 derived_substrate,
                 derived_deposition_method,
+                derived_Qi,
+                derived_T2_us,
                 profile.get("material_class"),
                 profile.get("transport_regime"),
                 json.dumps(profile.get("loss_mechanisms") or []),

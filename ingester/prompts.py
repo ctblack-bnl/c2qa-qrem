@@ -118,7 +118,12 @@ Superconducting properties:
   Vortex activation temperature → characterizes vortex motion loss channel
 
 Microwave performance:
-  Qi (internal quality factor) → resonator loss → directly sets T1 upper bound
+  Qi (internal quality factor) → resonator photon lifetime (T1_resonator = Qi / 2πf)
+    For resonator-only papers: Qi is a proxy for material loss tangents, not qubit T1.
+    For qubit papers: Qi of the readout resonator is separate from qubit T1.
+    Qubit T1 is set by pad and junction loss, not resonator Qi directly.
+    The connection: resonator Qi → material loss tangents → pad loss → qubit T1 upper bound
+    (requires geometry factors — participation ratios — to complete the chain).
   Loss tangent → dielectric contribution to T1
   TLS density → dephasing, low-frequency noise, Qi degradation
   Loss mechanism attribution (TLS vs quasiparticle vs vortex motion vs radiation)
@@ -162,6 +167,7 @@ _SPARSE_SCHEMA = {
             "Qi_single_photon": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "surface_oxide_thickness_nm": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "T1_us": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "T1_measurement_context": {"value": "<qubit_state | resonator_photon>", "confidence": "<high|medium|low>", "source": "<location>"},
             "T2_echo_us": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "single_qubit_gate_fidelity_pct": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "two_qubit_gate_fidelity_pct": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
@@ -204,7 +210,11 @@ def build_extraction_prompt(relevance: str, paper_type: str) -> str:
         "primary": (
             "This is a PRIMARY RESEARCH PAPER. Extract one sample entry per distinct "
             "sample or device reported. If a table contains multiple samples, create one "
-            "entry per row. Omit review_outputs from your response entirely."
+            "entry per row. IMPORTANT: if the paper reports measurements on multiple qubits "
+            "or resonators fabricated from the same film, extract each qubit or resonator "
+            "as a separate sample record with its own measured T1, T2, Qi values. Do not "
+            "collapse multiple characterized devices into a single representative sample. "
+            "Omit review_outputs from your response entirely."
         ),
         "review": (
             "This is a REVIEW PAPER. The samples list should be empty []. "
@@ -326,6 +336,16 @@ These errors have been observed in testing — be especially careful:
 - Qi vs Qc confusion: Qi is the internal quality factor (loss in the resonator itself).
   Qc is the coupling quality factor (loss to the measurement circuit). They are different.
   Do not substitute one for the other.
+
+ - Resonator T1 vs qubit T1: these are physically different quantities.
+   Resonator T1 = Qi / (2π × f) — the lifetime of a microwave photon stored
+   in the resonator. Qubit T1 = energy relaxation time of the qubit state.
+   A resonator-only paper reporting "T1 = 50 µs" means photon lifetime, not
+   qubit coherence. Always set T1_measurement_context to identify which is
+   being reported. If the paper fabricated a qubit and measured its T1 directly
+   → qubit_state. If T1 is derived from Qi or measured on a bare resonator
+   → resonator_photon. When in doubt, check whether a Josephson junction
+   and qubit readout circuit are present.
 
 - Figure vs table data: values extracted from figures should be marked medium confidence
   even if you are fairly certain of the value, because visual extraction is inherently
@@ -668,13 +688,24 @@ device_type:
 
 coherence_tier:
   Base this on the best performance reported for this sample, not the paper average.
-  Thresholds:
-    not_applicable:    film_only — no device performance measured
-    early_exploration: T1 < 10 µs  OR  Qi < 1e5
-    competitive:       T1 10–100 µs  OR  Qi 1e5–1e6
-    state_of_the_art:  T1 > 100 µs  OR  Qi > 1e6
-  If only Qi is reported, use Qi thresholds. If only T1, use T1 thresholds.
-  When in doubt about borderline values, use author framing from the catchall.
+  Use the T1_measurement_context field to determine which thresholds apply:
+    qubit_state T1 thresholds (direct qubit measurement — gold):
+      not_applicable:    film_only — no device performance measured
+      early_exploration: T1 < 10 µs
+      competitive:       T1 10–100 µs
+      state_of_the_art:  T1 > 100 µs
+    resonator_photon thresholds (Qi — material proxy, not qubit T1):
+      not_applicable:    film_only — no microwave device measured
+      early_exploration: Qi < 1e5
+      competitive:       Qi 1e5–1e6
+      state_of_the_art:  Qi > 1e6
+  Do NOT mix these: a resonator with Qi = 3e6 is state_of_the_art as a resonator,
+  but this does NOT imply qubit T1 > 100 µs. The qubit T1 depends on pad and
+  junction geometry in ways the resonator Qi does not capture directly.
+  When T1_measurement_context is absent, infer from device_type:
+    resonator → use Qi thresholds
+    transmon / fluxonium / gatemon → use qubit T1 thresholds
+    film_only → not_applicable
 
 science_focus:
   Pick ALL that apply — this is a list field.

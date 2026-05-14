@@ -81,6 +81,8 @@ ALL_NUMERIC_FIELDS = [
     ('derived_BCS_gap_meV',              'BCS gap derived (meV)'),
     ('derived_coherence_length_nm',      'Coherence length derived (nm)'),
     ('derived_kinetic_inductance_pH_sq', 'Kinetic inductance derived (pH/□)'),
+    ('derived_Qi',                       'Qi (best available)'),
+    ('derived_T2_us',                    'T2 (best available, µs)'),
 ]
 
 PROFILE_SINGLE_FIELDS = [

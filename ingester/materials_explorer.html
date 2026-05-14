@@ -1495,7 +1495,7 @@ async function loadFields() {
     d.fields.forEach(f => { FIELD_LABELS[f.field] = f.label; });
     populateSelect('stripField',  d.fields, 'Tc_K');
     populateSelect('xField',      d.fields, 'RRR');
-    populateSelect('yField',      d.fields, 'Qi_internal');
+    populateSelect('yField',      d.fields, 'derived_Qi');
     populateSelect('rankedField', d.fields, 'Tc_K');
     await loadSamples();
   } catch(e) { console.error('Fields load failed', e); }
