@@ -1,0 +1,197 @@
+# hardware_profiles/mapping_models/transmon_analytical_defaults.yaml
+#
+# Default parameters for the T1 loss channel decomposition model.
+# Used when a corpus record does not report a value directly.
+#
+# These are class-level defaults for a typical transmon on sapphire.
+# They should be refined as better data becomes available — in particular,
+# the participation ratios should ideally come from FEM simulation of the
+# specific device geometry (Mingzhao, May 2026).
+#
+# Sources:
+#   participation ratios      — Wang et al., APL 107, 162601 (2015)
+#   interface loss tangents   — Read et al., PRA 19, 034064 (2023) [sapphire]
+#   QP, vortex parameters     — literature consensus, see notes per field
+#
+# Provenance labels used throughout:
+#   MEASURED      — directly reported in the paper
+#   DERIVED       — computed from measured quantities via physics formula
+#   CLASS_DEFAULT — typical value for this material/device class
+#   ASSUMED       — baseline default, least certain
+
+model_type: transmon_analytical
+description: "Analytical T1 decomposition defaults — typical transmon on sapphire, 2025-2026"
+substrate: sapphire  # These interface loss tangents are sapphire-specific.
+                     # Silicon defaults will differ — update when silicon corpus grows.
+
+# =============================================================================
+# LEVEL 1 — COMPONENT PARTICIPATION RATIOS
+# Fraction of total electric field energy stored in each device component.
+# Requires FEM simulation of the specific device geometry to measure properly.
+# Values below are for a typical planar transmon — ask Mingzhao to refine.
+# Source: Wang et al. 2015 (Table I, typical transmon geometry)
+# =============================================================================
+component_participation:
+  p_resonator:
+    value: 0.90
+    provenance: CLASS_DEFAULT
+    note: "Dominant energy storage in readout resonator. Wang 2015 typical value."
+  p_pad:
+    value: 0.08
+    provenance: CLASS_DEFAULT
+    note: "Capacitor pad surfaces. Sensitive to pad geometry and substrate."
+  p_junction:
+    value: 0.02
+    provenance: CLASS_DEFAULT
+    note: "Small participation but high local loss tangent at junction interfaces."
+
+# =============================================================================
+# LEVEL 2 — INTERFACE PARTICIPATION RATIOS (within each component)
+# Fraction of component energy at each physical interface.
+# These are the p_i in Γ_TLS = Σ_i ( p_i × tan_delta_i ).
+# Source: Wang et al. 2015; Read et al. 2023 Appendix B
+# =============================================================================
+interface_participation:
+  # Within the resonator
+  resonator:
+    p_MS:
+      value: 3.0e-4
+      provenance: CLASS_DEFAULT
+      note: "Metal-substrate interface. Wang 2015 Table I."
+    p_SA:
+      value: 1.18e-4
+      provenance: CLASS_DEFAULT
+      note: "Substrate-air interface. Read et al. 2023 Section IV, assuming 3nm surface."
+    p_MA:
+      value: 3.0e-5
+      provenance: CLASS_DEFAULT
+      note: "Metal-air interface. Wang 2015 Table I."
+    p_bulk:
+      value: 0.80
+      provenance: CLASS_DEFAULT
+      note: "Bulk substrate participation. Dominant for 3D-like resonator geometries."
+  # Within the pad
+  pad:
+    p_MS:
+      value: 5.0e-3
+      provenance: CLASS_DEFAULT
+      note: "Metal-substrate interface under pad. Wang 2015 Table I — large pad area
+             gives significant MS participation. Geometry-dependent: needs FEM for accuracy."
+    p_SA:
+      value: 2.0e-3
+      provenance: CLASS_DEFAULT
+      note: "Substrate-air at pad edges. Wang 2015 — edge fields contribute meaningfully."
+    p_MA:
+      value: 1.0e-3
+      provenance: CLASS_DEFAULT
+      note: "Metal-air on top surface of pad. Wang 2015 Table I."
+    p_bulk:
+      value: 0.05
+      provenance: CLASS_DEFAULT
+      note: "Bulk substrate under pad."
+  # Within the junction region
+  junction:
+    p_MS:
+      value: 1.0e-4
+      provenance: CLASS_DEFAULT
+      note: "Junction-substrate interface. Very small — junction sits on small area."
+    p_SA:
+      value: 1.0e-5
+      provenance: CLASS_DEFAULT
+      note: "Junction-air interface. Minimal exposed area."
+    p_MA:
+      value: 5.0e-4
+      provenance: CLASS_DEFAULT
+      note: "Junction metal-air. Small but nonzero from junction leads."
+    p_bulk:
+      value: 1.0e-4
+      provenance: CLASS_DEFAULT
+      note: "Negligible bulk participation at junction."
+
+# =============================================================================
+# INTERFACE LOSS TANGENTS
+# Intrinsic material loss at each interface type.
+# These are the tan_delta_i in Γ_TLS = Σ_i ( p_i × tan_delta_i ).
+# Source: Read et al. 2023 (sapphire); assume 3nm surface thickness throughout.
+# Note: these are substrate-specific. The sapphire values below come from
+# Read et al.'s precision dielectric dipper measurements. Silicon values
+# differ — update this section when silicon-specific measurements are ingested.
+# =============================================================================
+interface_loss_tangents:
+  tan_delta_MS:
+    value: 1.0e-3
+    provenance: CLASS_DEFAULT
+    note: "Metal-substrate interface. Literature estimate — direct measurement rare."
+  tan_delta_SA:
+    value: 15.0e-4
+    provenance: CLASS_DEFAULT
+    note: "Substrate-air interface, sapphire (EFG). Read et al. 2023 Table II."
+  tan_delta_MA:
+    value: 33.0e-3
+    provenance: CLASS_DEFAULT
+    note: "Metal-air interface (aluminum oxide). Read et al. 2023 Table VII."
+  tan_delta_bulk:
+    value: 63.0e-9
+    provenance: CLASS_DEFAULT
+    note: "Bulk substrate dielectric loss, sapphire (EFG). Read et al. 2023 Table II.
+           For HEMEX sapphire use < 19e-9. For silicon, use separate silicon defaults."
+
+# =============================================================================
+# QUASIPARTICLE CHANNEL DEFAULTS
+# Used when Tc or RRR are not reported in the corpus record.
+# =============================================================================
+quasiparticle:
+  T_operating_mK:
+    value: 20.0
+    provenance: CLASS_DEFAULT
+    note: "Standard dilution refrigerator base temperature."
+  Tc_K:
+    value: 1.2
+    provenance: CLASS_DEFAULT
+    note: "Aluminum Tc. Use derived_material-specific value when available:
+           Ta~4.4K, Nb~9.2K, Al~1.2K, Re~1.7K, NbN~16K, TiN~4-5K."
+  T1_QP_us_default:
+    value: 1000.0
+    provenance: CLASS_DEFAULT
+    note: "Fallback T1_QP when Tc not available. Consistent with low
+           quasiparticle density at 20mK for Al-class materials."
+
+# =============================================================================
+# VORTEX CHANNEL DEFAULTS
+# Used when mean free path or vortex activation temperature not reported.
+# =============================================================================
+vortex:
+  coherence_length_nm:
+    value: 100.0
+    provenance: CLASS_DEFAULT
+    note: "BCS coherence length for Al. Ta~93nm, Nb~38nm, Al~1600nm dirty limit.
+           Used to determine clean vs dirty limit when mean_free_path not reported."
+  T1_vortex_us_default_clean:
+    value: 500.0
+    provenance: CLASS_DEFAULT
+    note: "Fallback T1_vortex for clean-limit films (l > xi).
+           Corpus finding: dirty-limit Ta-Hf films show ~10x higher vortex
+           activation temperature — i.e. less vortex loss — than clean-limit."
+  T1_vortex_us_default_dirty:
+    value: 2000.0
+    provenance: CLASS_DEFAULT
+    note: "Fallback T1_vortex for dirty-limit films (l < xi).
+           Dirty-limit films have suppressed vortex motion loss."
+  T1_vortex_us_default_unknown:
+    value: 1000.0
+    provenance: CLASS_DEFAULT
+    note: "Fallback when clean/dirty limit cannot be determined."
+
+# =============================================================================
+# RADIATION CHANNEL DEFAULT
+# System-level — not per-component (Mingzhao: Purcell/DOS effect means
+# junction radiation rate depends on coupling to cavity, not material alone).
+# =============================================================================
+radiation:
+  T1_radiation_us:
+    value: 5000.0
+    provenance: CLASS_DEFAULT
+    note: "Radiation loss is an engineering/packaging parameter, not a material
+           property. This default reflects well-packaged 2D transmon systems.
+           3D cavity geometries achieve much higher values (ms to seconds).
+           Not expected to be derivable from corpus material measurements."

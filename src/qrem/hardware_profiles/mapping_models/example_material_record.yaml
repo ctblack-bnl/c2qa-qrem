@@ -1,0 +1,67 @@
+# mapping_models/example_record_with_measured_t1.yaml
+#
+# Example material record for t1_decomposition.py.
+# This represents a paper that measured both T1/T2 AND material properties —
+# the gold case that enables model validation.
+#
+# Format: each field has value + provenance + optional notes.
+# Provenance: MEASURED / DERIVED / CLASS_DEFAULT / ASSUMED
+
+sample_id: "Bahrami_2026_D1_example"
+material: "Ta"
+substrate: "sapphire"
+
+# =============================================================================
+# MEASURED DEVICE PERFORMANCE — gold values, short-circuit decomposition
+# =============================================================================
+measured:
+  T1_us:
+    value: 312.0
+    provenance: MEASURED
+    measurement_method: time_domain
+  T2_us:
+    value: 480.0
+    provenance: MEASURED
+    measurement_method: echo
+
+# =============================================================================
+# MATERIAL INPUTS — feed the decomposition
+# =============================================================================
+materials:
+  Qi:
+    value: 3.2e6
+    provenance: MEASURED
+    measurement_method: S21   # vs ring_down — affects T1_TLS interpretation
+  Qi_frequency_GHz:
+    value: 5.1
+    provenance: MEASURED
+  Tc_K:
+    value: 4.39
+    provenance: MEASURED
+  RRR:
+    value: 14.0
+    provenance: MEASURED
+  mean_free_path_nm:
+    value: 52.0
+    provenance: MEASURED
+
+# =============================================================================
+# GEOMETRY — component participation ratios
+# If not reported, t1_decomposition.py falls back to defaults YAML.
+# =============================================================================
+geometry:
+  # Not reported in this paper — will use CLASS_DEFAULT from defaults YAML
+  p_resonator: null
+  p_pad: null
+  p_junction: null
+
+# =============================================================================
+# INTERFACES — per-interface loss tangents
+# If not reported, t1_decomposition.py falls back to defaults YAML.
+# =============================================================================
+interfaces:
+  # Not reported in this paper — will use CLASS_DEFAULT from defaults YAML
+  tan_delta_MS: null
+  tan_delta_SA: null
+  tan_delta_MA: null
+  tan_delta_bulk: null
