@@ -4,11 +4,20 @@ generate_qubit_profile.py
 Generates a QREM qubit hardware profile YAML from a materials database sample.
 
 For each QREM hardware profile field:
-  - If the sample has a measured value → use it, mark as 'measured'
-  - If not → fall back to transmon_baseline_2026.yaml defaults, mark as 'assumed'
+  - If the sample has a measured value → use it, mark as [MEASURED]
+  - If not → fall back to transmon_baseline_2026.yaml defaults, mark as [ASSUMED]
 
-The provenance block records every field's source so scientists can see
-exactly what came from data vs what was assumed.
+Stage 4 extension (May 2026):
+  Three new optional sections are written alongside coherence/gates:
+    materials:             — raw material properties (Tc, Qi, Q_TLS_0, mean_free_path)
+    device:                — device parameters (qubit frequency)
+    surface_participation: — geometry inputs (p_MS_pad, p_MS_resonator)
+  These feed compute_t1_decomposition() in t1_decomposition.py at estimation time.
+  Fields that are null in the corpus are written as null — the decomposition
+  falls back gracefully through the tier hierarchy for any missing input.
+
+  A defaults_path field is added to provenance so the estimator knows where to
+  find transmon_analytical_defaults.yaml at runtime.
 
 Usage (standalone):
     python3 generate_qubit_profile.py <display_name> [--db path/to/records.db]
@@ -39,8 +48,26 @@ FIELD_MAPPINGS = [
     ('two_qubit_gate_time_ns',    'gates', 'two_qubit_gate_time_ns',    'ns'),
 ]
 
+# Stage 4: material field mappings — db column → yaml field, units, comment
+# These go into the new materials/device/surface_participation sections.
+# All are optional — null if not in corpus record.
+MATERIAL_FIELD_MAPPINGS = [
+    # (db_column, yaml_section, yaml_field, units, comment)
+    ('Tc_K',                        'materials',           'Tc_K',           'K',         'Superconducting critical temperature'),
+    ('Qi_internal_quality_factor',  'materials',           'Qi',             'dimensionless', 'Internal quality factor (resonator). Q_TLS_0 preferred if available.'),
+    ('Q_TLS_0',                     'materials',           'Q_TLS_0',        'dimensionless', 'Unsaturated TLS quality factor — preferred over Qi for loss model'),
+    ('mean_free_path_nm',           'materials',           'mean_free_path_nm', 'nm',      'Electron mean free path — determines clean vs dirty limit'),
+    ('qubit_frequency_GHz',         'device',              'f_qubit_GHz',    'GHz',       'Qubit operating frequency — required for pad TLS calculation'),
+    ('p_MS_pad',                    'surface_participation','p_MS_pad',       'dimensionless', 'Qubit pad metal-substrate surface participation ratio (FEM-derived)'),
+    ('p_MS_resonator',              'surface_participation','p_MS_resonator', 'dimensionless', 'Resonator metal-substrate surface participation ratio (FEM-derived)'),
+]
+
 # Defaults — loaded from transmon_baseline_2026.yaml at runtime
 DEFAULT_PROFILE_NAME = 'transmon_baseline_2026'
+
+# Relative path from qubits/ directory to the analytical defaults YAML.
+# Used to populate provenance.defaults_path so the estimator can find it.
+ANALYTICAL_DEFAULTS_RELATIVE = '../mapping_models/transmon_analytical_defaults.yaml'
 
 
 def load_defaults(profiles_dir: str) -> dict:
@@ -73,11 +100,13 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
 
     Returns:
         dict with keys:
-          'yaml_str'       — the YAML content as a string
-          'filename'       — suggested filename (e.g. 'Wang_2026_Transmon_5.yaml')
-          'measured_fields' — list of fields taken from corpus
-          'assumed_fields'  — list of fields using defaults
-          'display_name'   — sample display name
+          'yaml_str'        — the YAML content as a string
+          'filename'        — suggested filename (e.g. 'Wang_2026_Transmon_5.yaml')
+          'measured_fields' — list of fields taken from corpus (coherence + gates)
+          'assumed_fields'  — list of fields using defaults (coherence + gates)
+          'material_fields' — list of material fields found in corpus (Stage 4)
+          'display_name'    — sample display name
+          'profile'         — the profile dict
     """
     display_name = sample.get('display_name') or sample.get('sample_id', 'unknown')
     defaults = load_defaults(profiles_dir)
@@ -89,7 +118,7 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
     measured_fields = []
     assumed_fields  = []
 
-    # Build coherence section
+    # ── Build coherence section ───────────────────────────────────────────
     coherence = {}
     for db_col, section, yaml_field, units in FIELD_MAPPINGS:
         if section != 'coherence':
@@ -102,7 +131,7 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
             coherence[yaml_field] = defaults.get('coherence', {}).get(yaml_field)
             assumed_fields.append(yaml_field)
 
-    # Build gates section
+    # ── Build gates section ───────────────────────────────────────────────
     gates = {}
     for db_col, section, yaml_field, units in FIELD_MAPPINGS:
         if section != 'gates':
@@ -115,7 +144,32 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
             gates[yaml_field] = defaults.get('gates', {}).get(yaml_field)
             assumed_fields.append(yaml_field)
 
-    # Build provenance section
+    # ── Build Stage 4 material sections ──────────────────────────────────
+    # These are always written — null if not in corpus.
+    # The t1_decomposition fallback hierarchy handles nulls gracefully.
+    materials           = {}
+    device              = {}
+    surface_participation = {}
+    material_fields     = []   # tracks which Stage 4 fields have actual values
+
+    for db_col, yaml_section, yaml_field, units, comment in MATERIAL_FIELD_MAPPINGS:
+        val = sample.get(db_col)
+        # Convert numeric types; leave None as None
+        if val is not None:
+            try:
+                val = float(val)
+            except (TypeError, ValueError):
+                pass
+            material_fields.append(yaml_field)
+
+        if yaml_section == 'materials':
+            materials[yaml_field] = val
+        elif yaml_section == 'device':
+            device[yaml_field] = val
+        elif yaml_section == 'surface_participation':
+            surface_participation[yaml_field] = val
+
+    # ── Build provenance section ──────────────────────────────────────────
     provenance = {
         'derived_from_sample': display_name,
         'source_doi':          sample.get('doi'),
@@ -127,38 +181,51 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
         'date_generated':      str(date.today()),
         'generated_by':        'generate_qubit_profile.py',
         'defaults_from':       DEFAULT_PROFILE_NAME,
+        'defaults_path':       ANALYTICAL_DEFAULTS_RELATIVE,
         'measured_fields':     measured_fields,
         'assumed_fields':      assumed_fields,
+        'material_fields':     material_fields,
     }
-    # Remove None values from provenance for cleaner output
-    provenance = {k: v for k, v in provenance.items() if v is not None}
+    # Remove None scalar values from provenance for cleaner output
+    # (keep lists even if empty)
+    provenance = {
+        k: v for k, v in provenance.items()
+        if v is not None or isinstance(v, list)
+    }
 
-    # Assemble the full profile
+    # ── Assemble full profile ─────────────────────────────────────────────
     profile = {
-        'profile_type':  'qubits',
-        'name':          filename_stem,
-        'description':   _build_description(sample, measured_fields),
-        'platform':      'superconducting',
-        'source':        f"Extracted from corpus: {display_name}",
-        'coherence':     coherence,
-        'gates':         gates,
-        'provenance':    provenance,
+        'profile_type':         'qubits',
+        'name':                 filename_stem,
+        'description':          _build_description(sample, measured_fields, material_fields),
+        'platform':             'superconducting',
+        'source':               f"Extracted from corpus: {display_name}",
+        'coherence':            coherence,
+        'gates':                gates,
+        'materials':            materials,
+        'device':               device,
+        'surface_participation': surface_participation,
+        'provenance':           provenance,
     }
 
-    # Generate YAML with a helpful header comment
-    yaml_str = _build_yaml_string(profile, display_name, measured_fields, assumed_fields)
+    yaml_str = _build_yaml_string(
+        profile, display_name,
+        measured_fields, assumed_fields, material_fields
+    )
 
     return {
         'yaml_str':        yaml_str,
         'filename':        filename,
         'measured_fields': measured_fields,
         'assumed_fields':  assumed_fields,
+        'material_fields': material_fields,
         'display_name':    display_name,
         'profile':         profile,
     }
 
 
-def _build_description(sample: dict, measured_fields: list) -> str:
+def _build_description(sample: dict, measured_fields: list,
+                        material_fields: list) -> str:
     """Build a human-readable description for the profile."""
     parts = []
     if sample.get('film_material'):
@@ -166,51 +233,62 @@ def _build_description(sample: dict, measured_fields: list) -> str:
     if sample.get('substrate_material'):
         parts.append(f"on {sample['substrate_material']}")
     if sample.get('authors'):
-        # Get first author surname
         first_author = sample['authors'].split(',')[0].split()[-1]
         parts.append(f"({first_author} et al.)")
     if measured_fields:
-        parts.append(f"— {len(measured_fields)} measured field(s)")
+        parts.append(f"— {len(measured_fields)} device field(s) measured")
     else:
-        parts.append("— all defaults (no device performance data in corpus)")
+        parts.append("— no device performance data in corpus")
+    if material_fields:
+        parts.append(f"+ {len(material_fields)} material field(s) for T1 decomposition")
     return ' '.join(parts)
 
 
 def _build_yaml_string(profile: dict, display_name: str,
-                        measured_fields: list, assumed_fields: list) -> str:
-    """Build the YAML string with header comments."""
+                        measured_fields: list, assumed_fields: list,
+                        material_fields: list) -> str:
+    """Build the YAML string with header comments and inline provenance tags."""
     lines = []
+
+    # ── Header ───────────────────────────────────────────────────────────
     lines.append(f"# qubits/{profile['name']}.yaml")
     lines.append(f"# Generated by Hardware Profile Updater from corpus sample: {display_name}")
     lines.append(f"# Generated: {profile['provenance']['date_generated']}")
     lines.append(f"#")
-    lines.append(f"# Measured fields ({len(measured_fields)}): {', '.join(measured_fields) if measured_fields else 'none'}")
-    lines.append(f"# Assumed fields  ({len(assumed_fields)}): {', '.join(assumed_fields) if assumed_fields else 'none'}")
+    lines.append(f"# Device fields — measured ({len(measured_fields)}): "
+                 f"{', '.join(measured_fields) if measured_fields else 'none'}")
+    lines.append(f"# Device fields — assumed  ({len(assumed_fields)}): "
+                 f"{', '.join(assumed_fields) if assumed_fields else 'none'}")
+    lines.append(f"# Material fields — corpus  ({len(material_fields)}): "
+                 f"{', '.join(material_fields) if material_fields else 'none'}")
     lines.append(f"#")
-    lines.append(f"# Fields marked [MEASURED] came directly from the corpus.")
-    lines.append(f"# Fields marked [ASSUMED] use defaults from {profile['provenance']['defaults_from']}.")
-    lines.append(f"# Review assumed fields before using this profile for quantitative analysis.")
+    lines.append(f"# [MEASURED] fields came directly from the corpus.")
+    lines.append(f"# [ASSUMED]  fields use defaults from "
+                 f"{profile['provenance']['defaults_from']}.")
+    lines.append(f"# [DERIVED]  fields will be computed at estimation time by t1_decomposition.py.")
+    lines.append(f"# Material fields with null values fall back through the tier hierarchy")
+    lines.append(f"# in t1_decomposition.py — see loss_channel_model_v2-5.md.")
+    lines.append(f"# Review assumed fields before using for quantitative analysis.")
     lines.append('')
 
-    # Write profile_type, name, description, platform, source
+    # ── Top-level scalars ─────────────────────────────────────────────────
     for key in ['profile_type', 'name', 'description', 'platform', 'source']:
         lines.append(f"{key}: {_yaml_scalar(profile[key])}")
     lines.append('')
 
-    # Coherence section with inline comments
-    lines.append('coherence:')
+    # ── Coherence section ─────────────────────────────────────────────────
     coherence_comments = {
         'T1_us': 'Energy relaxation time (µs)',
         'T2_us': 'Dephasing time (µs)',
     }
+    lines.append('coherence:')
     for field, val in profile['coherence'].items():
         tag = '[MEASURED]' if field in measured_fields else '[ASSUMED] '
         comment = coherence_comments.get(field, '')
         lines.append(f"  {field}: {val}    # {tag} {comment}")
     lines.append('')
 
-    # Gates section with inline comments
-    lines.append('gates:')
+    # ── Gates section ─────────────────────────────────────────────────────
     gate_comments = {
         'single_qubit_fidelity_pct': 'Single-qubit gate fidelity (%)',
         'single_qubit_gate_time_ns': 'Single-qubit gate time (ns)',
@@ -219,13 +297,56 @@ def _build_yaml_string(profile: dict, display_name: str,
         'readout_fidelity_pct':      'Readout fidelity (%)',
         'readout_time_ns':           'Readout time (ns)',
     }
+    lines.append('gates:')
     for field, val in profile['gates'].items():
         tag = '[MEASURED]' if field in measured_fields else '[ASSUMED] '
         comment = gate_comments.get(field, '')
         lines.append(f"  {field}: {val}    # {tag} {comment}")
     lines.append('')
 
-    # Provenance section
+    # ── Materials section (Stage 4) ───────────────────────────────────────
+    lines.append('# Stage 4: raw material properties — feed t1_decomposition.py at estimation time.')
+    lines.append('# null = not reported in paper; decomposition falls back to class defaults.')
+    lines.append('materials:')
+    mat_comments = {
+        'Tc_K':             'Superconducting critical temperature (K)',
+        'Qi':               'Internal quality factor — resonator (dimensionless). Q_TLS_0 preferred.',
+        'Q_TLS_0':          'Unsaturated TLS quality factor — preferred over Qi for loss model',
+        'mean_free_path_nm':'Electron mean free path (nm) — determines clean vs dirty vortex limit',
+    }
+    for field, val in profile['materials'].items():
+        tag = '[MEASURED]' if field in material_fields else '[null]   '
+        comment = mat_comments.get(field, '')
+        lines.append(f"  {field}: {_yaml_scalar(val)}    # {tag} {comment}")
+    lines.append('')
+
+    # ── Device section (Stage 4) ──────────────────────────────────────────
+    lines.append('# Stage 4: device parameters — feed t1_decomposition.py at estimation time.')
+    lines.append('device:')
+    dev_comments = {
+        'f_qubit_GHz': 'Qubit operating frequency (GHz) — required for pad TLS calculation',
+    }
+    for field, val in profile['device'].items():
+        tag = '[MEASURED]' if field in material_fields else '[null]   '
+        comment = dev_comments.get(field, '')
+        lines.append(f"  {field}: {_yaml_scalar(val)}    # {tag} {comment}")
+    lines.append('')
+
+    # ── Surface participation section (Stage 4) ───────────────────────────
+    lines.append('# Stage 4: geometry inputs (FEM-derived) — rarely reported in papers.')
+    lines.append('# null → class defaults from transmon_analytical_defaults.yaml are used.')
+    lines.append('surface_participation:')
+    sp_comments = {
+        'p_MS_pad':       'Qubit pad metal-substrate participation ratio (FEM). Joshi 2026: 1.3e-4',
+        'p_MS_resonator': 'Resonator metal-substrate participation ratio (FEM). Default: 8.63e-4',
+    }
+    for field, val in profile['surface_participation'].items():
+        tag = '[MEASURED]' if field in material_fields else '[null]   '
+        comment = sp_comments.get(field, '')
+        lines.append(f"  {field}: {_yaml_scalar(val)}    # {tag} {comment}")
+    lines.append('')
+
+    # ── Provenance section ────────────────────────────────────────────────
     lines.append('provenance:')
     for key, val in profile['provenance'].items():
         if isinstance(val, list):
@@ -248,8 +369,8 @@ def _yaml_scalar(val) -> str:
     if isinstance(val, bool):
         return str(val).lower()
     if isinstance(val, str):
-        # Quote strings that need it
-        if any(c in val for c in [':', '#', '[', ']', '{', '}', ',', '&', '*', '?', '|', '>', '!', "'", '"']):
+        if any(c in val for c in [':', '#', '[', ']', '{', '}', ',', '&', '*',
+                                   '?', '|', '>', '!', "'", '"']):
             return f'"{val}"'
         return val
     return str(val)
@@ -287,11 +408,17 @@ if __name__ == '__main__':
     import sys
     import argparse
 
-    parser = argparse.ArgumentParser(description='Generate a QREM qubit profile from a corpus sample')
-    parser.add_argument('display_name', help='Sample display name (e.g. Wang_2026_Transmon_5)')
-    parser.add_argument('--db', default='../data/ingested/records.db', help='Path to records.db')
-    parser.add_argument('--profiles-dir', default='../src/qrem/hardware_profiles', help='Path to hardware_profiles/')
-    parser.add_argument('--dry-run', action='store_true', help='Print YAML without saving')
+    parser = argparse.ArgumentParser(
+        description='Generate a QREM qubit profile from a corpus sample'
+    )
+    parser.add_argument('display_name',
+                        help='Sample display name (e.g. Wang_2026_Transmon_5)')
+    parser.add_argument('--db', default='../data/ingested/records.db',
+                        help='Path to records.db')
+    parser.add_argument('--profiles-dir', default='../src/qrem/hardware_profiles',
+                        help='Path to hardware_profiles/')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Print YAML without saving')
     args = parser.parse_args()
 
     sample = fetch_sample_from_db(args.display_name, args.db)
@@ -299,8 +426,12 @@ if __name__ == '__main__':
 
     print(f"\nGenerated profile for: {result['display_name']}")
     print(f"Filename: {result['filename']}")
-    print(f"Measured fields ({len(result['measured_fields'])}): {', '.join(result['measured_fields']) or 'none'}")
-    print(f"Assumed fields  ({len(result['assumed_fields'])}): {', '.join(result['assumed_fields'])}")
+    print(f"Device measured  ({len(result['measured_fields'])}): "
+          f"{', '.join(result['measured_fields']) or 'none'}")
+    print(f"Device assumed   ({len(result['assumed_fields'])}): "
+          f"{', '.join(result['assumed_fields'])}")
+    print(f"Material fields  ({len(result['material_fields'])}): "
+          f"{', '.join(result['material_fields']) or 'none'}")
     print()
     print(result['yaml_str'])
 
