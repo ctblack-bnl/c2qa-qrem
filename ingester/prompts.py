@@ -165,6 +165,12 @@ _SPARSE_SCHEMA = {
             "TLS_density_per_GHz_per_um2": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "Qi_internal_quality_factor": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "Qi_single_photon": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "Q_TLS_0": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "resonator_type": {"value": "<CPW | lumped_element | other>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "resonator_gap_width_um": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "p_MS_resonator": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "p_MS_pad": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "qubit_frequency_GHz": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "surface_oxide_thickness_nm": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "T1_us": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "T1_measurement_context": {"value": "<qubit_state | resonator_photon>", "confidence": "<high|medium|low>", "source": "<location>"},
@@ -393,6 +399,68 @@ or RRR if available — only extract R vs T values if those are not reported.
 Include these fields directly in the sample record alongside other measurements.
 If you can clearly read both R(300K) and R(Tc+) from a figure, extract both even
 if the paper does not explicitly state RRR — our derive module will compute it.
+
+---
+RESONATOR GEOMETRY — EXTRACT THESE IF PRESENT
+---
+
+These fields are critical for connecting resonator quality factor measurements
+to qubit pad loss tangents. Without them, we cannot accurately convert a
+reported Q_TLS,0 into a material loss tangent (tan_delta).
+
+Q_TLS_0:
+  The unsaturated TLS quality factor extracted from power and temperature sweeps
+  of resonator Q_int. This is PREFERRED over raw Q_int because it is the
+  single-photon regime value relevant to qubit operation.
+  Often reported as "Q_TLS,0", "Q_TLS", or "inverse linear absorption from TLSs".
+  Source: Table of resonator parameters, or stated in text after fitting Eq. S2 or similar.
+
+resonator_type:
+  The type of resonator used to measure Q_int or Q_TLS,0.
+  Values: CPW (coplanar waveguide), lumped_element, other.
+  Source: Methods or device description section.
+
+resonator_gap_width_um:
+  For CPW resonators: the gap width s between the center conductor and ground plane,
+  in microns. This is the single most important geometric parameter for computing
+  the surface participation ratio p_MS_resonator.
+  Look for: "gap width s = X µm", "CPW with s = X µm", resonator geometry tables.
+  For lumped element resonators: the capacitor gap width, in microns.
+  Source: Methods section, device geometry table, or figure caption.
+
+p_MS_resonator:
+  The surface participation ratio of the metal-substrate interface for the resonator.
+  This may be directly reported (computed from FEM simulation), or it can be looked
+  up from a geometry table if the gap width is known.
+  Often reported as "p_MS", "SPR", or "surface participation ratio".
+  Look for: tables of resonator parameters listing p_MS alongside Q_TLS,0,
+  plots of Q_TLS,0 vs p_MS (the slope gives tan_delta), FEM simulation results.
+  Source: Supplementary Table, Figure caption (Q vs SPR plots), simulation section.
+
+p_MS_pad:
+  The surface participation ratio of the metal-substrate interface for the qubit
+  capacitor pads. Physically distinct from p_MS_resonator — qubit pads are
+  designed to have much lower p_MS than resonators.
+  Often reported as "p_MS of the qubit", "qubit SPR", or stated as a design parameter.
+  Look for: "qubits are designed with p_MS of X", HFSS simulation results for qubit geometry,
+  tables comparing resonator and qubit participation ratios.
+  Source: Main text, supplementary simulation section.
+  
+qubit_frequency_GHz:
+  The qubit operating frequency in GHz. Required for pad TLS loss calculation.
+  Look for: qubit characterization tables, frequency listed alongside T1/T2,
+  "fq = X GHz", "qubit frequency X GHz", spectroscopy results.
+  Source: Table of qubit parameters, main text, or figure caption.
+  Note: this is the qubit transition frequency, not the readout resonator frequency.
+  Convert MHz to GHz if needed.
+
+WHY THESE MATTER:
+  tan_delta = 1 / (Q_TLS,0 × p_MS_resonator)        [calibration from resonator]
+  T1_pad_TLS = 1 / (p_MS_pad × tan_delta × 2π × f)   [applied to qubit pad]
+  Without p_MS_resonator, Q_TLS,0 alone cannot give tan_delta.
+  Without p_MS_pad, tan_delta alone cannot give qubit T1.
+  A 6x range in p_MS_resonator (from CPW gap width variation) leads to 6x
+  uncertainty in tan_delta — so capturing this geometry is high priority.
 
 ---
 CATCHALL RULES — READ CAREFULLY
