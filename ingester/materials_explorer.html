@@ -725,7 +725,14 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 <div class="layout">
   <sidebar id="mainSidebar">
-    <div class="section-label">Filter by material</div>
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;">
+      Filter by material
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:normal;letter-spacing:0;">
+        <a href="#" onclick="selectAllMaterials(true);return false;" style="color:var(--muted);text-decoration:none;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">All</a>
+        <span style="color:var(--border);margin:0 3px;">·</span>
+        <a href="#" onclick="selectAllMaterials(false);return false;" style="color:var(--muted);text-decoration:none;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">None</a>
+      </span>
+    </div>
     <div class="checkbox-group" id="materialFilters">
       <div style="color:var(--muted);font-size:12px;">Loading...</div>
     </div>
@@ -1546,15 +1553,17 @@ async function loadCatchall() {
 }
 // ── Filters ───────────────────────────────────────────────────────────────
 function getFilteredSamples() {
-  const checkedMaterials = Array.from(
-    document.querySelectorAll('#materialFilters input:checked')
-  ).map(el => el.value);
+  const allMaterialBoxes = document.querySelectorAll('#materialFilters input[type=checkbox]');
+  const checkedMaterials = Array.from(allMaterialBoxes)
+    .filter(el => el.checked)
+    .map(el => el.value);
+  const totalMaterials = allMaterialBoxes.length;
   const substrate  = document.getElementById('substrateFilter').value;
   const confidence = document.getElementById('confidenceFilter').value;
   const nameSearch = document.getElementById('nameFilter').value.toLowerCase();
   return allSamples.filter(s => {
     // Material filter uses sim_material_class (sidebar checkboxes)
-    if (checkedMaterials.length && !checkedMaterials.includes(s.sim_material_class || '')) return false;
+    if (checkedMaterials.length < totalMaterials && !checkedMaterials.includes(s.sim_material_class || '')) return false;
     // FIX #4: substrate filter now matches against derived_substrate
     if (substrate && s.derived_substrate !== substrate) return false;
     // FIX #2: name search works as substring match on display_name
@@ -1591,6 +1600,14 @@ function buildMaterialFilters() {
     </label>
   `).join('');
 }
+// FIX #4: substrate filter now uses derived_substrate — canonical short list
+function selectAllMaterials(checked) {
+  document.querySelectorAll('#materialFilters input[type=checkbox]').forEach(cb => {
+    cb.checked = checked;
+  });
+  onFilterChange();
+}
+
 // FIX #4: substrate filter now uses derived_substrate — canonical short list
 function buildSubstrateFilter() {
   const substrates = [...new Set(allSamples.map(s => s.derived_substrate).filter(Boolean))]

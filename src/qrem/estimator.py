@@ -126,6 +126,11 @@ class EstimationResult:
     # --- Assumptions ---
     assumptions: List[str] = field(default_factory=list)
 
+    # --- Stage 4: T1 loss channel decomposition ---
+    # Result of compute_t1_decomposition() — per-channel T1 breakdown.
+    # None if decomposition could not be run (e.g. no defaults file found).
+    t1_decomposition: Optional[dict] = None
+
     def to_dict(self) -> dict:
         """
         Serialize to a plain dict suitable for JSON serialization.
@@ -341,7 +346,8 @@ def estimate(analysis: AnalysisResult,
              verbose: bool = True,
              ir=None,
              profile: Optional[dict] = None,
-             epsilon_control_baseline: Optional[float] = None) -> EstimationResult:
+             epsilon_control_baseline: Optional[float] = None,
+             t1_decomposition: Optional[dict] = None) -> EstimationResult:
     """
     Run Stage 3 estimation: translate logical analysis into physical resources.
 
@@ -476,6 +482,7 @@ def estimate(analysis: AnalysisResult,
         t1_limited_fidelity_pct=t1_limited_fidelity_pct,
         effective_two_qubit_fidelity_pct=derived_fidelity_pct,
         coherence_budget=coherence_budget,
+        t1_decomposition=t1_decomposition,
         # Tier 2 fields — not yet active
         physical_qubits_per_module=None,
         num_modules=None,
@@ -565,9 +572,57 @@ def run_estimation(
 
     ir = parse_qasm(circuit_path)
     analysis = analyze(ir)
+
+    # --- Stage 4: T1 loss channel decomposition ---
+    # Build a material record from the qubit profile for t1_decomposition.
+    # Maps profile sections to the structure compute_t1_decomposition() expects.
+    t1_decomp_result = None
+    try:
+        from t1_decomposition import compute_t1_decomposition, load_model_defaults
+        import os
+
+        # Resolve path to transmon_analytical_defaults.yaml
+        # provenance.defaults_path is relative to the qubits/ directory
+        provenance = profile.get('provenance', {})
+        defaults_rel = provenance.get('defaults_path',
+                                      '../mapping_models/transmon_analytical_defaults.yaml')
+        if profiles_dir:
+            defaults_abs = os.path.normpath(
+                os.path.join(profiles_dir, 'qubits', defaults_rel)
+            )
+        else:
+            # Legacy mode — resolve relative to profile_path
+            defaults_abs = os.path.normpath(
+                os.path.join(os.path.dirname(profile_path), defaults_rel)
+            )
+
+        if os.path.exists(defaults_abs):
+            defaults = load_model_defaults(defaults_abs)
+
+            # Adapter: translate qubit profile structure → material record structure
+            # that compute_t1_decomposition() expects.
+            coherence = profile.get('coherence', {})
+            material_record = {
+                'measured': {
+                    'T1_us': coherence.get('T1_us'),
+                    'T2_us': coherence.get('T2_us'),
+                },
+                'materials': profile.get('materials', {}),
+                'device':    profile.get('device', {}),
+                'surface_participation': profile.get('surface_participation', {}),
+                'geometry':  profile.get('geometry', {}),
+                'junction':  profile.get('junction', {}),
+            }
+            t1_decomp_result = compute_t1_decomposition(material_record, defaults)
+        else:
+            print(f"[Stage 4] Defaults file not found: {defaults_abs} — skipping decomposition.")
+    except Exception as e:
+        print(f"[Stage 4] T1 decomposition failed (non-fatal): {e}")
+
     return estimate(analysis, profile_path=None, profile=profile,
                     verbose=verbose, ir=ir,
-                    epsilon_control_baseline=_derive_control_error_baseline(clean_profile))
+                    epsilon_control_baseline=_derive_control_error_baseline(clean_profile),
+                    t1_decomposition=t1_decomp_result)
 
 
 # --- Allow running this file directly as a quick test ---
