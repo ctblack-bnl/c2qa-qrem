@@ -220,6 +220,11 @@ def build_extraction_prompt(relevance: str, paper_type: str) -> str:
             "or resonators fabricated from the same film, extract each qubit or resonator "
             "as a separate sample record with its own measured T1, T2, Qi values. Do not "
             "collapse multiple characterized devices into a single representative sample. "
+            "If a paper reports film characterization data (Tc, RRR, grain size, "
+            "roughness) in one table AND resonator or device measurements (loss tangent, "
+            "Qi, Q_TLS,0) in a separate table, extract BOTH as separate sample records — "
+            "one per film condition AND one per resonator chip. Do not collapse film "
+            "characterization data into resonator records or vice versa. "
             "Omit review_outputs from your response entirely."
         ),
         "review": (
@@ -357,6 +362,17 @@ These errors have been observed in testing — be especially careful:
   even if you are fairly certain of the value, because visual extraction is inherently
   less precise than tabular extraction.
 
+- loss_tangent_interface vs tan_delta_effective_surface: these are different fields.
+  loss_tangent_interface is for a per-interface loss tangent (MS, SA, or MA separately).
+  tan_delta_effective_surface is the COLLAPSED effective surface loss tangent extracted
+  from fitting Q_TLS,0 vs p_MS across multiple resonators — the slope of that line.
+  If a paper reports a single "surface loss tangent" or "tan delta" from a Q_TLS,0 vs SPR
+  fit (like Joshi Figure 3b, Bland Figure 2, or Hedrick Figure 3b), put it in
+  tan_delta_effective_surface, NOT loss_tangent_interface.
+  Examples:
+    "tan δ = 1.6e-3 from fitting QTLS,0 vs pMS"  → tan_delta_effective_surface
+    "tan δMS = 8e-4 at the metal-substrate interface" → loss_tangent_interface (type: metal_substrate)
+    
 ---
 R vs T CURVES — EXTRACT THESE IF PRESENT
 ---
@@ -493,6 +509,15 @@ CORRELATIONS OBSERVED:
   - Good: "Authors state higher annealing temperature correlates with improved Qi"
   - Bad: inferring from a table that sample C has better RRR and better Qi, therefore
     RRR correlates with Qi — the authors did not state this.
+
+- Loss budget percentages are high-value correlations. If authors calculate
+    what fraction of T1 or relaxation rate comes from each loss channel
+    (e.g. "Al junction leads contribute 27% of TLS loss", "pad TLS accounts
+    for 73% of relaxation rate"), always capture these as correlation items.
+    measurement_a: the loss channel or component (e.g. "Al junction leads TLS loss")
+    measurement_b: the total qubit relaxation rate or T1
+    nature: the calculated percentage contribution
+    description: include the specific geometry assumed (e.g. "for 70 µm gap Ta-on-Si qubit")
 
 SCHEMA PROMOTION CANDIDATES:
   - Flag parameters that appear scientifically important but have no schema field.

@@ -1,0 +1,28 @@
+{
+  "exclusions": [
+    {
+      "doi": "10.1103/dd96-gcb6",
+      "arxiv_id": null,
+      "filename": "2025-PRXQuantum-Hays.pdf",
+      "excluded_at": "2026-05-18",
+      "excluded_by": "manual",
+      "reason": "Theory proposal paper — no experimental materials data. T1=3e9µs and T2=80000µs are theoretical estimates from noise model, not measurements. 'Harmonium' qubit has not been fabricated. C2QA acknowledgment caused false high-relevance classification."
+    },
+    {
+	  "doi": "10.48550/arXiv.2604.11743",
+	  "arxiv_id": "arXiv:2604.11743",
+	  "filename": "2026-arXiv-Marcenac.pdf",
+	  "excluded_at": "2026-05-18",
+	  "excluded_by": "manual",
+	  "reason": "NV center / FPGA control paper — not a superconducting materials paper. T1/T2 values are NV spin coherence times, not superconducting qubit coherence. No film, Tc, RRR, or Qi data. Known ingester leakage type: non-superconducting quantum systems with C2QA acknowledgment."
+	},
+	{
+	  "doi": "10.48550/arXiv.2603.05615",
+	  "arxiv_id": "arXiv:2603.05615",
+	  "filename": "2026-arXiv-WangX.pdf",
+	  "excluded_at": "2026-05-18",
+	  "excluded_by": "manual",
+	  "reason": "ZnO semiconductor donor spin qubit paper — not a superconducting materials paper. No Tc, RRR, Qi, or T1 data. C2QA acknowledgment covers only DFT calculations. Known ingester leakage type: non-superconducting quantum systems."
+	}
+  ]	  
+}

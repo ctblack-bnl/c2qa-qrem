@@ -212,7 +212,7 @@ def backfill(dry_run: bool = False, limit: int = None, filter_pattern: str = Non
             updated_records.append(record)
             continue
 
-        samples = record["extraction_json"]["samples"]
+        samples = (record.get("extraction_json") or {}).get("samples", [])
         n       = len(samples)
         process_counter += 1
         reprocess_flag = " [REPROCESS]" if record.get("similarity_profiles") else " [NEW]"

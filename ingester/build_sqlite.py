@@ -201,6 +201,44 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     if before != len(records):
         print(f"  Filtered {before - len(records)} duplicate record(s)")
 
+    # --- Load manual exclusions ---
+    # exclusions.json: append-only list of records to exclude from SQLite view.
+    # JSONL is never modified — exclusions are applied only at build time.
+    # Match priority: DOI -> arXiv ID -> filename (same as processed ledger).
+    exclusions_path = jsonl_path.parent / "exclusions.json"
+    excluded_dois      = set()
+    excluded_arxiv_ids = set()
+    excluded_filenames_excl = set()
+    if exclusions_path.exists():
+        try:
+            excl_data = json.loads(exclusions_path.read_text())
+            for entry in excl_data.get("exclusions", []):
+                if entry.get("doi"):
+                    excluded_dois.add(entry["doi"])
+                if entry.get("arxiv_id"):
+                    excluded_arxiv_ids.add(entry["arxiv_id"])
+                if entry.get("filename"):
+                    excluded_filenames_excl.add(entry["filename"])
+            n_excl = len(excl_data.get("exclusions", []))
+            print(f"Exclusions: loaded {n_excl} manual exclusion(s) from exclusions.json")
+        except Exception as e:
+            print(f"  Warning: could not load exclusions.json: {e}")
+
+    def _is_excluded(rec: dict) -> bool:
+        if rec.get("doi") and rec["doi"] in excluded_dois:
+            return True
+        if rec.get("arxiv_id") and rec["arxiv_id"] in excluded_arxiv_ids:
+            return True
+        if rec.get("filename") and rec["filename"] in excluded_filenames_excl:
+            return True
+        return False
+
+    before = len(records)
+    records = [r for r in records if not _is_excluded(r)]
+    n_excluded = before - len(records)
+    if n_excluded:
+        print(f"  Excluded {n_excluded} manually excluded record(s)")
+
     seen = {}
     for r in records:
         seen[r.get("filename")] = r
@@ -262,6 +300,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             sheet_resistance_Ohm_sq TEXT,
             loss_tangent_substrate  TEXT,
             loss_tangent_interface  TEXT,
+            tan_delta_effective_surface TEXT,
             TLS_density             TEXT,
             Qi_internal             TEXT,
             Qi_single_photon        TEXT,
@@ -292,6 +331,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             derived_Qi                       REAL,
             -- derived_T2_us: best available T2. Echo preferred; falls back to Ramsey.
             derived_T2_us                    REAL,
+            -- derived_tan_delta: best available surface loss tangent.
+            -- Priority: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate
+            derived_tan_delta                REAL,
             -- derived_material: normalized film_material for Phase A stratification.
             derived_material        TEXT,
             -- derived_substrate: normalized substrate_material for Explorer filtering.
@@ -419,6 +461,19 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             # derived_T2_us — echo preferred; falls back to Ramsey
             derived_T2_us = gf("T2_echo_us")[0] or gf("T2_ramsey_us")[0]
 
+            # derived_tan_delta — best available surface loss tangent
+            # Priority: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate
+            derived_tan_delta = (
+                gf("tan_delta_effective_surface")[0] or
+                gf("loss_tangent_interface")[0] or
+                gf("loss_tangent_substrate")[0]
+            )
+            
+            # derived_resistivity_uOhm_cm — geometry derivation first, then directly reported value
+            _derived_resistivity = get_derived_value(derived, "derived_resistivity_uOhm_cm")
+            if _derived_resistivity is None:
+                _derived_resistivity = gf("normal_state_resistivity_uOhm_cm")[0]
+
             # Similarity profile
             profile = similarity_profiles.get(sid, {})
             if profile:
@@ -434,6 +489,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     junction_present,
                     Tc_K, RRR, sheet_resistance_Ohm_sq,
                     loss_tangent_substrate, loss_tangent_interface,
+                    tan_delta_effective_surface,
                     TLS_density, Qi_internal, Qi_single_photon,
                     surface_oxide_nm, T1_us, T2_echo_us,
                     gate_1q_fidelity_pct, gate_2q_fidelity_pct,
@@ -461,6 +517,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     Q_TLS_0,
                     derived_Qi,
                     derived_T2_us,
+                    derived_tan_delta,
                     sim_material_class, sim_transport_regime,
                     sim_loss_mechanisms, sim_device_type,
                     sim_coherence_tier, sim_science_focus,
@@ -470,7 +527,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 ) VALUES (
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?,
@@ -479,6 +536,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?,
                     ?, ?,
                     ?, ?,
+                    ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?
                 )
@@ -499,6 +557,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("sheet_resistance_Ohm_sq")[0],
                 gf("loss_tangent_substrate")[0],
                 gf("loss_tangent_interface")[0],
+                gf("tan_delta_effective_surface")[0],
                 gf("TLS_density_per_GHz_per_um2")[0],
                 gf("Qi_internal_quality_factor")[0],
                 gf("Qi_single_photon")[0],
@@ -515,7 +574,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("RRR")[1],
                 gf("Qi_internal_quality_factor")[1],
                 gf("T1_us")[1],
-                get_derived_value(derived, "derived_resistivity_uOhm_cm"),
+                _derived_resistivity,
                 get_derived_value(derived, "derived_BCS_gap_meV"),
                 get_derived_value(derived, "derived_coherence_length_nm"),
                 get_derived_value(derived, "derived_kinetic_inductance_pH_sq"),
@@ -533,6 +592,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("Q_TLS_0")[0],
                 derived_Qi,
                 derived_T2_us,
+                derived_tan_delta,
                 profile.get("material_class"),
                 profile.get("transport_regime"),
                 json.dumps(profile.get("loss_mechanisms") or []),
@@ -674,6 +734,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print("  SELECT derived_substrate, COUNT(*) as n FROM samples GROUP BY derived_substrate ORDER BY n DESC;")
     print("  SELECT derived_deposition_method, COUNT(*) as n FROM samples GROUP BY derived_deposition_method ORDER BY n DESC;")
     print("  SELECT display_name, qubit_frequency_GHz, Q_TLS_0, p_MS_pad, p_MS_resonator FROM samples WHERE qubit_frequency_GHz IS NOT NULL;")
+    print("  SELECT display_name, derived_material, derived_tan_delta, tan_delta_effective_surface FROM samples WHERE derived_tan_delta IS NOT NULL ORDER BY derived_tan_delta;")
     print("  SELECT display_name, sim_material_class, sim_device_type, sim_coherence_tier FROM samples WHERE sim_profile_version IS NOT NULL;")
     print("  SELECT display_name, item_type, description FROM catchall_items LIMIT 20;")
     print("  SELECT outcome, COUNT(*) FROM papers GROUP BY outcome;")

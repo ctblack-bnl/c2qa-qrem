@@ -121,7 +121,7 @@ def call_extraction(client: Any, deployment: str,
     text_content = ""
     with anthropic_client.messages.stream(
         model      = deployment,
-        max_tokens = 32000,
+        max_tokens = 64000,
         messages   = [
             {
                 "role": "user",

@@ -60,11 +60,7 @@ ALL_NUMERIC_FIELDS = [
     ('Tc_K',                  'Tc (K)'),
     ('RRR',                   'RRR'),
     ('sheet_resistance_Ohm_sq', 'Sheet resistance (Ω/□)'),
-    ('loss_tangent_substrate','Loss tangent substrate'),
-    ('loss_tangent_interface','Loss tangent interface'),
     ('TLS_density',           'TLS density (GHz⁻¹·μm⁻²)'),
-    ('Qi_internal',           'Qi internal'),
-    ('Qi_single_photon',      'Qi single photon'),
     ('surface_oxide_nm',      'Surface oxide (nm)'),
     ('T1_us',                 'T1 (µs)'),
     ('T2_echo_us',            'T2 echo (µs)'),
@@ -83,6 +79,8 @@ ALL_NUMERIC_FIELDS = [
     ('derived_kinetic_inductance_pH_sq', 'Kinetic inductance derived (pH/□)'),
     ('derived_Qi',                       'Qi (best available)'),
     ('derived_T2_us',                    'T2 (best available, µs)'),
+    ('derived_tan_delta',                'Loss tangent (best available)'),
+    ('Q_TLS_0',                          'Q_TLS,0 (unsaturated TLS Q)'),
 ]
 
 PROFILE_SINGLE_FIELDS = [

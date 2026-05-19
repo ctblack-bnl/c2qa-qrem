@@ -179,16 +179,20 @@
   .csv-export-btn:hover { color: var(--accent2); border-color: var(--accent2); }
   /* Click hint */
   .chart-click-hint {
+    position: absolute;
+    top: 36px;
+    right: 12px;
+    z-index: 10;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--accent);
-    opacity: 0.7;
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    opacity: 0.92;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    padding: 5px 10px;
+    pointer-events: none;
   }
-  .chart-click-hint::before { content: '↖'; font-size: 13px; }
   /* FIX #1: constrain chart height so it doesn't overflow the window */
   .chart-wrapper {
     position: relative;
@@ -783,8 +787,8 @@
           </div>
           <button class="csv-export-btn" onclick="exportStripCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
         </div>
-        <div class="chart-click-hint">Click any data point for full material information</div>
         <div class="chart-wrapper">
+          <div class="chart-click-hint">Click any data point for full info</div>
           <canvas id="stripChart"></canvas>
         </div>
       </div>
@@ -809,8 +813,8 @@
           </div>
           <button class="csv-export-btn" onclick="exportScatterCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
         </div>
-        <div class="chart-click-hint">Click any data point for full material information</div>
         <div class="chart-wrapper">
+          <div class="chart-click-hint">Click a data point for full info</div>
           <canvas id="scatterChart"></canvas>
         </div>
       </div>
