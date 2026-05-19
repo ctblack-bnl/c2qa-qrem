@@ -416,6 +416,20 @@ Include these fields directly in the sample record alongside other measurements.
 If you can clearly read both R(300K) and R(Tc+) from a figure, extract both even
 if the paper does not explicitly state RRR — our derive module will compute it.
 
+normal_state_resistivity_uOhm_cm:
+  The normal-state (or residual) resistivity of the film, in µΩ·cm.
+  Extract this DIRECTLY into the sample record as a named field — NOT into the catchall.
+  Look for: "ρn = X µΩ cm", "residual resistivity X µΩ·cm", "normal state resistivity X µΩ cm",
+  "ρ0 = X µΩ cm", or resistivity reported in a fabrication table alongside Tc and RRR.
+  Units: always convert to µΩ·cm before reporting.
+    µΩ·cm — use as-is
+    mΩ·cm — multiply by 1000
+    Ω·cm  — multiply by 1,000,000
+  Confidence: high if stated in text or table; medium if read from a figure.
+  Source: cite the table row, figure, or text location.
+  Note: this is the intrinsic film resistivity, NOT junction normal-state resistance (Rn in Ohms).
+  Junction Rn values go in the catchall. Film resistivity goes here.
+  
 ---
 RESONATOR GEOMETRY — EXTRACT THESE IF PRESENT
 ---
