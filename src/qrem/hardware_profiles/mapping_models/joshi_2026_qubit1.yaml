@@ -1,0 +1,113 @@
+# mapping_models/joshi_2026_qubit1.yaml
+#
+# Joshi 2026 Qubit 1 — validation case for frequency scaling test.
+# Same film as Qubit 2 (tan_delta=1.6e-3, Tc=0.7K, RRR=1.02).
+# Lower frequency than Qubit 2 — model should predict similar or slightly
+# higher T1 (T1_pad_TLS ∝ 1/f, so lower f → longer T1_pad_TLS).
+# OCS transmon (EJ/EC=16) — charge noise contributes to T2 but not T1.
+#
+# Source: Joshi et al., arXiv:2603.13174 (2026)
+#   Table S2 (qubit parameters), Table S3 (coherence data)
+
+sample_id: "Joshi_2026_Q1"
+material: "Ta"
+film_phase: "beta-Ta"
+substrate: "sapphire"
+notes: >
+  Same film as Qubit 2 (Films F15/F16, ~260nm beta-Ta on c-plane sapphire).
+  OCS transmon regime (EJ/EC=16) — T2 affected by charge noise.
+  Frequency slightly lower than Qubit 2 → slightly longer T1_pad_TLS expected.
+
+measured:
+  T1_us:
+    value: 397.0
+    provenance: MEASURED
+    notes: "Time-averaged T1 over 2036 measurements. Table S3."
+  T2_us:
+    value: 216.0
+    provenance: MEASURED
+    measurement_method: echo
+    notes: "Time-averaged T2_E. Table S3. OCS — charge noise limits T2."
+
+device:
+  f_qubit_GHz:
+    value: 2.613
+    provenance: MEASURED
+    notes: "Table S2."
+  f_resonator_GHz:
+    value: 7.293
+    provenance: MEASURED
+    notes: "Table S2."
+  EJ_over_EC:
+    value: 16
+    provenance: MEASURED
+    notes: "OCS regime. Table S2."
+  EC_MHz:
+    value: 252
+    provenance: MEASURED
+    notes: "Table S2."
+
+materials:
+  Q_TLS_0:
+    value: null
+    provenance: null
+    notes: "Not independently measured for this qubit — use tan_delta_effective_surface."
+  Qi:
+    value: null
+    provenance: null
+  Tc_K:
+    value: 0.7
+    provenance: MEASURED
+    notes: "Same film as Qubit 2. Figure 1c."
+  RRR:
+    value: 1.02
+    provenance: MEASURED
+    notes: "Same film. Section S1."
+  resistivity_normal_uOhm_cm:
+    value: 180.0
+    provenance: MEASURED
+    notes: "Same film. Section S1."
+  mean_free_path_nm:
+    value: null
+    provenance: DERIVED
+    notes: "l < 1nm (deep dirty limit). Same film as Qubit 2."
+
+surface_participation:
+  p_MS_resonator:
+    value: 8.63e-4
+    provenance: MEASURED
+    notes: "Same resonator geometry as Qubit 2 study. Table S4."
+  p_MS_pad:
+    value: 1.3e-4
+    provenance: MEASURED
+    notes: "Same qubit pad design as Qubit 2. Joshi 2026 main text."
+
+interfaces:
+  tan_delta_effective_surface:
+    value: 1.6e-3
+    provenance: MEASURED
+    notes: "Same film — tan_delta extracted from 71 resonators. Figure 3b."
+  tan_delta_MS:
+    value: null
+  tan_delta_SA:
+    value: null
+  tan_delta_MA:
+    value: null
+  tan_delta_bulk:
+    value: null
+
+geometry:
+  p_pad:
+    value: null
+  p_junction:
+    value: null
+
+junction:
+  material: "Al/AlOx/Al"
+  junction_Tc_K:
+    value: 1.2
+    provenance: CLASS_DEFAULT
+    notes: "Al junction Tc."
+  tan_delta_junction:
+    value: null
+    notes: "Not reported. Falls back to CLASS_DEFAULT."

@@ -4,194 +4,341 @@
 # Used when a corpus record does not report a value directly.
 #
 # These are class-level defaults for a typical transmon on sapphire.
-# They should be refined as better data becomes available — in particular,
-# the participation ratios should ideally come from FEM simulation of the
-# specific device geometry (Mingzhao, May 2026).
+# Participation ratios should ideally come from FEM simulation of the
+# specific device geometry (Mingzhao, May 2026) — the values here are
+# order-of-magnitude guidance only.
 #
 # Sources:
-#   participation ratios      — Wang et al., APL 107, 162601 (2015)
+#   p_MS_resonator            — Wang et al., APL 107, 162601 (2015)
+#   p_MS_pad                  — Joshi et al., arXiv:2603.13174 (2026)
 #   interface loss tangents   — Read et al., PRA 19, 034064 (2023) [sapphire]
+#                               Crowley et al., PRX 13, 041005 (2023) [alpha-Ta]
+#                               Joshi et al. 2026 [beta-Ta]
 #   QP, vortex parameters     — literature consensus, see notes per field
 #
 # Provenance labels used throughout:
-#   MEASURED      — directly reported in the paper
+#   MEASURED      — directly reported in a paper
 #   DERIVED       — computed from measured quantities via physics formula
 #   CLASS_DEFAULT — typical value for this material/device class
 #   ASSUMED       — baseline default, least certain
 
 model_type: transmon_analytical
 description: "Analytical T1 decomposition defaults — typical transmon on sapphire, 2025-2026"
-substrate: sapphire  # These interface loss tangents are sapphire-specific.
-                     # Silicon defaults will differ — update when silicon corpus grows.
+substrate: sapphire
+notes: >
+  Interface loss tangents in this file are sapphire-specific (EFG and HEMEX grades).
+  Silicon defaults differ — update when silicon corpus grows sufficiently.
+  For beta-Ta on sapphire, use tan_delta_effective_surface from Joshi 2026 directly
+  if available in the material record (preferred over per-interface decomposition).
 
 # =============================================================================
-# LEVEL 1 — COMPONENT PARTICIPATION RATIOS
-# Fraction of total electric field energy stored in each device component.
-# Requires FEM simulation of the specific device geometry to measure properly.
-# Values below are for a typical planar transmon — ask Mingzhao to refine.
-# Source: Wang et al. 2015 (Table I, typical transmon geometry)
+# SURFACE PARTICIPATION RATIOS
+#
+# These are the p_MS values used in the Joshi-style inversion:
+#   tan_delta = 1 / (Q_TLS_0_resonator * p_MS_resonator)   [calibration step]
+#   T1_pad_TLS = 1 / (p_MS_pad * tan_delta * 2*pi*f_qubit)  [apply to qubit pad]
+#
+# p_MS_resonator: depends heavily on CPW gap width and geometry.
+#   Joshi 2026 Table S4: ranges from 4e-5 (LE resonators) to 2.2e-3 (narrow CPW).
+#   Mid-range CPW (s=6µm) gives ~8.6e-4. Use this as the default if not reported.
+#
+# p_MS_pad: highly geometry-dependent. Joshi 2026 qubit design: 1.3e-4.
+#   This is the most impactful single parameter in the pad TLS calculation.
+#   The old default of 5e-3 was borrowed from resonator geometry and was ~40x
+#   too high for a typical qubit pad, causing large T1 underestimates.
 # =============================================================================
-component_participation:
-  p_resonator:
-    value: 0.90
+surface_participation:
+  p_MS_resonator:
+    value: 8.63e-4
     provenance: CLASS_DEFAULT
-    note: "Dominant energy storage in readout resonator. Wang 2015 typical value."
-  p_pad:
-    value: 0.08
+    notes: >
+      Mid-range CPW resonator surface participation ratio (s=6µm geometry).
+      Joshi 2026 Table S4. Highly geometry-dependent — narrow gap (s=2µm)
+      gives ~2.2e-3; large LE resonators give ~8e-5. If the specific resonator
+      geometry is known, use the appropriate value from Table S4 or FEM simulation.
+  p_MS_pad:
+    value: 1.3e-4
     provenance: CLASS_DEFAULT
-    note: "Capacitor pad surfaces. Sensitive to pad geometry and substrate."
-  p_junction:
-    value: 0.02
-    provenance: CLASS_DEFAULT
-    note: "Small participation but high local loss tangent at junction interfaces."
+    notes: >
+      Qubit capacitor pad surface participation ratio. Joshi 2026 main text:
+      "qubits are designed with a p_MS of 1.3e-4". This is the primary geometric
+      input for translating tan_delta to qubit T1_pad_TLS. Geometry-dependent —
+      FEM simulation needed for a specific device layout. The Joshi value is a
+      good class default for modern optimized 2D transmons.
+      Previous default was 5e-3 (resonator geometry, incorrect for qubit pads).
 
 # =============================================================================
-# LEVEL 2 — INTERFACE PARTICIPATION RATIOS (within each component)
-# Fraction of component energy at each physical interface.
-# These are the p_i in Γ_TLS = Σ_i ( p_i × tan_delta_i ).
-# Source: Wang et al. 2015; Read et al. 2023 Appendix B
+# JUNCTION TLS DEFAULTS
+#
+# Junction TLS uses a single effective loss tangent model (not per-interface sum)
+# because the Al/AlOx tunnel barrier is the dominant loss channel, and the
+# junction does not have a significant exposed metal-air interface.
+#
+# Formula: T1_junction_TLS = 1 / (p_junction_surface * tan_delta_junction * 2*pi*f)
+#
+# p_junction_surface: the junction surface participation ratio — fraction of
+#   total device energy at the junction tunnel barrier interfaces. This is NOT
+#   the same as the Level 1 energy fraction (p_junction ~ 0.02 from Wang 2015).
+#   Derived from Joshi 2026: to give T1_junction_TLS ~ 1000 µs at f=2.736 GHz
+#   with tan_delta_junction = 2e-3, p_junction_surface = 2.9e-5.
+#
+# tan_delta_junction: effective Al/AlOx loss tangent. Typical range 1e-3 to 5e-3.
+#   Sources: Martinis & Geller 2014; Carroll et al. 2022; literature consensus.
 # =============================================================================
-interface_participation:
-  # Within the resonator
-  resonator:
-    p_MS:
-      value: 3.0e-4
-      provenance: CLASS_DEFAULT
-      note: "Metal-substrate interface. Wang 2015 Table I."
-    p_SA:
-      value: 1.18e-4
-      provenance: CLASS_DEFAULT
-      note: "Substrate-air interface. Read et al. 2023 Section IV, assuming 3nm surface."
-    p_MA:
-      value: 3.0e-5
-      provenance: CLASS_DEFAULT
-      note: "Metal-air interface. Wang 2015 Table I."
-    p_bulk:
-      value: 0.80
-      provenance: CLASS_DEFAULT
-      note: "Bulk substrate participation. Dominant for 3D-like resonator geometries."
-  # Within the pad
-  pad:
-    p_MS:
-      value: 5.0e-3
-      provenance: CLASS_DEFAULT
-      note: "Metal-substrate interface under pad. Wang 2015 Table I — large pad area
-             gives significant MS participation. Geometry-dependent: needs FEM for accuracy."
-    p_SA:
-      value: 2.0e-3
-      provenance: CLASS_DEFAULT
-      note: "Substrate-air at pad edges. Wang 2015 — edge fields contribute meaningfully."
-    p_MA:
-      value: 1.0e-3
-      provenance: CLASS_DEFAULT
-      note: "Metal-air on top surface of pad. Wang 2015 Table I."
-    p_bulk:
-      value: 0.05
-      provenance: CLASS_DEFAULT
-      note: "Bulk substrate under pad."
-  # Within the junction region
-  junction:
-    p_MS:
-      value: 1.0e-4
-      provenance: CLASS_DEFAULT
-      note: "Junction-substrate interface. Very small — junction sits on small area."
-    p_SA:
-      value: 1.0e-5
-      provenance: CLASS_DEFAULT
-      note: "Junction-air interface. Minimal exposed area."
-    p_MA:
-      value: 5.0e-4
-      provenance: CLASS_DEFAULT
-      note: "Junction metal-air. Small but nonzero from junction leads."
-    p_bulk:
-      value: 1.0e-4
-      provenance: CLASS_DEFAULT
-      note: "Negligible bulk participation at junction."
+junction_tls:
+  p_junction_surface:
+    value: 2.9e-5
+    provenance: CLASS_DEFAULT
+    notes: >
+      Junction surface participation ratio. Derived from Joshi 2026 calibration:
+      gives T1_junction_TLS ~ 1000 µs at f=2.736 GHz with tan_delta_junction=2e-3.
+      Not directly measured — inferred from overall model calibration.
+      FEM simulation of the specific junction geometry needed for accuracy.
+  tan_delta_junction:
+    value: 2.0e-3
+    provenance: CLASS_DEFAULT
+    notes: >
+      Effective Al/AlOx junction loss tangent. Typical Al/AlOx value from
+      literature (Martinis & Geller 2014; Carroll et al. 2022).
+      Range: 1e-3 to 5e-3 depending on oxidation conditions and junction quality.
+      This is the dominant TLS source in the junction — the tunnel barrier itself,
+      not the metal-air or metal-substrate interfaces.
 
 # =============================================================================
-# INTERFACE LOSS TANGENTS
-# Intrinsic material loss at each interface type.
-# These are the tan_delta_i in Γ_TLS = Σ_i ( p_i × tan_delta_i ).
-# Source: Read et al. 2023 (sapphire); assume 3nm surface thickness throughout.
-# Note: these are substrate-specific. The sapphire values below come from
-# Read et al.'s precision dielectric dipper measurements. Silicon values
-# differ — update this section when silicon-specific measurements are ingested.
+# EFFECTIVE SURFACE LOSS TANGENT
+#
+# The collapsed effective surface loss tangent tan_delta referenced to p_MS,
+# as extracted by Joshi 2026 from 71 resonators. This is the preferred input
+# when individual interface loss tangents are not independently resolved.
+#
+# Material-specific values:
+#   beta-Ta on sapphire:  1.6e-3  (Joshi 2026, Figure 3b)
+#   alpha-Ta on sapphire: 8.1e-4  (Crowley/McLellan 2023)
+#   Al on sapphire:       ~2e-3   (approximate, varies with processing)
+#
+# The default below is for alpha-Ta — the most common high-coherence material
+# in the corpus for which a well-characterized value exists.
+# =============================================================================
+tan_delta_effective_surface:
+  value: 8.1e-4
+  provenance: CLASS_DEFAULT
+  material: "alpha-Ta on sapphire"
+  notes: >
+    Effective surface loss tangent for alpha-Ta on sapphire after BOE treatment.
+    Crowley et al. PRX 2023 (same methodology as Joshi). For beta-Ta use 1.6e-3
+    (Joshi 2026). For other materials, fall back to per-interface decomposition
+    using interface_loss_tangents below.
+
+# =============================================================================
+# INTERFACE LOSS TANGENTS (per-interface decomposition)
+#
+# Used via Path B when tan_delta_effective_surface is not available.
+# Γ_TLS = Σ_i ( p_i × tan_delta_i ) × omega
+#
+# These are substrate-specific (sapphire). Per Read et al. 2023, assuming
+# 3nm surface oxide thickness throughout.
+#
+# Note: in practice, p_MA and p_MS do not vary independently across typical
+# resonator geometries (Joshi 2026, Section S9), making individual interface
+# loss tangents difficult to resolve separately. The effective surface
+# tan_delta above is more reliable when available.
 # =============================================================================
 interface_loss_tangents:
   tan_delta_MS:
     value: 1.0e-3
     provenance: CLASS_DEFAULT
-    note: "Metal-substrate interface. Literature estimate — direct measurement rare."
+    notes: >
+      Metal-substrate interface. Literature estimate — direct independent
+      measurement is rare because p_MS and p_MA are correlated in typical
+      resonator geometries. Read et al. 2023.
   tan_delta_SA:
     value: 15.0e-4
     provenance: CLASS_DEFAULT
-    note: "Substrate-air interface, sapphire (EFG). Read et al. 2023 Table II."
+    notes: "Substrate-air interface, sapphire (EFG). Read et al. 2023 Table II."
   tan_delta_MA:
     value: 33.0e-3
     provenance: CLASS_DEFAULT
-    note: "Metal-air interface (aluminum oxide). Read et al. 2023 Table VII."
+    notes: >
+      Metal-air interface (aluminum oxide native oxide). Read et al. 2023 Table VII.
+      For beta-Ta, oxide thickness is ~2.9nm (vs ~2.45nm for alpha-Ta) — slightly
+      higher MA loss expected (Joshi 2026 Section S9).
   tan_delta_bulk:
     value: 63.0e-9
     provenance: CLASS_DEFAULT
-    note: "Bulk substrate dielectric loss, sapphire (EFG). Read et al. 2023 Table II.
-           For HEMEX sapphire use < 19e-9. For silicon, use separate silicon defaults."
+    notes: >
+      Bulk substrate dielectric loss, sapphire (EFG). Read et al. 2023 Table II.
+      For HEMEX sapphire use < 19e-9. For silicon use separate silicon defaults.
+      No bulk TLS contribution was detected in Joshi 2026 across the full p_MS
+      range studied — consistent with this value being negligible.
+
+# =============================================================================
+# INTERFACE PARTICIPATION RATIOS (within each component — Path B only)
+#
+# The p_i in Γ_TLS = Σ_i ( p_i × tan_delta_i ).
+# Used only when Path B (interface sum) is needed, i.e. when neither
+# tan_delta_effective_surface nor Q_TLS_0 is available.
+# Source: Wang et al. 2015; Read et al. 2023 Appendix B.
+#
+# Note: these are distinct from surface_participation above.
+#   surface_participation.p_MS_pad = fraction of pad energy at MS interface
+#   interface_participation.pad.p_MS = same quantity, used in Path B sum
+# The two blocks are redundant for the MS interface but kept separate for
+# clarity of the two computation paths.
+# =============================================================================
+interface_participation:
+  resonator:
+    p_MS:
+      value: 8.63e-4
+      provenance: CLASS_DEFAULT
+      notes: "Same as surface_participation.p_MS_resonator. Wang 2015 / Joshi 2026."
+    p_SA:
+      value: 1.18e-4
+      provenance: CLASS_DEFAULT
+      notes: "Substrate-air interface. Read et al. 2023 Section IV, 3nm surface."
+    p_MA:
+      value: 3.0e-5
+      provenance: CLASS_DEFAULT
+      notes: "Metal-air interface. Wang 2015 Table I."
+    p_bulk:
+      value: 0.80
+      provenance: CLASS_DEFAULT
+      notes: "Bulk substrate participation. Dominant for resonator geometries."
+  pad:
+    p_MS:
+      value: 1.3e-4
+      provenance: CLASS_DEFAULT
+      notes: >
+        Same as surface_participation.p_MS_pad. Joshi 2026.
+        Previous value was 5e-3 — incorrect, derived from resonator geometry.
+    p_SA:
+      value: 5.0e-5
+      provenance: CLASS_DEFAULT
+      notes: "Substrate-air at pad edges. Smaller than resonator due to pad geometry."
+    p_MA:
+      value: 4.0e-5
+      provenance: CLASS_DEFAULT
+      notes: "Metal-air on top surface of pad. Wang 2015 order-of-magnitude."
+    p_bulk:
+      value: 0.05
+      provenance: CLASS_DEFAULT
+      notes: "Bulk substrate under pad. Geometry-dependent."
+  junction:
+    p_MS:
+      value: 1.0e-4
+      provenance: CLASS_DEFAULT
+      notes: "Junction-substrate interface. Small area."
+    p_SA:
+      value: 1.0e-5
+      provenance: CLASS_DEFAULT
+      notes: "Junction-air interface. Minimal exposed area."
+    p_MA:
+      value: 5.0e-4
+      provenance: CLASS_DEFAULT
+      notes: "Junction metal-air. Small but nonzero from junction leads."
+    p_bulk:
+      value: 1.0e-4
+      provenance: CLASS_DEFAULT
+      notes: "Negligible bulk participation at junction."
 
 # =============================================================================
 # QUASIPARTICLE CHANNEL DEFAULTS
-# Used when Tc or RRR are not reported in the corpus record.
+#
+# The thermal QP formula gives a lower bound that is unrealistically optimistic
+# in practice. Joshi 2026 makes this explicit: at 20mK, BCS theory predicts
+# dissociated Cooper pair fraction < 1e-19 at equilibrium even for beta-Ta
+# (Tc=0.7K). Observed non-equilibrium QP populations (1e-9 to 1e-5) arise
+# from stray radiation and cosmic rays — a system/packaging issue, not material.
+#
+# Tc default is Al (1.2K) because qubits have Al/AlOx/Al junctions regardless
+# of pad material. The junction is the relevant component for QP sensitivity.
+# For the pad QP channel: use the pad film Tc from the material record.
 # =============================================================================
 quasiparticle:
   T_operating_mK:
     value: 20.0
     provenance: CLASS_DEFAULT
-    note: "Standard dilution refrigerator base temperature."
-  Tc_K:
+    notes: "Standard dilution refrigerator base temperature."
+  Tc_K_junction:
     value: 1.2
     provenance: CLASS_DEFAULT
-    note: "Aluminum Tc. Use derived_material-specific value when available:
-           Ta~4.4K, Nb~9.2K, Al~1.2K, Re~1.7K, NbN~16K, TiN~4-5K."
-  T1_QP_us_default:
+    notes: >
+      Al junction Tc. Used for junction QP channel — junctions are Al/AlOx/Al
+      in virtually all corpus devices regardless of pad material (Ta, Nb, Re etc.).
+      Even at Tc=1.2K, thermal QP at 20mK is negligible (activation exponent ~30).
+      Non-equilibrium QP from stray radiation dominates in practice (Joshi 2026).
+  Tc_K_pad_fallback:
+    value: 4.4
+    provenance: CLASS_DEFAULT
+    notes: >
+      Fallback pad film Tc when not reported in material record.
+      Ta value used (most common corpus material). Use record Tc_K when available.
+      Thermal QP negligible for all reasonable Tc at 20mK — this value matters
+      only if non-equilibrium QP modeling is added in future.
+  T1_QP_nonequilibrium_us:
     value: 1000.0
     provenance: CLASS_DEFAULT
-    note: "Fallback T1_QP when Tc not available. Consistent with low
-           quasiparticle density at 20mK for Al-class materials."
+    notes: >
+      Non-equilibrium QP T1 floor — system/packaging dependent, not material.
+      Joshi 2026: observed QP fractions 1e-9 to 1e-5 from stray radiation.
+      This default represents a reasonably well-shielded system. Poor shielding
+      can reduce this to ~100µs; careful radiation shielding can push > 10ms.
+      Output labeled ASSUMED — not derivable from corpus material measurements.
 
 # =============================================================================
 # VORTEX CHANNEL DEFAULTS
-# Used when mean free path or vortex activation temperature not reported.
 # =============================================================================
 vortex:
   coherence_length_nm:
     value: 100.0
     provenance: CLASS_DEFAULT
-    note: "BCS coherence length for Al. Ta~93nm, Nb~38nm, Al~1600nm dirty limit.
-           Used to determine clean vs dirty limit when mean_free_path not reported."
+    notes: >
+      BCS coherence length for Al dirty limit. Ta~93nm, Nb~38nm, Al~1600nm dirty.
+      Used to determine clean vs dirty limit when mean_free_path not reported.
+      For beta-Ta: deep dirty limit confirmed (l < 1nm << xi_0), Joshi 2026 S7.
   T1_vortex_us_default_clean:
     value: 500.0
     provenance: CLASS_DEFAULT
-    note: "Fallback T1_vortex for clean-limit films (l > xi).
-           Corpus finding: dirty-limit Ta-Hf films show ~10x higher vortex
-           activation temperature — i.e. less vortex loss — than clean-limit."
+    notes: >
+      Fallback T1_vortex for clean-limit films (l > xi). Vortex motion is
+      the primary loss channel in clean-limit films.
+      Corpus finding (May 2026): dirty-limit Ta-Hf films show ~10x higher vortex
+      activation temperature than clean-limit films.
   T1_vortex_us_default_dirty:
-    value: 2000.0
+    value: 1.0e9
     provenance: CLASS_DEFAULT
-    note: "Fallback T1_vortex for dirty-limit films (l < xi).
-           Dirty-limit films have suppressed vortex motion loss."
+    notes: >
+      Fallback T1_vortex for dirty-limit films (l < xi). Vortex motion is
+      suppressed in the dirty limit — effectively not a loss channel.
+      Set to 1e9 µs (negligible) for dirty-limit films including beta-Ta
+      (Joshi 2026: l < 1nm, deep dirty limit) and most high-resistivity films.
   T1_vortex_us_default_unknown:
-    value: 1000.0
+    value: 1.0e9
     provenance: CLASS_DEFAULT
-    note: "Fallback when clean/dirty limit cannot be determined."
+    notes: >
+      Fallback when clean/dirty limit cannot be determined from mean free path.
+      Set to 1e9 µs (negligible) because: (1) vortex motion is not identified
+      as a significant loss channel in current state-of-art qubit literature
+      (Joshi 2026 does not mention vortex loss); (2) most corpus materials are
+      in or near the dirty limit where vortex motion is suppressed.
+      If mean_free_path_nm is reported and indicates clean limit, the clean
+      default (500 µs) applies instead.
 
 # =============================================================================
-# RADIATION CHANNEL DEFAULT
-# System-level — not per-component (Mingzhao: Purcell/DOS effect means
-# junction radiation rate depends on coupling to cavity, not material alone).
+# RADIATION / PURCELL CHANNEL DEFAULT
+#
+# System-level — not a material property. Packaging and Purcell filter design
+# determine this channel. Joshi 2026 explicitly rule out Purcell as a limiting
+# channel: on-chip Purcell filter gives T1_Purcell > 5ms from simulation.
+# The default below is consistent with a well-packaged 2D transmon with
+# Purcell filtering (Joshi 2026, Bland 2025).
 # =============================================================================
 radiation:
   T1_radiation_us:
     value: 5000.0
     provenance: CLASS_DEFAULT
-    note: "Radiation loss is an engineering/packaging parameter, not a material
-           property. This default reflects well-packaged 2D transmon systems.
-           3D cavity geometries achieve much higher values (ms to seconds).
-           Not expected to be derivable from corpus material measurements."
+    notes: >
+      Radiation + Purcell loss — engineering/packaging parameter, not material.
+      5ms consistent with well-packaged 2D transmon with on-chip Purcell filter
+      (Joshi 2026: simulated T1_Purcell > 5ms; Bland 2025: similar result).
+      3D cavity geometries achieve much longer values (ms to seconds).
+      Output labeled ASSUMED — not derivable from corpus material measurements.

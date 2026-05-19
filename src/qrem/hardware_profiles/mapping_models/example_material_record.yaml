@@ -1,67 +1,236 @@
-# mapping_models/example_record_with_measured_t1.yaml
+# mapping_models/example_material_record.yaml
 #
 # Example material record for t1_decomposition.py.
-# This represents a paper that measured both T1/T2 AND material properties —
-# the gold case that enables model validation.
+#
+# This record is Joshi 2026 Qubit 2 — the primary validation case for the
+# T1 loss decomposition model. It has directly measured T1, T2, Tc, RRR,
+# p_MS_pad, Q_TLS_0 (from resonator studies), and tan_delta_effective_surface.
+# Expected output: T1_predicted should approach T1_measured = 585 µs.
+#
+# Source: Joshi et al., arXiv:2603.13174 (2026)
+#   - Qubit parameters: Table S2 (Qubit 2) and Table S3
+#   - Resonator parameters: Table S4, Figure 3b, Section S9
+#   - Film parameters: Section S1, Figure 1c
 #
 # Format: each field has value + provenance + optional notes.
 # Provenance: MEASURED / DERIVED / CLASS_DEFAULT / ASSUMED
 
-sample_id: "Bahrami_2026_D1_example"
+sample_id: "Joshi_2026_Q2"
 material: "Ta"
+film_phase: "beta-Ta"
 substrate: "sapphire"
+notes: >
+  Beta-Ta transmon qubit on c-plane sapphire. β-Ta deposited at room temperature
+  by DC magnetron sputtering (300W, 3mTorr Ar, ~2 Å/s). Post-fabrication BOE
+  treatment. Al/AlOx/Al junctions by double-angle UHV e-beam evaporation.
+  On-chip Purcell filter — Purcell-limited T1 > 5ms (electromagnetic simulation).
+  Qubit 2 is the highest-Q device: time-averaged Q = 10.1e6.
 
 # =============================================================================
-# MEASURED DEVICE PERFORMANCE — gold values, short-circuit decomposition
+# MEASURED DEVICE PERFORMANCE — gold values
 # =============================================================================
 measured:
   T1_us:
-    value: 312.0
+    value: 585.0
     provenance: MEASURED
     measurement_method: time_domain
+    notes: "Time-averaged T1 over 731 measurements across 2-5 days. Table S3."
   T2_us:
-    value: 480.0
+    value: 328.0
     provenance: MEASURED
     measurement_method: echo
+    notes: "Time-averaged T2_E (Hahn echo). Table S3."
+  T2_ramsey_us:
+    value: 136.0
+    provenance: MEASURED
+    notes: "Time-averaged T2_R. Table S3. T2_R < T2_E consistent with low-freq noise."
+
+# =============================================================================
+# DEVICE PARAMETERS
+# =============================================================================
+device:
+  f_qubit_GHz:
+    value: 2.736
+    provenance: MEASURED
+    notes: "Qubit frequency from Ramsey measurement. Table S2."
+  f_resonator_GHz:
+    value: 7.541
+    provenance: MEASURED
+    notes: "Readout resonator frequency. Table S2."
+  EJ_over_EC:
+    value: 19
+    provenance: MEASURED
+    notes: "OCS transmon regime (EJ/EC 16-28). Table S2."
+  EC_MHz:
+    value: 245
+    provenance: MEASURED
+    notes: "Charging energy. Table S2."
 
 # =============================================================================
 # MATERIAL INPUTS — feed the decomposition
 # =============================================================================
 materials:
+  # --- TLS inputs ---
+  # Q_TLS_0 is the unsaturated (single-photon limit) TLS quality factor.
+  # Preferred over raw Qi — physically correct quantity for low-power qubit operation.
+  # From resonator studies (Figure 3b, Section S9): single effective tan_delta
+  # extracted from 71 resonators. Representative Q_TLS_0 values in Table S4.
+  # We use a mid-range resonator value here; the key output is tan_delta_effective_surface.
+  Q_TLS_0:
+    value: 1.0e6
+    provenance: MEASURED
+    notes: >
+      Representative mid-range QTLS,0 from Table S4 CPW resonators (Film F6-F8 range).
+      Joshi extract tan_delta directly from the full 71-resonator dataset (Figure 3b)
+      rather than from a single Q_TLS_0 value — use tan_delta_effective_surface below
+      as the primary input, which is more accurate.
   Qi:
-    value: 3.2e6
-    provenance: MEASURED
-    measurement_method: S21   # vs ring_down — affects T1_TLS interpretation
+    value: null
+    provenance: null
+    notes: "Not used — Q_TLS_0 preferred. Raw Qi is power-dependent and less meaningful."
   Qi_frequency_GHz:
-    value: 5.1
-    provenance: MEASURED
+    value: null
+    provenance: null
+
+  # --- Superconducting film properties ---
   Tc_K:
-    value: 4.39
+    value: 0.7
     provenance: MEASURED
+    notes: "Midpoint of superconducting transition. Figure 1c, Section S1."
   RRR:
-    value: 14.0
+    value: 1.02
     provenance: MEASURED
+    notes: >
+      RRR = R(295K)/R(1K) = 1.02. Section S1, Supporting Information.
+      β-Ta is in the dirty limit: mean free path l < 1nm (estimated from
+      rho_n = 180 µΩcm via free-electron transport). Coherence length >> l.
+  resistivity_normal_uOhm_cm:
+    value: 180.0
+    provenance: MEASURED
+    notes: "Normal state resistivity at 1K. Section S1."
   mean_free_path_nm:
-    value: 52.0
+    value: null
+    provenance: DERIVED
+    notes: >
+      Not directly reported. From rho_n = 180 µΩcm and free-electron estimate,
+      l < 1nm — deep dirty limit confirmed. Section S7 states l << xi_0 (BCS
+      coherence length), validating local electrodynamics approximation.
+  London_penetration_depth_um:
+    value: 1.78
     provenance: MEASURED
+    notes: >
+      Magnetic penetration depth lambda = 1.78 ± 0.02 µm, fitted from Lk/□(t)
+      across 80 CPW resonators (Figure 2c). Consistent with BCS dirty limit
+      estimate lambda_dirty ≈ 1.7 µm using rho_n and Tc.
+  kinetic_inductance_sheet_pH_sq:
+    value: 2.2
+    provenance: MEASURED
+    notes: "Bulk limit Lk/□ (t >> lambda). Figure 2c. Thin films: much higher."
 
 # =============================================================================
-# GEOMETRY — component participation ratios
-# If not reported, t1_decomposition.py falls back to defaults YAML.
+# SURFACE PARTICIPATION RATIOS
+# These are the p_MS values in the Joshi inversion:
+#   tan_delta = 1 / (Q_TLS_0_resonator * p_MS_resonator)   [calibration]
+#   T1_pad_TLS = 1 / (p_MS_pad * tan_delta * 2*pi*f_qubit)  [qubit pad]
+# Both are directly reported in Joshi 2026.
 # =============================================================================
-geometry:
-  # Not reported in this paper — will use CLASS_DEFAULT from defaults YAML
-  p_resonator: null
-  p_pad: null
-  p_junction: null
+surface_participation:
+  p_MS_resonator:
+    value: 8.63e-4
+    provenance: MEASURED
+    notes: >
+      Surface participation ratio (p_MS) of the CPW resonators used to extract
+      tan_delta (s=6µm geometry, representative mid-range value). Table S4.
+      Joshi vary p_MS from 4e-5 to 2.2e-3 across 71 resonators and fit a single
+      tan_delta — the specific resonator p_MS used here is for reference only;
+      tan_delta_effective_surface below is the primary extracted quantity.
+  p_MS_pad:
+    value: 1.3e-4
+    provenance: MEASURED
+    notes: >
+      Surface participation ratio of the qubit capacitor pads. Stated explicitly
+      in main text: "qubits are designed with a p_MS of 1.3e-4". This is the
+      key geometric input for translating tan_delta to qubit T1_pad_TLS.
+      Computed from FEM simulation of the qubit pad geometry.
 
 # =============================================================================
-# INTERFACES — per-interface loss tangents
-# If not reported, t1_decomposition.py falls back to defaults YAML.
+# INTERFACE LOSS TANGENTS
 # =============================================================================
 interfaces:
-  # Not reported in this paper — will use CLASS_DEFAULT from defaults YAML
-  tan_delta_MS: null
-  tan_delta_SA: null
-  tan_delta_MA: null
-  tan_delta_bulk: null
+  # Effective collapsed surface loss tangent — primary quantity from Joshi.
+  # This is the result of fitting QTLS,0 vs p_MS across 71 resonators (Figure 3b).
+  # It collapses MS + MA + SA contributions into a single p_MS-referenced value.
+  tan_delta_effective_surface:
+    value: 1.6e-3
+    provenance: MEASURED
+    notes: >
+      Effective surface loss tangent extracted from linear fit of QTLS,0 vs p_MS
+      for 71 β-Ta resonators on sapphire (Figure 3b, Section S9, Equation S9).
+      About 2x higher than alpha-Ta (8.1e-4, Crowley/McLellan 2023).
+      Sources: ~20% from increased oxide thickness (tTaOx = 2.9nm vs 2.45nm for
+      alpha-Ta); remaining ~80% from sidewall roughness and amorphous MS interface
+      layer (~5nm at beta-Ta/sapphire interface, Figure S10f).
+
+  # Per-interface loss tangents — not independently resolved in this paper.
+  # p_MA and p_SA do not vary independently from p_MS in their resonator geometries
+  # (Section S9), so individual interface tangents cannot be extracted.
+  tan_delta_MS:
+    value: null
+    provenance: null
+    notes: "Not independently resolved. Use tan_delta_effective_surface."
+  tan_delta_SA:
+    value: null
+    provenance: null
+    notes: "Not independently resolved. Use tan_delta_effective_surface."
+  tan_delta_MA:
+    value: null
+    provenance: null
+    notes: "Not independently resolved. Use tan_delta_effective_surface."
+  tan_delta_bulk:
+    value: null
+    provenance: null
+    notes: >
+      Not measured. No bulk TLS contribution detected across full p_MS range
+      (Section S9) — consistent with sapphire bulk loss being negligible
+      relative to surface TLS at these participation ratios.
+
+# =============================================================================
+# GEOMETRY — Level 1 component participation fractions
+# Not reported in Joshi 2026. Will use CLASS_DEFAULT from defaults YAML.
+# Note: these are distinct from surface_participation above.
+#   p_pad here = fraction of total device energy in the pad component (~Level 1)
+#   p_MS_pad above = fraction of pad energy at the metal-substrate interface (Level 2)
+# =============================================================================
+geometry:
+  p_pad:
+    value: null
+    provenance: null
+    notes: "Not reported. Falls back to CLASS_DEFAULT."
+  p_junction:
+    value: null
+    provenance: null
+    notes: "Not reported. Falls back to CLASS_DEFAULT."
+
+# =============================================================================
+# JUNCTION
+# Al/AlOx/Al junctions — chemically distinct from beta-Ta pad.
+# Junction TLS cannot be inferred from resonator Qi (different material).
+# =============================================================================
+junction:
+  material: "Al/AlOx/Al"
+  fabrication: "double-angle UHV e-beam evaporation"
+  junction_area_um2:
+    value: null
+    provenance: null
+    notes: "Overlap areas 0.04-0.18 µm² (Section S2) — specific junction not reported."
+  junction_Tc_K:
+    value: 1.2
+    provenance: CLASS_DEFAULT
+    notes: "Al junction Tc. Used for junction QP channel."
+  tan_delta_junction:
+    value: null
+    provenance: null
+    notes: >
+      Not reported. Falls back to CLASS_DEFAULT for Al/AlOx junction.
+      Junction TLS is independent of resonator Qi — different material,
+      different loss tangent (v2.5 model doc, Mingzhao feedback).

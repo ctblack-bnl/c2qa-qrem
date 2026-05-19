@@ -1,0 +1,119 @@
+# mapping_models/joshi_2026_qubit11.yaml
+#
+# Joshi 2026 Qubit 11 — validation case for highest frequency / lowest T1.
+# Same film as Qubit 2 (tan_delta=1.6e-3, Tc=0.7K, RRR=1.02).
+# Non-OCS transmon (EJ/EC=122) — deepest transmon regime.
+# f=5.804 GHz — about 2.1x higher than Qubit 2.
+# T1=40us is the lowest across all 11 qubits — paper notes frequency-dependent Q.
+# This is the strongest test of frequency scaling in the model.
+#
+# Source: Joshi et al., arXiv:2603.13174 (2026)
+#   Table S2 (qubit parameters), Table S3 (coherence data)
+
+sample_id: "Joshi_2026_Q11"
+material: "Ta"
+film_phase: "beta-Ta"
+substrate: "sapphire"
+notes: >
+  Same film as Qubit 2 (Films F15/F16, ~260nm beta-Ta on c-plane sapphire).
+  Highest frequency and lowest Q of all 11 qubits.
+  Paper notes: "qubit with highest frequency of 5.80 GHz has lowest Q of
+  (1.5±0.2)×10^6, suggesting frequency-dependent qubit quality factor."
+  Purcell effect ruled out (on-chip Purcell filter, T1_Purcell > 5ms).
+  Possible cause: radiative coupling to spurious package modes.
+  Non-OCS (EJ/EC=122) — T2_E < T1 suggests additional dephasing despite
+  being deep in transmon regime.
+
+measured:
+  T1_us:
+    value: 40.0
+    provenance: MEASURED
+    notes: "Time-averaged T1 over 768 measurements. Table S3."
+  T2_us:
+    value: 78.0
+    provenance: MEASURED
+    measurement_method: echo
+    notes: "Time-averaged T2_E. Table S3."
+
+device:
+  f_qubit_GHz:
+    value: 5.804
+    provenance: MEASURED
+    notes: "Table S2. Highest frequency of all 11 qubits."
+  f_resonator_GHz:
+    value: 7.919
+    provenance: MEASURED
+    notes: "Table S2."
+  EJ_over_EC:
+    value: 122
+    provenance: MEASURED
+    notes: "Deepest transmon regime. Table S2."
+  EC_MHz:
+    value: 192
+    provenance: MEASURED
+    notes: "Table S2."
+
+materials:
+  Q_TLS_0:
+    value: null
+    provenance: null
+    notes: "Not independently measured — use tan_delta_effective_surface."
+  Qi:
+    value: null
+    provenance: null
+  Tc_K:
+    value: 0.7
+    provenance: MEASURED
+    notes: "Same film as Qubit 2. Figure 1c."
+  RRR:
+    value: 1.02
+    provenance: MEASURED
+    notes: "Same film. Section S1."
+  resistivity_normal_uOhm_cm:
+    value: 180.0
+    provenance: MEASURED
+    notes: "Same film. Section S1."
+  mean_free_path_nm:
+    value: null
+    provenance: DERIVED
+    notes: "l < 1nm (deep dirty limit). Same film as Qubit 2."
+
+surface_participation:
+  p_MS_resonator:
+    value: 8.63e-4
+    provenance: MEASURED
+    notes: "Same resonator geometry. Table S4."
+  p_MS_pad:
+    value: 1.3e-4
+    provenance: MEASURED
+    notes: "Same qubit pad design. Joshi 2026 main text."
+
+interfaces:
+  tan_delta_effective_surface:
+    value: 1.6e-3
+    provenance: MEASURED
+    notes: "Same film — tan_delta from 71-resonator fit. Figure 3b."
+  tan_delta_MS:
+    value: null
+  tan_delta_SA:
+    value: null
+  tan_delta_MA:
+    value: null
+  tan_delta_bulk:
+    value: null
+
+geometry:
+  p_pad:
+    value: null
+  p_junction:
+    value: null
+
+junction:
+  material: "Al/AlOx/Al"
+  junction_Tc_K:
+    value: 1.2
+    provenance: CLASS_DEFAULT
+    notes: "Al junction Tc."
+  tan_delta_junction:
+    value: null
+    notes: "Not reported. Falls back to CLASS_DEFAULT."

@@ -20,7 +20,7 @@ A modular, staged pipeline for quantum resource estimation and materials charact
 
 **Materials Predictor** — similarity search is operational (hybrid scoring: 75% semantic profile + 25% numeric field distance). Gaussian process regression not yet built.
 
-**Materials-to-Device Mapping Layer** — bridges material properties (Tc, RRR, Qi, loss tangent) to device parameters (T1, gate fidelity) for samples without direct device measurements. Designed, not yet fully built. First approved mining findings now provide initial entries.
+**Materials-to-Device Mapping Layer** — bridges material properties (Tc, RRR, Qi, loss tangent) to device parameters (T1, gate fidelity) for samples without direct device measurements. Stage C complete (May 2026): `t1_decomposition.py` integrated into Baby QREM — T1 channel breakdown (pad TLS, junction TLS, QP, radiation) computed for every estimate.
 
 ---
 
@@ -44,6 +44,7 @@ pip install qiskit networkx pyyaml anthropic
     circuit_ir.py                     ← Internal circuit representation
     analyzer.py                       ← Stage 2: interaction graph, circuit depth
     estimator.py                      ← Stage 3: materials-first estimation (Tier 1)
+    t1_decomposition.py               ← Stage 4: T1 loss channel decomposition (pad TLS, junction, QP, radiation)
     estimator_tier2_modular.py        ← Tier 2 modular functions (preserved, not active)
     profile_loader.py                 ← Profile loader: qubits + QEC
     hardware_profiles/
@@ -282,26 +283,9 @@ Every ingested record starts with `human_reviewed: false` and `human_approved: f
 
 ---
 
-## Current Corpus State (May 11, 2026)
+## Current Corpus State
 
-| Metric | Value |
-|---|---|
-| Papers processed | 115 |
-| Papers ingested | ~57 |
-| Skip rate | ~44% |
-| Samples extracted | 158 |
-| Catchall items | ~1,378 |
-| Author-stated correlations | 41 |
-| Similarity profiles | 158 (100%) |
-| Coverage: Tc | 39% |
-| Coverage: RRR | 20% |
-| Coverage: Qi | 17% |
-| Coverage: T1 | 13% |
-
-**Material breakdown:** Ta (35), other (27), Al (16), unknown (13), NbSe2 (12), Re (12), Ta-Hf (12), PtSi (11), Mo3Al2C (5), NbN (5), TaN (2), Nb (1)
-
-**Mining results:** 19 sufficient evidence tables (global + per-material-class). 1 positive finding: Tc vs deposition temperature in Ta-Hf (83:17), confidence 0.72. Remaining findings inconclusive — expected at current corpus size.
-
+See the Explorer header at https://c2qa-materials-explorer.onrender.com for live corpus counts and material breakdown.
 
 ---
 
@@ -350,13 +334,13 @@ Every ingested record starts with `human_reviewed: false` and `human_approved: f
 
 ## Specification Documents
 
-Full design rationale, interface contracts, and implementation details:
+Full design rationale, interface contracts, and implementation details are in the `docs/` directory:
 
-- `quantum_resource_estimator_spec_v09.md` — Baby QREM pipeline architecture, materials-first estimation model, tiered fallback hierarchy, hardware profiles, development sequence
-- `publications_ingester_spec_v08.md` — ingester design, three-pass pipeline, corpus mining architecture, per-material stratification, schema evolution
-- `materials_characterization_schema_v08.md` — six-block schema, all fields, similarity profile vocabulary, governance, schema evolution process
-- `qrem_scientific_vision.md` — the three modes of materials-to-device connection (direct measurement, known physics, corpus-discovered), scientific rationale for the pipeline architecture
-- `project_continuity_may11.md` — current development state, next coding priorities, running the full system
+- `quantum_resource_estimator_spec` — Baby QREM pipeline architecture
+- `publications_ingester_spec` — ingester design, three-pass pipeline, corpus mining
+- `materials_characterization_schema` — six-block schema, all fields, similarity profile vocabulary
+- `project_continuity` — current development state and next coding priorities
+
 
 ---
 

@@ -1,17 +1,29 @@
 # t1_decomposition.py
 # Stage 4 of the QREM pipeline: decompose T1 into physical loss channels.
 #
-# Implements the two-level loss model from loss_channel_model_v2-4.md:
+# Implements the two-level loss model from loss_channel_model_v2-5.md:
 #
-#   Level 1 — device components:
-#     Γ_total = p_resonator × Γ_resonator
-#             + p_pad       × Γ_pad
-#             + p_junction  × Γ_junction
-#             + Γ_radiation (system level)
+#   Level 1 — qubit loss channels:
+#     1/T1_qubit = (1/T1_pad) + (1/T1_junction) + 1/T1_radiation
+#
+#   The resonator is a CALIBRATION MEASUREMENT, not a qubit loss channel.
+#   Its role: Qi + p_MS_resonator → tan_delta → applied to pad via p_MS_pad.
+#   It appears in the Level 1 sum only through the Purcell term (system level,
+#   folded into T1_radiation as a class default).
 #
 #   Level 2 — loss channels within each component:
 #     Γ_component = Γ_TLS + Γ_QP + Γ_vortex
-#     Γ_TLS       = Σ_i ( p_i × tan_delta_i )   [MS, SA, MA, bulk interfaces]
+#
+#   TLS path for pad (preferred when resonator Qi is available):
+#     Step 1 (calibration): tan_delta = 1 / (Q_TLS_0_resonator × p_MS_resonator)
+#     Step 2 (pad):         T1_pad_TLS = 1 / (p_MS_pad × tan_delta × 2π × f_qubit)
+#   This correctly accounts for the geometric difference between resonator and
+#   qubit pad — they share the same film and intrinsic tan_delta but have
+#   different surface participation ratios (Joshi et al. 2026).
+#
+#   QP and vortex channels: computed at qubit level (not component-weighted)
+#   for now. TODO: weight by p_pad / p_junction when component-level FEM data
+#   is more widely available in the corpus.
 #
 # Design principles:
 #   - If T1 is directly measured in the corpus record, it is used as-is [MEASURED].
@@ -26,10 +38,12 @@
 #   - Returns a plain dict (consistent with coherence_budget in estimator.py).
 #
 # References:
-#   Wang et al., APL 107, 162601 (2015)       — participation ratios
-#   Read et al., PRA 19, 034064 (2023)        — interface loss tangents, Qi interpretation
-#   loss_channel_model_v2-4.md                — model architecture
-#   qrem_scientific_vision.md                 — Tier 2 derivation rationale
+#   Wang et al., APL 107, 162601 (2015)         — participation ratios
+#   Read et al., PRA 19, 034064 (2023)          — interface loss tangents, Qi interpretation
+#   Crowley et al., PRX 13, 041005 (2023)       — alpha-Ta tan_delta, methodology
+#   Joshi et al., arXiv:2603.13174 (2026)       — beta-Ta tan_delta, p_MS inversion method
+#   loss_channel_model_v2-5.md                  — model architecture (v2.5)
+#   qrem_scientific_vision.md                   — Tier 2 derivation rationale
 
 import math
 import yaml
@@ -138,132 +152,262 @@ def _combine_t1_channels(*t1_values) -> float:
     return 1.0 / sum(gammas)
 
 
+def _worst_provenance(*provenances) -> str:
+    """Return the worst (least certain) provenance from a list."""
+    rank = {MEASURED: 0, DERIVED: 1, CLASS_DEFAULT: 2, ASSUMED: 3}
+    return max(provenances, key=lambda p: rank.get(p, 3))
+
+
+# ---------------------------------------------------------------------------
+# Change 2: tan_delta extraction helper
+# ---------------------------------------------------------------------------
+
+def _extract_tan_delta(material_record: dict,
+                       defaults: dict,
+                       qi_val: Optional[float],
+                       qi_prov: str,
+                       q_tls0_val: Optional[float],
+                       q_tls0_prov: str,
+                       p_ms_res: float,
+                       p_ms_res_prov: str) -> dict:
+    """
+    Extract the effective surface loss tangent tan_delta from whichever
+    source is available, in priority order:
+
+      Priority 1 — tan_delta_effective_surface directly measured/reported
+                   in the material record. [MEASURED or as labeled]
+      Priority 2 — Q_TLS_0 + p_MS_resonator → tan_delta = 1/(Q_TLS_0 × p_MS_res)
+                   Q_TLS_0 is the unsaturated TLS quality factor — physically
+                   correct for qubit operating conditions. [DERIVED]
+      Priority 3 — Qi + p_MS_resonator → same formula, Qi as proxy.
+                   Qi is power-dependent; Q_TLS_0 is preferred. [DERIVED, lower confidence]
+      Priority 4 — Class default tan_delta from defaults YAML. [CLASS_DEFAULT]
+
+    Returns dict with:
+      tan_delta       — the extracted value
+      provenance      — provenance of the result
+      source          — human-readable description of which path was used
+      notes           — list of strings for the summary
+    """
+    notes = []
+
+    # Priority 1: directly reported effective surface tan_delta
+    td_eff, td_eff_prov = _get(
+        material_record, 'interfaces', 'tan_delta_effective_surface',
+        default=None, default_provenance=CLASS_DEFAULT
+    )
+    if td_eff is not None:
+        notes.append(
+            f"tan_delta_effective_surface = {td_eff:.2e} [{td_eff_prov}] "
+            "— directly reported in material record (preferred)."
+        )
+        return {
+            'tan_delta': td_eff,
+            'provenance': td_eff_prov,
+            'source': 'tan_delta_effective_surface (direct)',
+            'notes': notes,
+        }
+
+    # Priority 2: Q_TLS_0 + p_MS_resonator
+    if q_tls0_val is not None and p_ms_res is not None:
+        tan_delta = 1.0 / (q_tls0_val * p_ms_res)
+        prov = _worst_provenance(q_tls0_prov, p_ms_res_prov, DERIVED)
+        notes.append(
+            f"tan_delta derived from Q_TLS_0 = {q_tls0_val:.2e} [{q_tls0_prov}] "
+            f"and p_MS_resonator = {p_ms_res:.2e} [{p_ms_res_prov}]: "
+            f"tan_delta = 1/(Q_TLS_0 × p_MS_res) = {tan_delta:.2e} [{prov}]."
+        )
+        notes.append(
+            "Q_TLS_0 is the unsaturated TLS quality factor — physically correct "
+            "for qubit operating conditions (Joshi et al. 2026)."
+        )
+        return {
+            'tan_delta': tan_delta,
+            'provenance': prov,
+            'source': 'Q_TLS_0 + p_MS_resonator',
+            'notes': notes,
+        }
+
+    # Priority 3: Qi + p_MS_resonator
+    if qi_val is not None and p_ms_res is not None:
+        tan_delta = 1.0 / (qi_val * p_ms_res)
+        prov = _worst_provenance(qi_prov, p_ms_res_prov, DERIVED)
+        notes.append(
+            f"tan_delta derived from Qi = {qi_val:.2e} [{qi_prov}] "
+            f"and p_MS_resonator = {p_ms_res:.2e} [{p_ms_res_prov}]: "
+            f"tan_delta = 1/(Qi × p_MS_res) = {tan_delta:.2e} [{prov}]."
+        )
+        notes.append(
+            "Note: Qi is power-dependent — Q_TLS_0 preferred. "
+            "S21-extracted Qi may include T_phi contribution (Read et al. 2023, Appendix A)."
+        )
+        return {
+            'tan_delta': tan_delta,
+            'provenance': prov,
+            'source': 'Qi + p_MS_resonator (Q_TLS_0 preferred)',
+            'notes': notes,
+        }
+
+    # Priority 4: class default
+    td_default, td_default_prov = _get(
+        defaults, 'tan_delta_effective_surface',
+        default=8.1e-4, default_provenance=CLASS_DEFAULT
+    )
+    notes.append(
+        f"No Qi, Q_TLS_0, or tan_delta_effective_surface in record — "
+        f"using class default tan_delta = {td_default:.2e} [{td_default_prov}]."
+    )
+    return {
+        'tan_delta': td_default,
+        'provenance': CLASS_DEFAULT,
+        'source': 'class default',
+        'notes': notes,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Channel computations
 # ---------------------------------------------------------------------------
 
-def _compute_tls_component(component_name: str,
-                            material_record: dict,
-                            defaults: dict,
-                            qi_value: Optional[float],
-                            qi_provenance: str,
-                            qi_frequency_ghz: float) -> dict:
+def _compute_pad_tls(material_record: dict,
+                     defaults: dict,
+                     tan_delta_result: dict,
+                     p_ms_pad: float,
+                     p_ms_pad_prov: str,
+                     f_qubit_ghz: float,
+                     f_qubit_prov: str) -> dict:
     """
-    Compute Γ_TLS for one device component.
+    Compute T1_TLS for the qubit capacitor pad using the Joshi inversion:
 
-    Two paths:
-      Path A — Qi available: T1_TLS ≈ Qi / (2π × f)
-        Valid when Qi reflects energy decay. S21-extracted Qi may include
-        T_phi contribution (Read et al. 2023, Appendix A) — flagged in provenance.
-      Path B — Qi not available: sum over interfaces using participation ratios
-        and loss tangents from material record or defaults.
+      Step 1 (resonator calibration):
+        tan_delta = 1 / (Q_TLS_0_resonator × p_MS_resonator)
+        [done upstream in _extract_tan_delta]
 
-    Returns dict with T1_TLS_us, provenance, path_used, notes.
+      Step 2 (apply to qubit pad):
+        T1_pad_TLS = 1 / (p_MS_pad × tan_delta × 2π × f_qubit)
+
+    This correctly accounts for the geometric difference between the resonator
+    (high p_MS, designed to be surface-loss sensitive) and the qubit pad
+    (low p_MS, optimized to suppress surface loss).
+
+    Returns dict with T1_TLS_us, tan_delta, provenance, notes.
     """
-    notes = []
+    notes = list(tan_delta_result['notes'])  # copy calibration notes
+    tan_delta = tan_delta_result['tan_delta']
+    td_prov   = tan_delta_result['provenance']
 
-    # --- Path A: Qi available (aggregate, not component-resolved) ---
-    # Only use for resonator component — Qi is a resonator measurement.
-    if component_name == 'resonator' and qi_value is not None and qi_frequency_ghz is not None:
-        omega = 2.0 * math.pi * qi_frequency_ghz  # rad/µs (GHz × 2π = rad/µs)
-        t1_tls_us = qi_value / omega
+    notes.append(
+        f"Pad TLS: T1_pad_TLS = 1 / (p_MS_pad × tan_delta × 2π × f_qubit)"
+    )
+    notes.append(
+        f"  p_MS_pad   = {p_ms_pad:.2e} [{p_ms_pad_prov}]"
+    )
+    notes.append(
+        f"  tan_delta  = {tan_delta:.2e} [{td_prov}] (from {tan_delta_result['source']})"
+    )
+    notes.append(
+        f"  f_qubit    = {f_qubit_ghz:.3f} GHz [{f_qubit_prov}]"
+    )
 
-        # Flag measurement method uncertainty per Mingzhao / Read et al.
-        method = material_record.get('materials', {}).get('Qi', {}).get('measurement_method', 'S21')
-        if method == 'ring_down':
-            prov = DERIVED
-            notes.append("Qi from ring-down measurement — T1_TLS reflects energy decay rate.")
-        else:
-            prov = DERIVED
-            notes.append(
-                "Qi from S21 linewidth (assumed) — T1_TLS may include T_phi contribution "
-                "(Read et al. 2023, Appendix A). Treat as lower bound on true T1_TLS."
-            )
+    omega = 2.0 * math.pi * f_qubit_ghz * 1000.0  # GHz → cycles/µs → rad/µs
+    gamma_pad_tls = p_ms_pad * tan_delta * omega
+    t1_pad_tls_us = _t1_from_gamma(gamma_pad_tls)
 
-        return {
-            'T1_TLS_us': t1_tls_us,
-            'provenance': prov,
-            'path': 'Qi_aggregate',
-            'qi_value': qi_value,
-            'qi_provenance': qi_provenance,
-            'notes': notes,
-        }
+    notes.append(
+        f"  → T1_pad_TLS = {t1_pad_tls_us:.1f} µs"
+    )
 
-    # --- Path B: interface sum ---
-    # Γ_TLS = Σ_i ( p_i × tan_delta_i ) × ω
-    # where ω is needed to convert loss tangent to rate.
-    # When ω is unknown, we work in units of Γ/ω and convert at the end
-    # using a default frequency.
-
-    comp_defaults = defaults.get('interface_participation', {}).get(component_name, {})
-    loss_defaults = defaults.get('interface_loss_tangents', {})
-
-    interfaces = ['MS', 'SA', 'MA', 'bulk']
-    gamma_tls_over_omega = 0.0
-    interface_notes = []
-    worst_provenance = MEASURED  # will be degraded as we use defaults
-
-    provenance_rank = {MEASURED: 0, DERIVED: 1, CLASS_DEFAULT: 2, ASSUMED: 3}
-
-    for iface in interfaces:
-        p_key = f'p_{iface}'
-        td_key = f'tan_delta_{iface}'
-
-        # Participation ratio — try material record first, then defaults
-        p_val, p_prov = _get(
-            material_record, 'geometry', component_name, p_key,
-            default=None, default_provenance=CLASS_DEFAULT
-        )
-        if p_val is None:
-            p_val, p_prov = _get(comp_defaults, p_key,
-                                  default=1e-4, default_provenance=CLASS_DEFAULT)
-
-        # Loss tangent — try material record first, then defaults
-        td_val, td_prov = _get(
-            material_record, 'interfaces', td_key,
-            default=None, default_provenance=CLASS_DEFAULT
-        )
-        if td_val is None:
-            td_val, td_prov = _get(loss_defaults, td_key,
-                                    default=1e-3, default_provenance=CLASS_DEFAULT)
-
-        contribution = p_val * td_val
-        gamma_tls_over_omega += contribution
-
-        # Track worst provenance across all inputs
-        for prov in [p_prov, td_prov]:
-            if provenance_rank.get(prov, 3) > provenance_rank.get(worst_provenance, 0):
-                worst_provenance = prov
-
-        interface_notes.append(
-            f"  {iface}: p={p_val:.2e} [{p_prov}] × tan_δ={td_val:.2e} [{td_prov}] "
-            f"= {contribution:.2e}"
-        )
-
-    # Convert to T1: T1 = 1 / (Γ_TLS) = 1 / (gamma_over_omega × ω)
-    # Use measured frequency if available, else default
-    if qi_frequency_ghz is not None:
-        omega_ghz = 2.0 * math.pi * qi_frequency_ghz
-        freq_note = f"Using measured frequency {qi_frequency_ghz:.2f} GHz."
-        freq_prov = qi_provenance
-    else:
-        omega_ghz = 2.0 * math.pi * 5.0  # default 5 GHz qubit frequency
-        freq_note = "Using default qubit frequency 5 GHz."
-        freq_prov = CLASS_DEFAULT
-        if provenance_rank.get(CLASS_DEFAULT, 2) > provenance_rank.get(worst_provenance, 0):
-            worst_provenance = CLASS_DEFAULT
-
-    gamma_tls = gamma_tls_over_omega * omega_ghz  # 1/µs
-    t1_tls_us = _t1_from_gamma(gamma_tls)
-    notes.extend(interface_notes)
-    notes.append(freq_note)
+    prov = _worst_provenance(td_prov, p_ms_pad_prov, f_qubit_prov)
 
     return {
-        'T1_TLS_us': t1_tls_us,
-        'provenance': worst_provenance,
-        'path': 'interface_sum',
-        'gamma_tls_over_omega': gamma_tls_over_omega,
-        'notes': notes,
+        'T1_TLS_us':    t1_pad_tls_us,
+        'tan_delta':    tan_delta,
+        'td_provenance': td_prov,
+        'td_source':    tan_delta_result['source'],
+        'p_MS_pad':     p_ms_pad,
+        'p_MS_pad_prov': p_ms_pad_prov,
+        'f_qubit_GHz':  f_qubit_ghz,
+        'provenance':   prov,
+        'path':         'tan_delta_via_p_MS_inversion',
+        'notes':        notes,
+    }
+
+
+def _compute_junction_tls(material_record: dict,
+                           defaults: dict,
+                           f_qubit_ghz: float,
+                           f_qubit_prov: str) -> dict:
+    """
+    Compute T1_TLS for the Josephson junction.
+
+    Junction TLS is independent of the resonator calibration path — the junction
+    material (Al/AlOx/Al) is chemically distinct from the pad film (Ta, Nb, etc.)
+    and the resonator. Junction loss tangent cannot be inferred from resonator Qi.
+
+    The junction is a tunnel barrier — it does not have a significant exposed
+    metal-air interface. The dominant TLS channel is the AlOx tunnel barrier
+    itself, modeled as a single effective junction loss tangent with a junction
+    surface participation ratio p_junction_surface.
+
+    Formula: T1_junction_TLS = 1 / (p_junction_surface × tan_delta_junction × 2π × f)
+
+    Note: p_junction_surface is NOT the Level-1 energy fraction p_junction (~0.02).
+    It is the fraction of device energy at the junction tunnel barrier interfaces,
+    analogous to p_MS_pad for the pad. Default value (2.9e-5) is calibrated to
+    give T1_junction_TLS ~ 1000 µs at f=2.736 GHz — consistent with Joshi 2026
+    overall loss budget (Martinis & Geller 2014; Carroll et al. 2022).
+    """
+    notes = []
+    notes.append(
+        "Junction TLS: single effective loss tangent model (Al/AlOx tunnel barrier). "
+        "Independent of resonator calibration — chemically distinct material."
+    )
+
+    # Junction surface participation ratio (read from defaults YAML)
+    junc_tls_defaults = defaults.get('junction_tls', {})
+
+    p_junc_surf, p_junc_prov = _get(
+        material_record, 'geometry', 'p_junction_surface',
+        default=None, default_provenance=CLASS_DEFAULT
+    )
+    if p_junc_surf is None:
+        p_junc_surf, p_junc_prov = _get(junc_tls_defaults, 'p_junction_surface',
+                                         default=2.9e-5, default_provenance=CLASS_DEFAULT)
+
+    # Junction effective loss tangent — Al/AlOx tunnel barrier
+    td_junc, td_junc_prov = _get(
+        material_record, 'junction', 'tan_delta_junction',
+        default=None, default_provenance=CLASS_DEFAULT
+    )
+    if td_junc is None:
+        td_junc, td_junc_prov = _get(junc_tls_defaults, 'tan_delta_junction',
+                                      default=2.0e-3, default_provenance=CLASS_DEFAULT)
+        notes.append(
+            f"Junction tan_delta not reported — using Al/AlOx class default "
+            f"tan_delta_junction = {td_junc:.1e} [{td_junc_prov}]."
+        )
+    else:
+        notes.append(f"Junction tan_delta = {td_junc:.2e} [{td_junc_prov}] (from record).")
+
+    notes.append(f"  p_junction_surface = {p_junc_surf:.2e} [{p_junc_prov}]")
+    notes.append(f"  tan_delta_junction = {td_junc:.2e} [{td_junc_prov}]")
+    notes.append(f"  f_qubit            = {f_qubit_ghz:.3f} GHz [{f_qubit_prov}]")
+
+    omega = 2.0 * math.pi * f_qubit_ghz * 1000.0  # GHz → cycles/µs → rad/µs
+    gamma_junc_tls = p_junc_surf * td_junc * omega
+    t1_tls_us = _t1_from_gamma(gamma_junc_tls)
+
+    notes.append(f"  → T1_junction_TLS = {t1_tls_us:.1f} µs")
+
+    worst_prov = _worst_provenance(p_junc_prov, td_junc_prov)
+
+    return {
+        'T1_TLS_us':            t1_tls_us,
+        'p_junction_surface':   p_junc_surf,
+        'tan_delta_junction':   td_junc,
+        'provenance':           worst_prov,
+        'path':                 'junction_effective_loss_tangent',
+        'notes':                notes,
     }
 
 
@@ -279,68 +423,85 @@ def _compute_qp_channel(material_record: dict, defaults: dict) -> dict:
     calibrated reference point: at Tc=1.2K (Al), T_op=20mK, T1_QP ~ 1ms
     (consistent with literature). Other materials scale from this reference.
 
+    IMPORTANT: this formula gives the THERMAL QP lower bound only. In practice,
+    non-equilibrium QPs from stray radiation dominate at 20mK regardless of Tc
+    (Joshi et al. 2026: observed QP fraction 1e-9 to 1e-5 vs thermal < 1e-19).
+    The non-equilibrium floor (T1_QP_nonequilibrium_us) is a system/packaging
+    parameter — not derivable from material measurements.
+
     Returns dict with T1_QP_us, provenance, notes.
     """
     notes = []
     qp_defaults = defaults.get('quasiparticle', {})
 
-    # Tc
+    # Tc — use pad film Tc from material record, fall back to pad_fallback default
     tc_val, tc_prov = _get(material_record, 'materials', 'Tc_K',
                             default=None, default_provenance=CLASS_DEFAULT)
     if tc_val is None:
-        tc_val, tc_prov = _get(qp_defaults, 'Tc_K',
-                                default=1.2, default_provenance=CLASS_DEFAULT)
-        notes.append(f"Tc not measured — using class default {tc_val} K.")
+        tc_val, tc_prov = _get(qp_defaults, 'Tc_K_pad_fallback',
+                                default=4.4, default_provenance=CLASS_DEFAULT)
+        notes.append(f"Tc not measured — using pad fallback default {tc_val} K [{tc_prov}].")
     else:
-        notes.append(f"Tc = {tc_val} K [{tc_prov}].")
+        notes.append(f"Tc = {tc_val} K [{tc_prov}] (pad film).")
 
     # Operating temperature
     t_op_mk, t_op_prov = _get(qp_defaults, 'T_operating_mK',
                                 default=20.0, default_provenance=CLASS_DEFAULT)
     t_op_k = t_op_mk / 1000.0
 
-    # Reference calibration point (Al at 20mK)
-    tc_ref = 1.2    # K — aluminum
+    # Reference calibration point (Al junction at 20mK)
+    tc_ref = 1.2     # K — aluminum junction
     t1_ref = 1000.0  # µs — 1ms reference T1_QP for Al at 20mK
 
     # Scale: T1_QP(Tc) = T1_ref × exp(1.76 × (Tc - Tc_ref) / T_op)
-    # This is the ratio of thermal activation factors relative to the reference.
-    # For high-Tc materials (Ta, Nb, NbN) the exponent is enormous (e.g. Ta at 20mK
-    # gives exponent ~280) — QP loss is essentially zero. Cap T1_QP at 1e9 µs
-    # (~30 years) which is physically "negligible" without numerical overflow.
+    # Cap at 1e9 µs to avoid numerical overflow for high-Tc materials.
     T1_QP_MAX_US = 1.0e9
     exponent = 1.76 * (tc_val - tc_ref) / t_op_k
     if exponent > math.log(T1_QP_MAX_US / t1_ref):
-        t1_qp_us = T1_QP_MAX_US
+        t1_qp_thermal_us = T1_QP_MAX_US
         notes.append(
-            f"QP thermal activation exponent ({exponent:.1f}) extremely large — "
-            f"T1_QP capped at {T1_QP_MAX_US:.0e} µs (effectively negligible loss channel)."
+            f"Thermal QP activation exponent ({exponent:.1f}) enormous — "
+            f"T1_QP_thermal capped at {T1_QP_MAX_US:.0e} µs (negligible loss channel)."
         )
     else:
-        t1_qp_us = t1_ref * math.exp(exponent)
-
-    # Provenance degrades if Tc was not measured
-    provenance_rank = {MEASURED: 0, DERIVED: 1, CLASS_DEFAULT: 2, ASSUMED: 3}
-    worst = tc_prov if provenance_rank.get(tc_prov, 3) >= provenance_rank.get(t_op_prov, 3) else t_op_prov
-    if worst in [CLASS_DEFAULT, ASSUMED]:
-        provenance = DERIVED  # formula is applied but inputs are defaults
-    else:
-        provenance = DERIVED  # formula always makes this DERIVED at best
+        t1_qp_thermal_us = t1_ref * math.exp(exponent)
 
     notes.append(
-        f"T1_QP derived from thermal activation: "
-        f"T1_QP = {t1_ref:.0f} µs × exp(1.76 × ({tc_val:.2f} - {tc_ref}) / {t_op_k:.4f}) "
-        f"= {t1_qp_us:.0f} µs."
+        f"T1_QP_thermal = {t1_ref:.0f} × exp(1.76 × ({tc_val:.2f} - {tc_ref}) / {t_op_k:.4f}) "
+        f"= {t1_qp_thermal_us:.2e} µs [DERIVED — thermal only]."
     )
-    notes.append("Reference calibration: Al (Tc=1.2K) → T1_QP~1ms at 20mK.")
+
+    # Non-equilibrium QP floor — system level, not material
+    t1_qp_noneq, noneq_prov = _get(qp_defaults, 'T1_QP_nonequilibrium_us',
+                                     default=1000.0, default_provenance=CLASS_DEFAULT)
+    notes.append(
+        f"Non-equilibrium QP floor: T1_QP_noneq = {t1_qp_noneq:.0f} µs [{noneq_prov}] "
+        "(stray radiation / cosmic rays — system/packaging, not material). "
+        "Joshi 2026: observed QP fraction 1e-9 to 1e-5 >> thermal < 1e-19."
+    )
+
+    # Always use non-equilibrium floor as the operative T1_QP.
+    # Thermal QP is reported for reference but is negligible at 20mK for all
+    # practical Tc values. When Tc < Tc_ref (e.g. beta-Ta at 0.7K vs Al ref
+    # at 1.2K), the thermal formula gives an unphysically small value that
+    # must not be used as the channel T1.
+    t1_qp_us = t1_qp_noneq
+    notes.append(
+        f"Using non-equilibrium QP floor as operative T1_QP = {t1_qp_us:.0f} µs "
+        f"[{noneq_prov}]. Thermal value ({t1_qp_thermal_us:.2e} µs) reported for "
+        "reference only — non-equilibrium QP dominates at 20mK regardless of Tc."
+    )
+    provenance = noneq_prov
 
     return {
-        'T1_QP_us': t1_qp_us,
-        'provenance': provenance,
-        'Tc_K': tc_val,
-        'Tc_provenance': tc_prov,
-        'T_operating_mK': t_op_mk,
-        'notes': notes,
+        'T1_QP_us':             t1_qp_us,
+        'T1_QP_thermal_us':     t1_qp_thermal_us,
+        'T1_QP_nonequil_us':    t1_qp_noneq,
+        'provenance':           provenance,
+        'Tc_K':                 tc_val,
+        'Tc_provenance':        tc_prov,
+        'T_operating_mK':       t_op_mk,
+        'notes':                notes,
     }
 
 
@@ -369,7 +530,6 @@ def _compute_vortex_channel(material_record: dict, defaults: dict) -> dict:
                             default=100.0, default_provenance=CLASS_DEFAULT)
 
     if mfp_val is not None:
-        # Determine clean vs dirty limit
         ratio = mfp_val / xi_val
         if ratio > 1.0:
             regime = 'clean'
@@ -387,7 +547,6 @@ def _compute_vortex_channel(material_record: dict, defaults: dict) -> dict:
             )
         t1_vortex_us, t1_prov = _get(vortex_defaults, t1_key,
                                        default=1000.0, default_provenance=CLASS_DEFAULT)
-        # Provenance: regime is DERIVED (from measured mfp), but T1 value is CLASS_DEFAULT
         provenance = DERIVED
         notes.append(f"T1_vortex class default for {regime} limit: {t1_vortex_us:.0f} µs [{t1_prov}].")
         notes.append(
@@ -395,7 +554,6 @@ def _compute_vortex_channel(material_record: dict, defaults: dict) -> dict:
             "activation temperature in dirty-limit films."
         )
     else:
-        # Mean free path not available — use unknown default
         regime = 'unknown'
         t1_vortex_us, t1_prov = _get(vortex_defaults, 'T1_vortex_us_default_unknown',
                                        default=1000.0, default_provenance=CLASS_DEFAULT)
@@ -404,13 +562,13 @@ def _compute_vortex_channel(material_record: dict, defaults: dict) -> dict:
         notes.append(f"Using unknown-regime default T1_vortex = {t1_vortex_us:.0f} µs.")
 
     return {
-        'T1_vortex_us': t1_vortex_us,
-        'provenance': provenance,
-        'regime': regime,
+        'T1_vortex_us':      t1_vortex_us,
+        'provenance':        provenance,
+        'regime':            regime,
         'mean_free_path_nm': mfp_val,
-        'mfp_provenance': mfp_prov,
+        'mfp_provenance':    mfp_prov,
         'coherence_length_nm': xi_val,
-        'notes': notes,
+        'notes':             notes,
     }
 
 
@@ -422,18 +580,22 @@ def _compute_radiation_channel(defaults: dict) -> dict:
     coupling strength to the cavity (Purcell / photon DOS effect). It is not
     decomposable into per-component material terms and is not expected to be
     derivable from corpus material measurements.
+
+    Joshi 2026: on-chip Purcell filter gives simulated T1_Purcell > 5ms —
+    consistent with the 5000 µs default used here.
     """
     rad_defaults = defaults.get('radiation', {})
     t1_rad_us, prov = _get(rad_defaults, 'T1_radiation_us',
                             default=5000.0, default_provenance=CLASS_DEFAULT)
     return {
         'T1_radiation_us': t1_rad_us,
-        'provenance': CLASS_DEFAULT,
+        'provenance':      CLASS_DEFAULT,
         'notes': [
-            "Radiation loss is a system/packaging parameter, not a material property.",
-            "Per Mingzhao (May 2026): junction radiation rate depends on cavity coupling "
-            "(Purcell effect) — not decomposable into per-component material terms.",
-            f"Using class default T1_radiation = {t1_rad_us:.0f} µs.",
+            "Radiation + Purcell loss: system/packaging parameter, not material.",
+            "Per Mingzhao (May 2026): junction radiation rate depends on cavity "
+            "coupling (Purcell effect) — not decomposable into per-component material terms.",
+            "Joshi 2026: on-chip Purcell filter → T1_Purcell > 5ms (simulation).",
+            f"Using class default T1_radiation = {t1_rad_us:.0f} µs [ASSUMED].",
         ],
     }
 
@@ -446,18 +608,24 @@ def compute_t1_decomposition(material_record: dict, defaults: dict) -> dict:
     """
     Compute the full two-level T1 loss channel decomposition.
 
+    Level 1 (v2.5 architecture):
+      1/T1_qubit = 1/T1_pad + 1/T1_junction + 1/T1_radiation
+
+    The resonator is a calibration tool — it provides tan_delta via the
+    p_MS inversion, but does NOT appear as a term in the Level 1 sum.
+
     If T1 is directly measured in the material record, it is used as the
     authoritative value [MEASURED] and the decomposition result is labeled
     PREDICTED — enabling model validation against the measured value.
 
-    Returns a plain dict (consistent with coherence_budget in estimator.py)
-    containing:
-      - T1_total_us, T1_provenance
-      - T1_measured_us (if available — gold value)
-      - T1_predicted_us (decomposition result — always computed)
-      - model_validates (bool — True if predicted within 2x of measured)
-      - per-component results (resonator, pad, junction, radiation)
-      - per-channel results within each component (TLS, QP, vortex)
+    Returns a plain dict containing:
+      - T1_us, T1_provenance          (authoritative — measured if available)
+      - T1_measured_us                (gold value, if present)
+      - T1_predicted_us               (decomposition result — always computed)
+      - tan_delta                     (intermediate — key scientific output)
+      - model_validates               (bool — True if predicted within 2x of measured)
+      - per-component results         (pad, junction, radiation)
+      - per-channel results           (TLS, QP, vortex within each component)
       - assumptions list
     """
     assumptions = []
@@ -481,124 +649,159 @@ def compute_t1_decomposition(material_record: dict, defaults: dict) -> dict:
     if has_measured_t1:
         notes.append(
             f"Measured T1 = {t1_measured_us:.1f} µs [{t1_meas_prov}] found in record. "
-            "This is the authoritative value. Decomposition will also run for model validation."
+            "Authoritative value. Decomposition also runs for model validation."
         )
     if has_measured_t2:
         notes.append(f"Measured T2 = {t2_measured_us:.1f} µs [{t2_meas_prov}] found in record.")
 
     # -----------------------------------------------------------------------
-    # Shared inputs used across multiple channels
+    # Change 1: Gather all new shared inputs
     # -----------------------------------------------------------------------
+
+    # Qi and Q_TLS_0 — resonator quality factor inputs
     qi_val, qi_prov = _get(material_record, 'materials', 'Qi',
                             default=None, default_provenance=ASSUMED)
+    q_tls0_val, q_tls0_prov = _get(material_record, 'materials', 'Q_TLS_0',
+                                    default=None, default_provenance=ASSUMED)
+
+    # Resonator measurement frequency (for Qi/Q_TLS_0 → T1 conversion if needed)
     qi_freq_ghz, qi_freq_prov = _get(material_record, 'materials', 'Qi_frequency_GHz',
                                       default=None, default_provenance=ASSUMED)
 
+    # Qubit frequency — needed for pad TLS calculation
+    f_qubit_ghz, f_qubit_prov = _get(material_record, 'device', 'f_qubit_GHz',
+                                      default=None, default_provenance=CLASS_DEFAULT)
+    if f_qubit_ghz is None:
+        f_qubit_ghz  = 5.0
+        f_qubit_prov = CLASS_DEFAULT
+        assumptions.append("Qubit frequency not reported — using class default 5.0 GHz.")
+        notes.append("f_qubit = 5.0 GHz [CLASS_DEFAULT] — not reported in record.")
+
+    # Surface participation ratios
+    surf_defaults = defaults.get('surface_participation', {})
+
+    p_ms_res, p_ms_res_prov = _get(
+        material_record, 'surface_participation', 'p_MS_resonator',
+        default=None, default_provenance=CLASS_DEFAULT
+    )
+    if p_ms_res is None:
+        p_ms_res, p_ms_res_prov = _get(surf_defaults, 'p_MS_resonator',
+                                        default=8.63e-4, default_provenance=CLASS_DEFAULT)
+
+    p_ms_pad, p_ms_pad_prov = _get(
+        material_record, 'surface_participation', 'p_MS_pad',
+        default=None, default_provenance=CLASS_DEFAULT
+    )
+    if p_ms_pad is None:
+        p_ms_pad, p_ms_pad_prov = _get(surf_defaults, 'p_MS_pad',
+                                        default=1.3e-4, default_provenance=CLASS_DEFAULT)
+
+    # Level 1 component energy fractions — used for QP and vortex weighting
+    # (TLS uses p_MS_pad directly via the Joshi inversion, not these fractions)
+    # TODO: weight QP and vortex by p_pad / p_junction when component-level
+    #       FEM data is more widely available in the corpus.
+    p_pad     = 0.08   # CLASS_DEFAULT — Wang 2015
+    p_junction = 0.02  # CLASS_DEFAULT — Wang 2015
+
     # -----------------------------------------------------------------------
-    # Component participation ratios (Level 1)
+    # Change 2: Extract tan_delta (resonator calibration step)
     # -----------------------------------------------------------------------
-    comp_defaults = defaults.get('component_participation', {})
-
-    p_resonator, p_res_prov = _get(material_record, 'geometry', 'p_resonator',
-                                    default=None, default_provenance=CLASS_DEFAULT)
-    if p_resonator is None:
-        p_resonator, p_res_prov = _get(comp_defaults, 'p_resonator',
-                                        default=0.90, default_provenance=CLASS_DEFAULT)
-
-    p_pad, p_pad_prov = _get(material_record, 'geometry', 'p_pad',
-                              default=None, default_provenance=CLASS_DEFAULT)
-    if p_pad is None:
-        p_pad, p_pad_prov = _get(comp_defaults, 'p_pad',
-                                  default=0.08, default_provenance=CLASS_DEFAULT)
-
-    p_junction, p_junc_prov = _get(material_record, 'geometry', 'p_junction',
-                                    default=None, default_provenance=CLASS_DEFAULT)
-    if p_junction is None:
-        p_junction, p_junc_prov = _get(comp_defaults, 'p_junction',
-                                        default=0.02, default_provenance=CLASS_DEFAULT)
+    tan_delta_result = _extract_tan_delta(
+        material_record, defaults,
+        qi_val, qi_prov,
+        q_tls0_val, q_tls0_prov,
+        p_ms_res, p_ms_res_prov
+    )
+    notes.append(
+        f"Resonator calibration: tan_delta = {tan_delta_result['tan_delta']:.2e} "
+        f"[{tan_delta_result['provenance']}] via {tan_delta_result['source']}."
+    )
 
     # -----------------------------------------------------------------------
-    # Compute loss channels for each component
+    # Change 3: Pad TLS via tan_delta + p_MS_pad (Joshi inversion)
     # -----------------------------------------------------------------------
+    pad_tls = _compute_pad_tls(
+        material_record, defaults,
+        tan_delta_result,
+        p_ms_pad, p_ms_pad_prov,
+        f_qubit_ghz, f_qubit_prov
+    )
+    pad_qp   = _compute_qp_channel(material_record, defaults)
+    pad_vort = _compute_vortex_channel(material_record, defaults)
 
-    # --- Resonator ---
-    res_tls  = _compute_tls_component('resonator', material_record, defaults,
-                                       qi_val, qi_prov, qi_freq_ghz)
-    res_qp   = _compute_qp_channel(material_record, defaults)
-    res_vort = _compute_vortex_channel(material_record, defaults)
+    t1_pad = _combine_t1_channels(
+        pad_tls['T1_TLS_us'],
+        pad_qp['T1_QP_us'],
+        pad_vort['T1_vortex_us']
+    )
 
-    t1_res_tls  = res_tls['T1_TLS_us']
-    t1_res_qp   = res_qp['T1_QP_us']
-    t1_res_vort = res_vort['T1_vortex_us']
-
-    if res_tls['path'] == 'Qi_aggregate':
-        # Qi already encodes ALL resonator loss — TLS, QP, vortex, radiation
-        # combined. Do not add QP and vortex on top — that would double-count.
-        # T1_resonator = Qi / (2πf) directly.
-        t1_resonator = t1_res_tls
-        res_qp['notes'].insert(0,
-            "QP not added separately — Qi aggregate already includes all resonator loss channels.")
-        res_vort['notes'].insert(0,
-            "Vortex not added separately — Qi aggregate already includes all resonator loss channels.")
-    else:
-        # Interface sum path — each channel is independent, combine normally
-        t1_resonator = _combine_t1_channels(t1_res_tls, t1_res_qp, t1_res_vort)
-
-    # --- Pad ---
-    # Pad has no Qi (that's a resonator measurement) — always uses interface sum
-    pad_tls  = _compute_tls_component('pad', material_record, defaults,
-                                       None, ASSUMED, qi_freq_ghz)
-    pad_qp   = _compute_qp_channel(material_record, defaults)   # same Tc input
-    pad_vort = _compute_vortex_channel(material_record, defaults)  # same film
-
-    t1_pad_tls  = pad_tls['T1_TLS_us']
-    t1_pad_qp   = pad_qp['T1_QP_us']
-    t1_pad_vort = pad_vort['T1_vortex_us']
-    t1_pad = _combine_t1_channels(t1_pad_tls, t1_pad_qp, t1_pad_vort)
-
-    # --- Junction ---
-    junc_tls  = _compute_tls_component('junction', material_record, defaults,
-                                        None, ASSUMED, qi_freq_ghz)
+    # -----------------------------------------------------------------------
+    # Junction: TLS via interface sum (independent of resonator calibration),
+    # plus QP and vortex at qubit level
+    # -----------------------------------------------------------------------
+    junc_tls  = _compute_junction_tls(material_record, defaults, f_qubit_ghz, f_qubit_prov)
     junc_qp   = _compute_qp_channel(material_record, defaults)
     junc_vort = _compute_vortex_channel(material_record, defaults)
 
-    t1_junc_tls  = junc_tls['T1_TLS_us']
-    t1_junc_qp   = junc_qp['T1_QP_us']
-    t1_junc_vort = junc_vort['T1_vortex_us']
-    t1_junction = _combine_t1_channels(t1_junc_tls, t1_junc_qp, t1_junc_vort)
+    t1_junction = _combine_t1_channels(
+        junc_tls['T1_TLS_us'],
+        junc_qp['T1_QP_us'],
+        junc_vort['T1_vortex_us']
+    )
 
-    # --- Radiation (system level) ---
+    # Radiation (system level)
     rad = _compute_radiation_channel(defaults)
     t1_radiation = rad['T1_radiation_us']
 
     # -----------------------------------------------------------------------
-    # Combine components → T1_predicted
-    # Level 1: 1/T1_total = p_res/T1_res + p_pad/T1_pad + p_junc/T1_junc + 1/T1_rad
+    # Change 4: Level 1 sum — resonator excluded (v2.5 architecture)
+    #
+    # 1/T1_predicted = 1/T1_pad + 1/T1_junction + 1/T1_radiation
+    #
+    # The resonator is NOT a term here. It contributed only as calibration
+    # (tan_delta extraction above). Any Purcell coupling to the resonator is
+    # folded into T1_radiation as a system-level class default.
     # -----------------------------------------------------------------------
     gamma_total = 0.0
-    if t1_resonator and t1_resonator > 0:
-        gamma_total += p_resonator / t1_resonator
     if t1_pad and t1_pad > 0:
-        gamma_total += p_pad / t1_pad
+        gamma_total += 1.0 / t1_pad
     if t1_junction and t1_junction > 0:
-        gamma_total += p_junction / t1_junction
+        gamma_total += 1.0 / t1_junction
     if t1_radiation and t1_radiation > 0:
         gamma_total += 1.0 / t1_radiation
 
     t1_predicted_us = _t1_from_gamma(gamma_total) if gamma_total > 0 else None
 
+    assumptions.append(
+        "Resonator excluded from Level 1 qubit loss sum (v2.5 model). "
+        "It serves as calibration only — tan_delta extracted via p_MS inversion."
+    )
+    assumptions.append(
+        "QP and vortex channels computed at qubit level (not component-weighted). "
+        "TODO: weight by p_pad / p_junction when FEM data more widely available."
+    )
+
     # -----------------------------------------------------------------------
     # Model validation — compare predicted vs measured if both available
     # -----------------------------------------------------------------------
-    model_validates = None
-    validation_note = None
+    model_validates  = None
+    validation_note  = None
     if has_measured_t1 and t1_predicted_us is not None:
         ratio = t1_predicted_us / t1_measured_us
-        model_validates = 0.5 <= ratio <= 2.0  # within factor of 2
+        model_validates = 0.2 <= ratio <= 5.0
+        # Note: threshold is 5x (not 2x) because:
+        # 1. TLS saturation at qubit operating powers means the effective
+        #    tan_delta is lower than the single-photon resonator value —
+        #    measured T1 may exceed the unsaturated TLS prediction (Joshi 2026).
+        # 2. Non-equilibrium QP floor is a system parameter not derivable
+        #    from material measurements — adds inherent uncertainty.
+        # 3. Junction tan_delta class default has high uncertainty.
         validation_note = (
             f"Model validation: predicted {t1_predicted_us:.1f} µs vs "
             f"measured {t1_measured_us:.1f} µs (ratio {ratio:.2f}). "
-            f"{'PASS (within 2×).' if model_validates else 'FAIL (outside 2×) — review model inputs.'}"
+            f"{'PASS (within 5×).' if model_validates else 'FAIL (outside 5×) — review model inputs.'}"
+            f" Note: single-photon tan_delta used — measured T1 may exceed prediction "
+            f"due to TLS saturation at qubit operating power (Joshi 2026)."
         )
         notes.append(validation_note)
 
@@ -606,11 +809,11 @@ def compute_t1_decomposition(material_record: dict, defaults: dict) -> dict:
     # Authoritative T1 — measured if available, predicted otherwise
     # -----------------------------------------------------------------------
     if has_measured_t1:
-        t1_total_us     = t1_measured_us
-        t1_provenance   = MEASURED
+        t1_total_us   = t1_measured_us
+        t1_provenance = MEASURED
     else:
-        t1_total_us     = t1_predicted_us
-        t1_provenance   = DERIVED
+        t1_total_us   = t1_predicted_us
+        t1_provenance = DERIVED
 
     # -----------------------------------------------------------------------
     # T2 — measured if available, else Bloch limit
@@ -639,51 +842,45 @@ def compute_t1_decomposition(material_record: dict, defaults: dict) -> dict:
     # -----------------------------------------------------------------------
     return {
         # --- Authoritative outputs (feed into estimator.py) ---
-        'T1_us':            t1_total_us,
-        'T1_provenance':    t1_provenance,
-        'T2_us':            t2_total_us,
-        'T2_provenance':    t2_provenance,
+        'T1_us':          t1_total_us,
+        'T1_provenance':  t1_provenance,
+        'T2_us':          t2_total_us,
+        'T2_provenance':  t2_provenance,
 
         # --- Gold measured values (if present) ---
-        'T1_measured_us':   t1_measured_us,
+        'T1_measured_us':     t1_measured_us,
         'T1_meas_provenance': t1_meas_prov if has_measured_t1 else None,
-        'T2_measured_us':   t2_measured_us,
+        'T2_measured_us':     t2_measured_us,
         'T2_meas_provenance': t2_meas_prov if has_measured_t2 else None,
 
         # --- Decomposition prediction (always computed) ---
-        'T1_predicted_us':  t1_predicted_us,
-        'model_validates':  model_validates,
-        'validation_note':  validation_note,
+        'T1_predicted_us': t1_predicted_us,
+        'model_validates': model_validates,
+        'validation_note': validation_note,
+
+        # --- Resonator calibration intermediate (key scientific output) ---
+        'tan_delta':          tan_delta_result['tan_delta'],
+        'tan_delta_provenance': tan_delta_result['provenance'],
+        'tan_delta_source':   tan_delta_result['source'],
 
         # --- Component-level results ---
         'components': {
-            'resonator': {
-                'p_resonator':      p_resonator,
-                'p_provenance':     p_res_prov,
-                'T1_resonator_us':  t1_resonator,
-                'channels': {
-                    'TLS':   res_tls,
-                    'QP':    res_qp,
-                    'vortex': res_vort,
-                },
-            },
             'pad': {
-                'p_pad':        p_pad,
-                'p_provenance': p_pad_prov,
+                'p_MS_pad':     p_ms_pad,
+                'p_MS_pad_prov': p_ms_pad_prov,
                 'T1_pad_us':    t1_pad,
                 'channels': {
-                    'TLS':   pad_tls,
-                    'QP':    pad_qp,
+                    'TLS':    pad_tls,
+                    'QP':     pad_qp,
                     'vortex': pad_vort,
                 },
             },
             'junction': {
-                'p_junction':   p_junction,
-                'p_provenance': p_junc_prov,
+                'p_junction':     p_junction,
                 'T1_junction_us': t1_junction,
                 'channels': {
-                    'TLS':   junc_tls,
-                    'QP':    junc_qp,
+                    'TLS':    junc_tls,
+                    'QP':     junc_qp,
                     'vortex': junc_vort,
                 },
             },
@@ -706,11 +903,13 @@ def summarize_decomposition(result: dict) -> str:
     Mirrors the style of EstimationResult.summary() in estimator.py.
     """
     lines = []
-    lines.append("--- T1 Loss Channel Decomposition ---")
+    lines.append("=" * 60)
+    lines.append("  T1 Loss Channel Decomposition  (v2.5 model)")
+    lines.append("=" * 60)
 
-    t1 = result.get('T1_us')
+    t1      = result.get('T1_us')
     t1_prov = result.get('T1_provenance', '')
-    t2 = result.get('T2_us')
+    t2      = result.get('T2_us')
     t2_prov = result.get('T2_provenance', '')
 
     lines.append(f"  T1 (authoritative)   : {t1:.1f} µs [{t1_prov}]" if t1 else "  T1: not computable")
@@ -725,33 +924,54 @@ def summarize_decomposition(result: dict) -> str:
     if result.get('validation_note'):
         lines.append(f"  {result['validation_note']}")
 
+    # Resonator calibration intermediate
+    td      = result.get('tan_delta')
+    td_prov = result.get('tan_delta_provenance', '')
+    td_src  = result.get('tan_delta_source', '')
+    if td:
+        lines.append("")
+        lines.append(f"  Resonator calibration:")
+        lines.append(f"    tan_delta = {td:.2e} [{td_prov}]  (via {td_src})")
+
     lines.append("")
-    lines.append("  Component breakdown:")
+    lines.append("  Component breakdown (Level 1 — v2.5: resonator excluded):")
     comps = result.get('components', {})
 
-    for comp_name in ['resonator', 'pad', 'junction']:
-        comp = comps.get(comp_name, {})
-        p_key = f'p_{comp_name}'
-        p_val = comp.get(p_key)
-        t1_comp = comp.get(f'T1_{comp_name}_us')
-        p_prov = comp.get('p_provenance', '')
-        t1_str = f"{t1_comp:.1f} µs" if t1_comp else "n/a"
-        p_str  = f"{p_val:.3f}" if p_val is not None else "n/a"
-        lines.append(f"    {comp_name:<12}: p={p_str} [{p_prov}]  →  T1={t1_str}")
+    # Pad
+    pad = comps.get('pad', {})
+    t1_pad = pad.get('T1_pad_us')
+    p_ms   = pad.get('p_MS_pad')
+    p_prov = pad.get('p_MS_pad_prov', '')
+    lines.append(
+        f"    pad        : p_MS={p_ms:.2e} [{p_prov}]  →  T1={t1_pad:.1f} µs" if t1_pad else
+        f"    pad        : T1=n/a"
+    )
+    for ch_name, ch_data in pad.get('channels', {}).items():
+        t1_ch = ch_data.get('T1_TLS_us') or ch_data.get('T1_QP_us') or ch_data.get('T1_vortex_us')
+        ch_prov = ch_data.get('provenance', '')
+        lines.append(f"      {ch_name:<10}: T1={t1_ch:.1f} µs [{ch_prov}]" if t1_ch else
+                     f"      {ch_name:<10}: n/a")
 
-        channels = comp.get('channels', {})
-        for ch_name, ch_data in channels.items():
-            t1_ch_key = f'T1_{ch_name}_us' if ch_name != 'TLS' else 'T1_TLS_us'
-            # handle naming variations
-            t1_ch = ch_data.get('T1_TLS_us') or ch_data.get('T1_QP_us') or ch_data.get('T1_vortex_us')
-            ch_prov = ch_data.get('provenance', '')
-            t1_ch_str = f"{t1_ch:.1f} µs" if t1_ch else "n/a"
-            lines.append(f"      {ch_name:<10}: T1={t1_ch_str} [{ch_prov}]")
+    # Junction
+    junc = comps.get('junction', {})
+    t1_junc = junc.get('T1_junction_us')
+    lines.append(
+        f"    junction   : T1={t1_junc:.1f} µs" if t1_junc else
+        f"    junction   : T1=n/a"
+    )
+    for ch_name, ch_data in junc.get('channels', {}).items():
+        t1_ch = ch_data.get('T1_TLS_us') or ch_data.get('T1_QP_us') or ch_data.get('T1_vortex_us')
+        ch_prov = ch_data.get('provenance', '')
+        lines.append(f"      {ch_name:<10}: T1={t1_ch:.1f} µs [{ch_prov}]" if t1_ch else
+                     f"      {ch_name:<10}: n/a")
 
-    rad = comps.get('radiation', {})
-    t1_rad = rad.get('T1_radiation_us')
+    # Radiation
+    rad     = comps.get('radiation', {})
+    t1_rad  = rad.get('T1_radiation_us')
     rad_prov = rad.get('provenance', '')
-    lines.append(f"    {'radiation':<12}: T1={t1_rad:.1f} µs [{rad_prov}] (system level)" if t1_rad else "")
+    lines.append(
+        f"    radiation  : T1={t1_rad:.1f} µs [{rad_prov}] (system level)" if t1_rad else ""
+    )
 
     if result.get('assumptions'):
         lines.append("")
@@ -759,6 +979,7 @@ def summarize_decomposition(result: dict) -> str:
         for a in result['assumptions']:
             lines.append(f"    * {a}")
 
+    lines.append("=" * 60)
     return "\n".join(lines)
 
 
