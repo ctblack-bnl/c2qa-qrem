@@ -493,6 +493,40 @@ WHY THESE MATTER:
   uncertainty in tan_delta — so capturing this geometry is high priority.
 
 ---
+GATE FIDELITY — EXTRACT THESE AS NAMED FIELDS
+---
+single_qubit_gate_fidelity_pct:
+  Single-qubit gate fidelity as a percentage (0-100).
+  Extract DIRECTLY into the sample record as a named field — NOT into the catchall.
+  Look for: "single-qubit gate fidelity X%", "average Clifford gate fidelity X%",
+  "1Q fidelity X%", "single-qubit gate error X" (convert: fidelity = (1 - error) × 100).
+  Randomized benchmarking (RB) is the standard measurement method — extract the result.
+  Units: always report as percentage. Convert gate error to fidelity if needed:
+    gate error 6.4×10⁻⁵  → fidelity = (1 - 6.4e-5) × 100 = 99.9936%
+    gate error 3.9×10⁻³  → fidelity = (1 - 3.9e-3) × 100 = 99.61%
+  Confidence: high if from RB table; medium if from prose or figure.
+  Source: cite the table, figure, or text location.
+  Note: this is single-qubit gate fidelity ONLY. Two-qubit gate fidelity goes in
+  two_qubit_gate_fidelity_pct. Readout fidelity goes in the catchall.
+
+two_qubit_gate_fidelity_pct:
+  Two-qubit gate fidelity as a percentage (0-100).
+  Extract DIRECTLY into the sample record as a named field — NOT into the catchall.
+  Look for: "two-qubit gate fidelity X%", "CZ fidelity X%", "CNOT fidelity X%",
+  "ECR gate fidelity X%", "2Q gate error X" (convert: fidelity = (1 - error) × 100),
+  "average Clifford fidelity" for two-qubit RB.
+  Units: always report as percentage. Convert gate error to fidelity if needed.
+  Confidence: high if from RB table; medium if from prose or figure.
+  Source: cite the table, figure, or text location.
+  Note: do NOT put readout fidelity here. Readout fidelity goes in the catchall.
+
+IMPORTANT DISTINCTIONS:
+  - Gate fidelity (single or two-qubit) → named schema fields above
+  - Readout/state assignment fidelity → catchall (no named schema field)
+  - Bell state fidelity → catchall
+  - Process fidelity → catchall
+  
+---
 CATCHALL RULES — READ CAREFULLY
 ---
 
