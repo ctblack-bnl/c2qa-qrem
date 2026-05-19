@@ -6,23 +6,135 @@
       "filename": "2025-PRXQuantum-Hays.pdf",
       "excluded_at": "2026-05-18",
       "excluded_by": "manual",
-      "reason": "Theory proposal paper — no experimental materials data. T1=3e9µs and T2=80000µs are theoretical estimates from noise model, not measurements. 'Harmonium' qubit has not been fabricated. C2QA acknowledgment caused false high-relevance classification."
+      "reason": "Theory proposal paper \u2014 no experimental materials data. T1=3e9\u00b5s and T2=80000\u00b5s are theoretical estimates from noise model, not measurements. 'Harmonium' qubit has not been fabricated. C2QA acknowledgment caused false high-relevance classification."
     },
     {
-	  "doi": "10.48550/arXiv.2604.11743",
-	  "arxiv_id": "arXiv:2604.11743",
-	  "filename": "2026-arXiv-Marcenac.pdf",
-	  "excluded_at": "2026-05-18",
-	  "excluded_by": "manual",
-	  "reason": "NV center / FPGA control paper — not a superconducting materials paper. T1/T2 values are NV spin coherence times, not superconducting qubit coherence. No film, Tc, RRR, or Qi data. Known ingester leakage type: non-superconducting quantum systems with C2QA acknowledgment."
-	},
-	{
-	  "doi": "10.48550/arXiv.2603.05615",
-	  "arxiv_id": "arXiv:2603.05615",
-	  "filename": "2026-arXiv-WangX.pdf",
-	  "excluded_at": "2026-05-18",
-	  "excluded_by": "manual",
-	  "reason": "ZnO semiconductor donor spin qubit paper — not a superconducting materials paper. No Tc, RRR, Qi, or T1 data. C2QA acknowledgment covers only DFT calculations. Known ingester leakage type: non-superconducting quantum systems."
-	}
-  ]	  
+      "doi": "10.48550/arXiv.2604.11743",
+      "arxiv_id": "arXiv:2604.11743",
+      "filename": "2026-arXiv-Marcenac.pdf",
+      "excluded_at": "2026-05-18",
+      "excluded_by": "manual",
+      "reason": "NV center / FPGA control paper \u2014 not a superconducting materials paper. T1/T2 values are NV spin coherence times, not superconducting qubit coherence. No film, Tc, RRR, or Qi data. Known ingester leakage type: non-superconducting quantum systems with C2QA acknowledgment."
+    },
+    {
+      "doi": "10.48550/arXiv.2603.05615",
+      "arxiv_id": "arXiv:2603.05615",
+      "filename": "2026-arXiv-WangX.pdf",
+      "excluded_at": "2026-05-18",
+      "excluded_by": "manual",
+      "reason": "ZnO semiconductor donor spin qubit paper \u2014 not a superconducting materials paper. No Tc, RRR, Qi, or T1 data. C2QA acknowledgment covers only DFT calculations. Known ingester leakage type: non-superconducting quantum systems."
+    },
+    {
+      "doi": "10.1038/s41566-026-01866-7",
+      "arxiv_id": null,
+      "filename": "2026-NatPhotonics-Zhou.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "Microwave-to-optical transducer paper. No qubit coherence data. C2QA acknowledgment caused false high-relevance."
+    },
+    {
+      "doi": "10.48550/arXiv.2510.08416",
+      "arxiv_id": "2510.08416",
+      "filename": "2025-arXiv-Dakkis.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "Pure theory paper \u2014 Space Curve Quantum Control applied to dual-rail erasure qubits. No experimental measurements."
+    },
+    {
+      "doi": "10.1103/PhysRevLett.134.100601",
+      "arxiv_id": null,
+      "filename": "2025-PhysRevLett-Hazra.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "Readout benchmarking methodology. Four samples are four readout durations on same qubit, not materials characterization. No T1/T2 as primary results."
+    },
+    {
+      "doi": "10.1103/zfbt-27km",
+      "arxiv_id": null,
+      "filename": "2025-PhysRevB-Lambert.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "Transition metal spin defects in AlN/GaN. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+    },
+    {
+      "doi": "10.1103/zy5b-fskh",
+      "arxiv_id": null,
+      "filename": "2026-PhysRevB-Nangoi.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "T and CN color centers in silicon. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+    },
+    {
+      "doi": null,
+      "arxiv_id": null,
+      "filename": "2025-arXiv-Shao.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "NV centers in diamond. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+    },
+    {
+      "doi": null,
+      "arxiv_id": null,
+      "filename": "2026-arXiv-Yama.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "SiV centers in diamond. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+    },
+    {
+      "doi": "10.1103/hp9c-rh23",
+      "arxiv_id": null,
+      "filename": "2025-PhysRevLett-Delord.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "NV centers in bulk diamond. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+    },
+    {
+      "doi": "10.1103/y43k-l6xr",
+      "arxiv_id": null,
+      "filename": "2026-PhysRevB-Turiansky.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "Cr/Fe/V defect spins in HEMEX sapphire. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+    },
+    {
+      "doi": "10.1002/smll.202505899",
+      "arxiv_id": null,
+      "filename": "2026-Small-Wehmeier.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "MoO3-hBN-Au nanocavity nanophotonics. Not a superconducting system."
+    },
+    {
+      "doi": "10.1515/nanoph-2025-0470",
+      "arxiv_id": null,
+      "filename": "2025-Nanophotonics-Yang.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "Fabry-Perot cavity with photonic crystal mirrors. Photonics paper, not superconducting materials."
+    },
+    {
+      "doi": "10.1038/s41566-026-01874-7",
+      "arxiv_id": null,
+      "filename": "2026-NatPhys-Yang.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "DL-OPO microring resonator \u2014 optical photonics. Not a superconducting system."
+    },
+    {
+      "doi": "10.1103/7rnm-rxhh",
+      "arxiv_id": null,
+      "filename": "2025-PRXQuantum-Maiti.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "Linear quantum coupler \u2014 theoretical device proposal. No experimental measurements."
+    },
+    {
+      "doi": "10.1103/3krb-wwfx",
+      "arxiv_id": null,
+      "filename": "2026-PRXQuantum-Hardy.pdf",
+      "excluded_at": "2026-05-19",
+      "excluded_by": "manual",
+      "reason": "Surface code resource estimate. No materials characterization or qubit measurements."
+    }
+  ]
 }
