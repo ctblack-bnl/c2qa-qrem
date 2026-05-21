@@ -193,6 +193,40 @@
     padding: 5px 10px;
     pointer-events: none;
   }
+  /* Derived-field variant legend — overlaid inside chart, upper left */
+  .variant-legend {
+    display: none;
+    position: absolute;
+    top: 36px;
+    left: 120px;
+    z-index: 10;
+    align-items: center;
+    gap: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 10px;
+    pointer-events: none;
+    flex-wrap: wrap;
+  }
+  .variant-legend.visible { display: flex; }
+  .variant-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .variant-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .variant-swatch.solid { background: var(--accent); }
+  .variant-swatch.open  { background: transparent; }
   /* FIX #1: constrain chart height so it doesn't overflow the window */
   .chart-wrapper {
     position: relative;
@@ -524,6 +558,27 @@
   .detail-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; padding: 0; line-height: 1; flex-shrink: 0; }
   .detail-close:hover { color: var(--text); }
   .detail-body { padding: 16px 20px; flex: 1; }
+  .detail-header-actions {
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  }
+  .detail-fmt-toggle {
+    display: flex; background: var(--card);
+    border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
+  }
+  .detail-fmt-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 3px 7px;
+    background: transparent; border: none; color: var(--muted);
+    cursor: pointer; transition: background 0.12s, color 0.12s; user-select: none;
+  }
+  .detail-fmt-btn.active { background: var(--surface); color: var(--accent); }
+  .detail-fmt-btn:hover:not(.active) { color: var(--text); }
+  .detail-download-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 3px 9px;
+    background: transparent; border: 1px solid var(--border); border-radius: 3px;
+    color: var(--muted); cursor: pointer;
+    transition: color 0.12s, border-color 0.12s; white-space: nowrap;
+  }
+  .detail-download-btn:hover { color: var(--accent2); border-color: var(--accent2); }
   .detail-section { margin-bottom: 20px; }
   .detail-section-label {
     font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;
@@ -789,6 +844,7 @@
         </div>
         <div class="chart-wrapper">
           <div class="chart-click-hint">Click any data point for full info</div>
+          <div class="variant-legend" id="stripVariantLegend"></div>
           <canvas id="stripChart"></canvas>
         </div>
       </div>
@@ -815,6 +871,7 @@
         </div>
         <div class="chart-wrapper">
           <div class="chart-click-hint">Click a data point for full info</div>
+          <div class="variant-legend" id="scatterVariantLegend"></div>
           <canvas id="scatterChart"></canvas>
         </div>
       </div>
@@ -938,6 +995,13 @@
     <div class="detail-panel" id="detailPanel">
       <div class="detail-header">
         <div class="detail-title" id="detailTitle">—</div>
+        <div class="detail-header-actions">
+          <div class="detail-fmt-toggle">
+            <button class="detail-fmt-btn active" id="fmtMD" onclick="setDetailFmt('md')">MD</button>
+            <button class="detail-fmt-btn" id="fmtJSON" onclick="setDetailFmt('json')">JSON</button>
+          </div>
+          <button class="detail-download-btn" id="detailDownloadBtn" onclick="downloadDetail()">↓</button>
+        </div>
         <button class="detail-close" onclick="closeDetail()">✕</button>
       </div>
       <div class="detail-body" id="detailBody">
@@ -957,6 +1021,88 @@ const PALETTE = [
   '#ffa657','#79c0ff','#56d364','#ff7b72',
   '#bc8cff','#ffb86c','#e3b341','#89ddff'
 ];
+// ── Derived-field variant encoding ────────────────────────────────────────
+// Maps each "best available" derived field to the source key returned by
+// the server (_source suffix) and human-readable labels for each variant.
+const DERIVED_FIELD_SOURCES = {
+  derived_Qi: {
+    sourceKey:   'derived_Qi_source',
+    solid:       { field: 'Qi_single_photon', label: 'Qi single-photon' },
+    open:        { field: 'Qi_internal',      label: 'Qi internal' },
+  },
+  derived_T2_us: {
+    sourceKey:   'derived_T2_us_source',
+    solid:       { field: 'T2_echo_us',   label: 'T2 echo' },
+    open:        { field: 'T2_ramsey_us', label: 'T2 Ramsey' },
+  },
+  derived_tan_delta: {
+    sourceKey:   'derived_tan_delta_source',
+    solid:       { field: 'tan_delta_effective_surface', label: 'tan δ effective surface' },
+    open:        { field: null,                          label: 'loss tangent interface/substrate' },
+  },
+};
+
+/**
+ * Return per-point Chart.js style arrays for a dataset of points,
+ * based on whether each point's source field matches the "solid" variant.
+ * Solid → filled circle; Open → transparent fill, visible border.
+ */
+function getDerivedPointStyles(points, derivedField, baseColor) {
+  const def = DERIVED_FIELD_SOURCES[derivedField];
+  if (!def) return null; // not a derived field — no encoding
+  const solidField = def.solid.field;
+  const bgArr     = [];
+  const styleArr  = [];
+  const radiusArr = [];
+  const bwArr     = [];
+  points.forEach(pt => {
+    const src = pt.sample ? pt.sample[def.sourceKey] : null;
+    const isSolid = (src === solidField);
+    bgArr.push(isSolid ? baseColor + 'cc' : 'transparent');
+    styleArr.push('circle');
+    radiusArr.push(7);
+    bwArr.push(isSolid ? 1 : 2);
+  });
+  return { backgroundColor: bgArr, pointStyle: styleArr, pointRadius: radiusArr, borderWidth: bwArr };
+}
+
+/**
+ * Show or hide the variant legend for a given chart.
+ * legendId: 'stripVariantLegend' or 'scatterVariantLegend'
+ * derivedField: e.g. 'derived_Qi', or null to hide
+ * samples: the array of samples being plotted (used to check both variants present)
+ */
+function updateVariantLegend(legendId, derivedField, samples) {
+  const el = document.getElementById(legendId);
+  if (!el) return;
+  const def = derivedField ? DERIVED_FIELD_SOURCES[derivedField] : null;
+  if (!def || !samples) {
+    el.classList.remove('visible');
+    el.innerHTML = '';
+    return;
+  }
+  // Only show legend if both variants actually appear in the plotted data
+  const solidField = def.solid.field;
+  const hasSolid = samples.some(s => s[def.sourceKey] === solidField && s[derivedField] != null);
+  const hasOpen  = samples.some(s => s[def.sourceKey] !== solidField && s[derivedField] != null);
+  if (!hasSolid || !hasOpen) {
+    el.classList.remove('visible');
+    el.innerHTML = '';
+    return;
+  }
+  el.classList.add('visible');
+  el.innerHTML = `
+    <span style="color:var(--muted);margin-right:2px;">Variant:</span>
+    <div class="variant-legend-item">
+      <div class="variant-swatch solid"></div>
+      <span>${def.solid.label}</span>
+    </div>
+    <div class="variant-legend-item">
+      <div class="variant-swatch open"></div>
+      <span>${def.open.label}</span>
+    </div>
+  `;
+}
 const FIELD_LABELS = {
   Tc_K: 'Tc (K)', RRR: 'RRR',
   Qi_internal: 'Qi internal', Qi_single_photon: 'Qi single photon',
@@ -1219,7 +1365,8 @@ const MEASUREMENT_FIELDS = [
   ['Qi_internal', 'Qi internal', 'Qi_confidence'],
   ['Qi_single_photon', 'Qi single photon', null],
   ['T1_us', 'T1 (µs)', 'T1_confidence'],
-  ['T2_echo_us', 'T2 echo (µs)', null],
+  ['T2_echo_us',            'T2 echo (µs)',   null],
+  ['T2_ramsey_us',          'T2 Ramsey (µs)', null],
   ['gate_1q_fidelity_pct', '1Q fidelity (%)', null],
   ['gate_2q_fidelity_pct', '2Q fidelity (%)', null],
   ['surface_oxide_nm', 'Surface oxide (nm)', null],
@@ -1243,10 +1390,12 @@ async function openDetail(displayName) {
   document.getElementById('detailBody').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Loading...</div>';
   document.getElementById('detailPanel').classList.add('open');
   document.getElementById('detailOverlay').classList.add('open');
+  _currentDetailData = null;
   try {
     const r = await fetch(`/api/sample/${encodeURIComponent(displayName)}`);
     const d = await r.json();
     if (!d.ok) return;
+    _currentDetailData = { sample: d.sample, catchall: d.catchall, displayName };
     renderDetail(d.sample, d.catchall, displayName);
   } catch(e) {
     document.getElementById('detailBody').innerHTML = `<div style="color:var(--accent3)">Error: ${e}</div>`;
@@ -1258,6 +1407,91 @@ function closeDetail() {
   panel.style.transform = '';
   panel.classList.remove('open');
   document.getElementById('detailOverlay').classList.remove('open');
+}
+// ── Detail panel download ─────────────────────────────────────────────────
+let _currentDetailData = null;  // {sample, catchall, displayName}
+let _detailFmt = 'md';          // 'md' or 'json'
+
+function setDetailFmt(fmt) {
+  _detailFmt = fmt;
+  document.getElementById('fmtMD').classList.toggle('active', fmt === 'md');
+  document.getElementById('fmtJSON').classList.toggle('active', fmt === 'json');
+}
+
+function downloadDetail() {
+  if (!_currentDetailData) return;
+  const { sample, catchall, displayName } = _currentDetailData;
+  if (_detailFmt === 'json') {
+    _downloadDetailJSON(sample, catchall, displayName);
+  } else {
+    _downloadDetailMD(sample, catchall, displayName);
+  }
+}
+
+function _downloadDetailJSON(sample, catchall, displayName) {
+  const payload = { display_name: displayName, sample, catchall };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `${displayName}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function _downloadDetailMD(sample, catchall, displayName) {
+  const lines = [];
+  lines.push(`# ${displayName}`);
+  lines.push('');
+  lines.push('## Reference');
+  if (sample.authors) lines.push(`**Authors:** ${sample.authors}`);
+  if (sample.journal) lines.push(`**Journal:** ${sample.journal}`);
+  if (sample.doi)     lines.push(`**DOI:** https://doi.org/${sample.doi}`);
+  lines.push('');
+  lines.push('## Sample Description');
+  const descFields = [
+    ['film_material','Material'],['film_crystal_phase','Crystal phase'],
+    ['substrate_material','Substrate'],['substrate_orientation','Orientation'],
+    ['deposition_method','Deposition method'],['deposition_temperature_C','Deposition temp (°C)'],
+    ['annealing_temperature_C','Anneal temp (°C)'],['annealing_duration_s','Anneal duration (s)'],
+    ['film_thickness_nm','Film thickness (nm)'],
+  ];
+  descFields.forEach(([f, label]) => {
+    if (sample[f] != null && sample[f] !== '') lines.push(`**${label}:** ${sample[f]}`);
+  });
+  lines.push('');
+  const measWithValues = MEASUREMENT_FIELDS.filter(([f]) => sample[f] != null);
+  if (measWithValues.length > 0) {
+    lines.push('## Measurements');
+    measWithValues.forEach(([f, label, confField]) => {
+      const val = sample[f];
+      const conf = confField ? sample[confField] : null;
+      const confStr = conf ? ` *(${conf})*` : '';
+      lines.push(`**${label}:** ${typeof val === 'number' ? val.toLocaleString() : val}${confStr}`);
+    });
+    lines.push('');
+  }
+  if (catchall && catchall.length > 0) {
+    lines.push('## Additional Data');
+    const byType = {};
+    catchall.forEach(item => {
+      const t = item.item_type || 'other';
+      if (!byType[t]) byType[t] = [];
+      byType[t].push(item);
+    });
+    Object.entries(byType).forEach(([type, items]) => {
+      lines.push(`### ${type.replace(/_/g, ' ')}`);
+      items.forEach(item => {
+        lines.push(`- **${item.description || '—'}**${item.value ? ': ' + item.value : ''}${item.notes ? '  \n  ' + item.notes : ''}`);
+      });
+      lines.push('');
+    });
+  }
+  lines.push('---');
+  lines.push('*Exported from C2QA QIS Materials Explorer*');
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `${displayName}.md`; a.click();
+  URL.revokeObjectURL(url);
 }
 function launchSimilar(displayName) {
   closeDetail();
@@ -1658,25 +1892,41 @@ function renderStripChart(samples) {
     }
   });
   const labels   = Object.keys(groups).sort();
+  const isDerived = !!DERIVED_FIELD_SOURCES[field];
+  // Compute y range across all plotted values so jitter is range-relative.
+  // Value-relative jitter (pt.y * 0.02) breaks when values cluster near a
+  // non-zero baseline (e.g. fidelity 99-100%: +-1% of 99 = +-1 point scatter).
+  const allY = labels.flatMap(lbl => groups[lbl].map(pt => pt.y));
+  const yMin = Math.min(...allY), yMax = Math.max(...allY);
+  const yRange = (yMax > yMin) ? (yMax - yMin) : Math.abs(yMax) * 0.1 || 1;
+  const yJitter = yRange * 0.01; // +-1% of visible range -- cosmetic only
   const datasets = labels.map((label, i) => {
     const color = groupBy === 'derived_material'
       ? (colorMap[label] || PALETTE[i % PALETTE.length])
       : PALETTE[i % PALETTE.length];
-    return {
+    const points = groups[label].map(pt => ({
+      x: i + (Math.random() - 0.5) * 0.4,
+      y: pt.y + (Math.random() - 0.5) * yJitter,
+      originalY: pt.y,
+      displayName: pt.label,
+      sample: pt.sample,
+    }));
+    const dataset = {
       label: trunc(label),
-      data: groups[label].map(pt => ({
-        x: i + (Math.random() - 0.5) * 0.4,
-        y: pt.y + (Math.random() - 0.5) * pt.y * 0.02,
-        originalY: pt.y,
-        displayName: pt.label,
-        sample: pt.sample,
-      })),
+      data: points,
       backgroundColor: color + 'cc',
       borderColor: color,
       pointRadius: 7,
       pointHoverRadius: 10,
     };
+    // Per-point style encoding for derived fields
+    if (isDerived) {
+      const styles = getDerivedPointStyles(points, field, color);
+      if (styles) Object.assign(dataset, styles);
+    }
+    return dataset;
   });
+  updateVariantLegend('stripVariantLegend', isDerived ? field : null, samples);
   if (stripChart) stripChart.destroy();
   const ctx = document.getElementById('stripChart').getContext('2d');
   stripChart = new Chart(ctx, {
@@ -1704,11 +1954,18 @@ function renderStripChart(samples) {
             title: (items) => items[0].raw.displayName,
             label: (item)  => {
               const s = item.raw.sample;
-              return [
+              const lines = [
                 `${FIELD_LABELS[field] || field}: ${item.raw.originalY ?? item.raw.y}`,
                 `Material: ${s.film_material || '—'}`,
                 `Paper: ${s.authors || '—'}`,
               ];
+              const def = DERIVED_FIELD_SOURCES[field];
+              if (def && s) {
+                const src = s[def.sourceKey];
+                const variant = src === def.solid.field ? def.solid.label : def.open.label;
+                lines.push(`Variant: ${variant}`);
+              }
+              return lines;
             }
           }
         }
@@ -1750,13 +2007,30 @@ function renderScatterChart(samples) {
       groups[key].push({ x, y, label: s.display_name, sample: s });
     }
   });
-  const datasets = Object.entries(groups).map(([key, points], i) => ({
-    label: key,
-    data: points,
-    backgroundColor: (colorBy === 'derived_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length]) + 'cc',
-    borderColor:      colorBy === 'derived_material' ? (colorMap[key] || PALETTE[i % PALETTE.length]) : PALETTE[i % PALETTE.length],
-    pointRadius: 7, pointHoverRadius: 10,
-  }));
+  // Encode variant symbol if either axis is a derived field.
+  // y-axis takes priority if both are derived.
+  const derivedAxis = DERIVED_FIELD_SOURCES[yField] ? yField
+                    : DERIVED_FIELD_SOURCES[xField] ? xField
+                    : null;
+  const datasets = Object.entries(groups).map(([key, points], i) => {
+    const color = colorBy === 'derived_material'
+      ? (colorMap[key] || PALETTE[i % PALETTE.length])
+      : PALETTE[i % PALETTE.length];
+    const dataset = {
+      label: key,
+      data: points,
+      backgroundColor: color + 'cc',
+      borderColor:     color,
+      pointRadius: 7,
+      pointHoverRadius: 10,
+    };
+    if (derivedAxis) {
+      const styles = getDerivedPointStyles(points, derivedAxis, color);
+      if (styles) Object.assign(dataset, styles);
+    }
+    return dataset;
+  });
+  updateVariantLegend('scatterVariantLegend', derivedAxis, samples);
   if (scatterChart) scatterChart.destroy();
   const ctx = document.getElementById('scatterChart').getContext('2d');
   scatterChart = new Chart(ctx, {
@@ -1783,12 +2057,19 @@ function renderScatterChart(samples) {
             title: (items) => items[0].raw.label,
             label: (item)  => {
               const s = item.raw.sample;
-              return [
+              const lines = [
                 `${FIELD_LABELS[xField] || xField}: ${item.raw.x}`,
                 `${FIELD_LABELS[yField] || yField}: ${item.raw.y}`,
                 `Material: ${s.film_material || '—'}`,
                 `Paper: ${s.authors || '—'}`,
               ];
+              if (derivedAxis && s) {
+                const def = DERIVED_FIELD_SOURCES[derivedAxis];
+                const src = s[def.sourceKey];
+                const variant = src === def.solid.field ? def.solid.label : def.open.label;
+                lines.push(`Variant: ${variant}`);
+              }
+              return lines;
             }
           }
         }

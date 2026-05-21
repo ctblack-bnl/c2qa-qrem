@@ -57,30 +57,31 @@ SERVE_DIR              = Path(__file__).resolve().parent
 PROFILES_DIR           = REPO_ROOT / "src" / "qrem" / "hardware_profiles"
 
 ALL_NUMERIC_FIELDS = [
-    ('Tc_K',                  'Tc (K)'),
-    ('RRR',                   'RRR'),
-    ('sheet_resistance_Ohm_sq', 'Sheet resistance (Ω/□)'),
-    ('TLS_density',           'TLS density (GHz⁻¹·μm⁻²)'),
-    ('surface_oxide_nm',      'Surface oxide (nm)'),
+    # ── Device performance ────────────────────────────────────────────────
     ('T1_us',                 'T1 (µs)'),
     ('T2_echo_us',            'T2 echo (µs)'),
+    ('T2_ramsey_us',          'T2 Ramsey (µs)'),
+    ('derived_T2_us',         'T2 (best available, µs)'),
     ('gate_1q_fidelity_pct',  '1Q fidelity (%)'),
     ('gate_2q_fidelity_pct',  '2Q fidelity (%)'),
+    # ── Superconducting properties ────────────────────────────────────────
+    ('Tc_K',                  'Tc (K)'),
+    ('RRR',                   'RRR'),
+    ('derived_RRR_from_RvT',             'RRR derived from R vs T'),
+    ('sheet_resistance_Ohm_sq',          'Sheet resistance (Ω/□)'),
+    ('derived_sheet_resistance_Ohm_sq',  'Sheet resistance derived (Ω/□)'),
+    ('derived_kinetic_inductance_pH_sq', 'Kinetic inductance derived (pH/□)'),
+    ('derived_coherence_length_nm',      'Coherence length derived (nm)'),
+    # ── Microwave / loss ──────────────────────────────────────────────────
+    ('derived_Qi',            'Qi (best available)'),
+    ('Q_TLS_0',               'Q_TLS,0 (unsaturated TLS Q)'),
+    ('derived_tan_delta',     'Loss tangent (best available)'),
+    ('TLS_density',           'TLS density (GHz⁻¹·μm⁻²)'),
+    # ── Fabrication ───────────────────────────────────────────────────────
+    ('film_thickness_nm',     'Film thickness (nm)'),
     ('annealing_temperature_C','Anneal temp (°C)'),
     ('annealing_duration_s',  'Anneal duration (s)'),
-    ('film_thickness_nm',     'Film thickness (nm)'),
-    ('normal_state_resistance_Ohm',      'Normal state resistance (Ω)'),
-    ('room_temperature_resistance_Ohm',  'Room temp resistance (Ω)'),
-    ('derived_resistivity_uOhm_cm',      'Resistivity derived (µΩ·cm)'),
-    ('derived_RRR_from_RvT',             'RRR derived from R vs T'),
-    ('derived_sheet_resistance_Ohm_sq',  'Sheet resistance derived (Ω/□)'),
-    ('derived_BCS_gap_meV',              'BCS gap derived (meV)'),
-    ('derived_coherence_length_nm',      'Coherence length derived (nm)'),
-    ('derived_kinetic_inductance_pH_sq', 'Kinetic inductance derived (pH/□)'),
-    ('derived_Qi',                       'Qi (best available)'),
-    ('derived_T2_us',                    'T2 (best available, µs)'),
-    ('derived_tan_delta',                'Loss tangent (best available)'),
-    ('Q_TLS_0',                          'Q_TLS,0 (unsaturated TLS Q)'),
+    ('surface_oxide_nm',      'Surface oxide (nm)'),
 ]
 
 PROFILE_SINGLE_FIELDS = [
@@ -487,6 +488,14 @@ def fetch_samples():
     numeric_cols        = ', '.join(f's.{f}' for f, _ in ALL_NUMERIC_FIELDS)
     profile_single_cols = ', '.join(f's.{f}' for f, _ in PROFILE_SINGLE_FIELDS)
     profile_list_cols   = ', '.join(f's.{f}' for f, _ in PROFILE_LIST_FIELDS)
+    # Raw variant fields needed for derived-field source tracking.
+    # Not in ALL_NUMERIC_FIELDS (removed from dropdown) but needed to know
+    # which variant populated derived_Qi / derived_T2_us / derived_tan_delta.
+    RAW_SOURCE_COLS = (
+        's.Qi_internal, s.Qi_single_photon, '
+        's.T2_echo_us, s.T2_ramsey_us, '
+        's.tan_delta_effective_surface, s.loss_tangent_interface, s.loss_tangent_substrate'
+    )
     cur.execute(f"""
         SELECT s.display_name, s.sample_id, s.filename,
                s.film_material, s.film_crystal_phase,
@@ -497,7 +506,8 @@ def fetch_samples():
                s.Qi_confidence, s.T1_confidence,
                p.authors, p.title, p.doi, p.journal,
                s.sim_profile_version,
-               {profile_single_cols}, {profile_list_cols}, {numeric_cols}
+               {profile_single_cols}, {profile_list_cols}, {numeric_cols},
+               {RAW_SOURCE_COLS}
         FROM samples s
         JOIN papers p ON s.paper_id = p.id
         WHERE p.outcome = 'ingested'
@@ -514,6 +524,24 @@ def fetch_samples():
             if val is not None:
                 try:    d[field] = float(val)
                 except: d[field] = None
+        # ── Derived-field source tracking ─────────────────────────────────
+        # For each "best available" derived field, record which raw variant
+        # was used so the frontend can encode it as a symbol.
+        # Priority mirrors build_sqlite.py — must stay in sync.
+        def _src(d, *candidates):
+            """Return the name of the first non-null candidate field."""
+            for c in candidates:
+                try:
+                    if d.get(c) is not None and float(d[c]) == float(d[c]):
+                        return c
+                except (TypeError, ValueError):
+                    pass
+            return None
+        d['derived_Qi_source']        = _src(d, 'Qi_single_photon', 'Qi_internal')
+        d['derived_T2_us_source']     = _src(d, 'T2_echo_us', 'T2_ramsey_us')
+        d['derived_tan_delta_source'] = _src(d, 'tan_delta_effective_surface',
+                                               'loss_tangent_interface',
+                                               'loss_tangent_substrate')
         samples.append(d)
     return samples
 

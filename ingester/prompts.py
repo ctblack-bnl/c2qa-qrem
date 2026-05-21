@@ -175,6 +175,7 @@ _SPARSE_SCHEMA = {
             "T1_us": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "T1_measurement_context": {"value": "<qubit_state | resonator_photon>", "confidence": "<high|medium|low>", "source": "<location>"},
             "T2_echo_us": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "T2_ramsey_us": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "single_qubit_gate_fidelity_pct": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "two_qubit_gate_fidelity_pct": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "catchall": {
@@ -526,6 +527,37 @@ IMPORTANT DISTINCTIONS:
   - Bell state fidelity → catchall
   - Process fidelity → catchall
   
+--
+T2 COHERENCE TIMES — EXTRACT BOTH VARIANTS AS NAMED FIELDS
+---
+Many papers measure both T2 echo and T2 Ramsey on the same qubit.
+Extract BOTH as named fields — do NOT put either in the catchall.
+
+T2_echo_us:
+  T2 measured with a Hahn echo sequence (also called T2E, T2^E, T2,echo).
+  Echo refocuses low-frequency dephasing noise — always >= T2_Ramsey.
+  Units: µs. Convert from ms if needed and note the conversion.
+  Source: qubit characterization table, or text stating "T2 echo = X µs".
+
+T2_ramsey_us:
+  T2 measured with a Ramsey sequence (also called T2*, T2^R, T2,Ramsey, T2R).
+  Captures total dephasing including low-frequency noise that echo refocuses.
+  Always <= T2_echo for the same qubit.
+  Extract DIRECTLY into the sample record as a named field — NOT into the catchall.
+  Look for: "T2* = X µs", "T2^R = X µs", "T2R = X µs", "Ramsey coherence time X µs",
+  "T2 Ramsey = X µs", or Ramsey values in a qubit characterization table.
+  Units: µs. Convert from ms if needed.
+  Confidence: high if from table; medium if from prose or figure.
+  Source: cite the table row or text location.
+
+DISAMBIGUATION:
+  T2_echo_us  → Hahn echo, spin echo, T2E, T2^E — always use this field
+  T2_ramsey_us → Ramsey, T2*, T2^R, T2R, T2,Ramsey — always use this field
+  If a paper reports only "T2" without specifying the sequence type:
+    - Check the methods — most modern qubit papers use echo as the default T2
+    - If the sequence is unspecified and you cannot determine it, put in T2_echo_us
+      with medium confidence and note the ambiguity in the source field
+
 ---
 CATCHALL RULES — READ CAREFULLY
 ---

@@ -202,16 +202,23 @@ def _derive_coherence_length(sample: dict) -> dict:
     return {'derived_coherence_length_nm': entry} if entry else {}
 
 
-def _derive_kinetic_inductance(sample: dict) -> dict:
+def _derive_kinetic_inductance(sample: dict, Rs_override: Optional[float] = None) -> dict:
     """
     Kinetic inductance per square from sheet resistance and Tc.
     Lk (pH/□) = (hbar × Rs) / (π × Δ)
                = (hbar × Rs) / (π × 1.764 × kB × Tc)
 
     Relevant for resonator and qubit design — affects qubit frequency.
-    Requires: sheet_resistance_Ohm_sq AND Tc_K
+    Requires: sheet_resistance_Ohm_sq (or derived) AND Tc_K
+
+    Rs_override: pre-computed sheet resistance from upstream derivation
+                 (used when Rs not directly reported but derivable from
+                  resistivity+thickness or R vs T geometry). The reported
+                 value always takes priority.
     """
     Rs = get_value(sample, 'sheet_resistance_Ohm_sq')
+    if Rs is None:
+        Rs = Rs_override  # fall back to upstream-derived value
     Tc = get_value(sample, 'Tc_K')
 
     if Rs is None or Tc is None:
@@ -305,6 +312,44 @@ def _derive_sheet_resistance_from_RvT(sample: dict) -> dict:
     return {'derived_sheet_resistance_Ohm_sq': entry} if entry else {}
 
 
+def _derive_sheet_resistance_from_resistivity(sample: dict) -> dict:
+    """
+    Sheet resistance from normal-state resistivity and film thickness.
+    Rs (Ω/□) = ρ (µΩ·cm) / t (nm) × 10
+
+    Unit derivation:
+        1 µΩ·cm = 1e-8 Ω·m
+        1 nm    = 1e-9 m
+        Rs = ρ/t = (1e-8 Ω·m) / (1e-9 m) × (ρ_num / t_num)
+           = 10 × (ρ_num / t_num)  [Ω/□]
+
+    Sanity: Ta at ρ≈180 µΩ·cm, t=200nm → Rs = 9 Ω/□ (within 5–20 Ω/□ for β-Ta)
+
+    Requires: normal_state_resistivity_uOhm_cm AND film_thickness_nm
+    Skip if: sheet_resistance_Ohm_sq already reported (measured > derived)
+             OR derived_sheet_resistance_Ohm_sq already computed from R vs T geometry
+    """
+    if is_already_reported(sample, 'sheet_resistance_Ohm_sq'):
+        return {}
+
+    rho = get_value(sample, 'normal_state_resistivity_uOhm_cm')
+    t   = get_value(sample, 'film_thickness_nm')
+
+    if rho is None or t is None or t <= 0:
+        return {}
+
+    Rs = rho / t * 10.0
+
+    entry = make_derived(
+        value=Rs,
+        field='derived_sheet_resistance_Ohm_sq',
+        derived_from=['normal_state_resistivity_uOhm_cm', 'film_thickness_nm'],
+        formula='Rs = ρ / t × 10  [µΩ·cm / nm → Ω/□]',
+        note='ρ/t: 1 µΩ·cm / 1 nm = 1e-8/1e-9 Ω/□ = 10 Ω/□',
+    )
+    return {'derived_sheet_resistance_Ohm_sq': entry} if entry else {}
+
+
 # ── Main entry point ───────────────────────────────────────────────────────
 
 def derive_all(sample: dict) -> dict:
@@ -318,17 +363,47 @@ def derive_all(sample: dict) -> dict:
         dict of derived quantity name → {value, confidence, derived_from, formula, note}
         Empty dict if nothing can be derived.
 
+    Ordering matters for cascades:
+        Sheet resistance must be derived before kinetic inductance,
+        since Lk = f(Rs, Tc) and Rs may itself be derived.
+
+    Priority for derived_sheet_resistance_Ohm_sq:
+        1. R vs T geometry  (direct measurement + geometry)
+        2. ρ + thickness    (reported resistivity + film thickness)
+        (Reported sheet_resistance_Ohm_sq always wins over both — checked inside each function.)
+
     To add a new derived quantity:
         1. Write a _derive_xxx() function following the pattern above
         2. Add one line here: derived.update(_derive_xxx(sample))
+        3. If the new quantity feeds a downstream derivation, pass it explicitly
+           (see Rs_override pattern for kinetic inductance below)
     """
     derived = {}
+
+    # ── Resistivity (from geometry) ──────────────────────────────────────
     derived.update(_derive_resistivity(sample))
+
+    # ── Sheet resistance ─────────────────────────────────────────────────
+    # Priority 1: R vs T geometry (Rn + width + length)
+    derived.update(_derive_sheet_resistance_from_RvT(sample))
+
+    # Priority 2: ρ + thickness — only if not already computed above
+    # (Both functions skip if sheet_resistance_Ohm_sq is reported;
+    #  additionally skip the ρ path if R vs T path already succeeded.)
+    if 'derived_sheet_resistance_Ohm_sq' not in derived:
+        derived.update(_derive_sheet_resistance_from_resistivity(sample))
+
+    # ── Kinetic inductance — pass derived Rs for cascade ─────────────────
+    # If neither reported Rs nor upstream derivation is available, Rs_override is None
+    # and the function returns {} gracefully.
+    Rs_derived = get_derived_value(derived, 'derived_sheet_resistance_Ohm_sq')
+    derived.update(_derive_kinetic_inductance(sample, Rs_override=Rs_derived))
+
+    # ── Remaining derivations (order-independent) ─────────────────────────
     derived.update(_derive_bcs_gap(sample))
     derived.update(_derive_coherence_length(sample))
-    derived.update(_derive_kinetic_inductance(sample))
     derived.update(_derive_RRR_from_RvT(sample))
-    derived.update(_derive_sheet_resistance_from_RvT(sample))
+
     return derived
 
 
