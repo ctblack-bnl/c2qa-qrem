@@ -1,9 +1,7 @@
 # Publications Ingester Module
-## Specification Document v0.9
-
-**Version:** 0.9 — Resonator geometry fields; Q_TLS_0 extraction; max_tokens 64000; backfill fix (May 16)
-**Date:** May 16, 2026
-**Status:** Operational — 226 samples, 100% profile coverage. See Explorer for live corpus counts.
+**Version:** 0.10 — derived_tan_delta; Explorer dropdown rationalization; manual exclusions; resistivity fallback (May 19)
+**Date:** May 19, 2026
+**Status:** Operational — 221 samples (after 3 exclusions), 100% profile coverage. See Explorer for live corpus counts.
 **Context:** Component of the C2QA Materials Characterization Database effort
 
 ---
@@ -44,6 +42,7 @@ data/
     records.jsonl           — append-only canonical ledger (source of truth)
     processed_ledger.json   — tracks processed papers (skip on re-run)
     deduplication.json      — human decisions on duplicate paper pairs
+    exclusions.json         — manual post-hoc exclusions (JSONL never modified)
     records.db              — SQLite browse database (derived, rebuildable)
     mining_evidence.jsonl   — Phase A output: evidence tables per hypothesis
     mining_corpus_gaps.jsonl — Phase A output: stated but unmeasurable hypotheses
@@ -229,6 +228,8 @@ New named columns added May 16-17:
 - `p_MS_pad` — surface participation ratio of qubit pad (for tan_delta → T1_pad_TLS)
 - `Q_TLS_0` — unsaturated TLS quality factor (preferred over raw Qi for loss model input)
 - `qubit_frequency_GHz` — qubit operating frequency (GHz); required for pad TLS calculation in t1_decomposition.py. Extracted by prompt and stored as named column (May 17).
+- `derived_tan_delta` — best available surface loss tangent: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate
+- `derived_resistivity_uOhm_cm` — geometry derivation first; falls back to directly reported `normal_state_resistivity_uOhm_cm`. Scaffold in place; fires for NbSe2/NbN geometry path only until Bahrami/Yang prompt fix.
 
 
 
@@ -243,7 +244,7 @@ The `derived_material` column is the key addition in v0.8 — it enables reliabl
 **Local:** `http://localhost:8001/materials_explorer.html`
 **Hosted:** `https://c2qa-materials-explorer.onrender.com` (auto-deploys from GitHub main branch)
 
-**Explore** — Strip plot and scatter plot. Sidebar filters by `sim_material_class`. Click any data point to open detail panel ("Click any data point for full material information" hint shown above charts). Axis labels enlarged and brightened for readability.
+**Explore** — Strip plot and scatter plot. Sidebar filters by `sim_material_class`. Click hint box (upper right of chart, "Click a data point for full info") opens detail panel. Axis labels enlarged and brightened for readability. Dropdown shows derived best-available fields only — raw Qi variants and raw loss tangent variants removed; Q_TLS,0 added as distinct plottable field.
 
 **Search** — Table, Ranked, and Similar sub-views. Similarity result cards show matched profile tags and numeric field chips.
 
@@ -288,13 +289,27 @@ The 41 author-stated correlations are the primary input to Phase A. Note: `schem
 
 **Low — skip:** Classical materials; superconducting power applications; high-Tc materials; purely theoretical papers; QEC / circuit-level papers with no materials content.
 
-**Known leakage:** Some non-superconducting quantum systems (NV centers, SiV, transition metal impurities in GaN/AlN) and pure theory papers slip through as medium relevance. These end up in `derived_material = "other"` and are excluded from Phase B. Not worth fixing via prompt tuning at current corpus size — monitor and address when corpus expands.
+**Known leakage:** Some non-superconducting quantum systems (NV centers, SiV, ZnO donors) and pure theory proposals slip through as high/medium relevance when they carry a C2QA acknowledgment. Use `exclusions.json` to handle these post-hoc. Not worth fixing via prompt tuning alone — the acknowledgment signal is too strong and would risk suppressing legitimate papers.
 
 ---
 
 ## Deduplication
 
 arXiv preprints and published versions matched by title similarity (≥ 0.85). Human decides: keep A, keep B, or not a duplicate. Decisions written to `deduplication.json`. `build_sqlite.py` excludes the losing paper from SQLite view. The JSONL retains both records.
+
+---
+
+## Manual Exclusions
+
+Some records pass relevance classification but are subsequently found to be inappropriate — theory proposals, non-superconducting systems, or C2QA acknowledgment false positives. These are excluded post-hoc without modifying the JSONL.
+
+**Mechanism:** `data/ingested/exclusions.json` — an append-only list read by `build_sqlite.py` at build time. Matching records are skipped before insertion into SQLite. Match priority: DOI → arXiv ID → filename. Each entry requires a human-readable `reason`.
+
+**Current exclusions (3):** Hays 2026 (theory proposal, unbuilt "harmonium" qubit); Marcenac 2026 (NV center / FPGA control); WangX 2026 (ZnO semiconductor donor). All had C2QA acknowledgments causing false high-relevance.
+
+**Rule:** A C2QA acknowledgment alone is not sufficient for relevance. The paper must report superconducting materials characterization data.
+
+**Planned:** Exclusions management UI in the pipeline interface.
 
 ---
 
@@ -315,6 +330,9 @@ arXiv preprints and published versions matched by title similarity (≥ 0.85). H
 - Resonator geometry (gap width, p_MS_resonator) often not reported in papers — without it, Q_TLS,0 alone has 6x uncertainty in tan_delta extraction. New fields `resonator_gap_width_um` and `p_MS_resonator` added to capture this when reported.
 - SI files currently ingested as independent papers with no link to companion paper. Do not ingest SI files as standalone if the main paper is already ingested — wait for SI file linking implementation. Risk: duplicate sample records that are hard to merge.
 - max_tokens = 64000 required for large multi-qubit papers (e.g. Bland 2025 with 57 qubits). Smaller papers still work fine at lower token counts.
+- Normal-state resistivity (ρn) correctly extracted for Bahrami 2026 and Yang 2026 but lands in catchall rather than named field — extraction prompt fix pending. Fallback in `build_sqlite.py` is in place and will fire automatically once prompt is corrected and papers re-ingested.
+- C2QA acknowledgment causes false high-relevance for theory proposals and non-superconducting systems — handle via `exclusions.json`, not prompt tuning.
+
 
 ---
 
@@ -353,11 +371,12 @@ Ingester recognizes the pattern and ingests them as a single logical record. Pas
 | Phase 2 — AI-assisted extraction | ✅ Complete | Three-pass pipeline, Materials Explorer, derived quantities, deduplication, ingestion pipeline UI, Hardware Profile Updater, hybrid similarity search, public hosting |
 | Phase 3 — Corpus mining | ✅ Complete | Phase A→B→C pipeline, human review UI, `findings.jsonl` ledger, per-material stratification, `derived_material` column, Findings tab in Explorer |
 | Phase 4 — Schema evolution UI | Next | Stage 4 sub-step surfaces field promotion candidates from frequency report for human approval. Schema promotion implementation in `build_sqlite.py`. |
+| Phase 4b — Manual exclusions UI | Planned | Management interface for `exclusions.json` in pipeline UI: show current exclusions, add by DOI/arXiv/filename, trigger rebuild. Currently requires manual JSON editing. |
 | Phase 5 — SI file linking | Planned | DOI-based naming: `{DOI_slug}_main.pdf` / `{DOI_slug}_SI.pdf`. Ingester recognizes pair, ingests as single logical record with `source_files: [main, SI]`. Do not ingest SI files as standalone in the meantime. |
 | Phase 6 — Human review UI | Planned | Record-level review mechanism integrated into Explorer |
 | Phase 7 — Active literature monitoring | Planned | Automated arXiv/journal monitoring; weekly human review queue |
 
 ---
 
-**Version:** 0.10 — qubit_frequency_GHz named column and prompt extraction added (May 17)
-*Updated May 17, 2026.*
+*End of Specification v0.10*
+*Updated May 19, 2026.*

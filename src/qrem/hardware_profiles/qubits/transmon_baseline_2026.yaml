@@ -51,14 +51,18 @@ gates:
                                       # Contributes significantly to QEC cycle time.
 
 # =============================================================================
-# PROVENANCE
-# For corpus-derived profiles, this section records which sample and fields
-# were measured vs assumed. Generated profiles populate this automatically.
+# STAGE 4: MATERIAL INPUTS FOR T1 DECOMPOSITION
+# The baseline profile has no corpus-measured material data.
+# All fields are null — t1_decomposition.py will use class defaults throughout.
 # =============================================================================
+materials: {}
+device: {}
+surface_participation: {}
+
 provenance:
-  derived_from_sample: null           # e.g. "Bahrami_2026_D3" — null for hand-tuned profiles
-  measured_fields: []                 # Fields taken directly from the database
-  assumed_fields:                     # Fields set to defaults
+  derived_from_sample: null
+  measured_fields: []
+  assumed_fields:
     - T1_us
     - T2_us
     - single_qubit_fidelity_pct
@@ -67,3 +71,4 @@ provenance:
     - two_qubit_gate_time_ns
     - readout_fidelity_pct
     - readout_time_ns
+  defaults_path: ../mapping_models/transmon_analytical_defaults.yaml

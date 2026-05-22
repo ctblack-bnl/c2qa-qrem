@@ -1,6 +1,6 @@
 # Materials Characterization Data Schema
-### Version 0.12 — derived_tan_delta; Explorer dropdown rationalization; manual exclusions (May 19)
-**Date:** May 19, 2026
+### Version 0.13 — T2_ramsey_us promoted to named column; Explorer enhancements (May 2026)
+**Date:** May 20, 2026
 **Status:** Active — ingester operational, Explorer live at https://c2qa-materials-explorer.onrender.com
 **Scope:** Superconducting qubit and resonator systems (neutral atom schema to follow)
 
@@ -46,17 +46,15 @@ Note: the former `schema_candidate` type has been merged into `additional_measur
 
 Ingested records carry per-field confidence levels (`high`/`medium`/`low`) and source references, and start with `human_reviewed: false`, `human_approved: false`.
 
-### Current Database State (May 16, 2026)
+### Current Database State
 
-226 samples, 100% similarity profile coverage. See Explorer header for live counts — corpus stats are not maintained in this document.
-
-**Notable recent additions:** Joshi 2026 β-Ta (12 samples, primary loss model validation case); Bland 2025 α-Ta on silicon (57 individual qubit records + resonator, millisecond coherence).
+See Explorer header for live counts — corpus stats are not maintained in this document.
 
 ### Corpus Mining Pipeline
 
 The corpus mining pipeline (Phase A → B → C) operates over all ingested records to extract, reason about, and formalize materials-to-device connection hypotheses. Results are reviewed by human scientists and approved findings are written to `findings.jsonl`.
 
-**Current mining results (May 11):** 41 correlations found. Phase A produces 19 sufficient evidence tables (global + per-material-class). 1 positive finding: Tc_K vs deposition_temperature in Ta-Hf (83:17), confidence 0.72 — monotonic ~0.2–0.4 K Tc suppression across 550–850°C deposition temperature from a single 8-sample study. Remaining findings inconclusive or correctly flagged as derived field artifacts.
+**Current mining results:** See `findings.jsonl` for approved findings. 1 positive finding to date: Tc_K vs deposition_temperature in Ta-Hf (83:17), confidence 0.72. Remaining findings inconclusive — expected at current corpus size.
 
 Mining runs as Stage 4 of the ingestion pipeline UI (`ingest_pipeline.html`).
 
@@ -520,54 +518,34 @@ Human scientists review mining findings via the ingestion pipeline UI (Stage 4).
 
 **Schema versioning:** Minor versions add optional fields. Major versions change required fields and require record migration.
 
-**Changes in v0.12 (May 19, 2026):**
-- Added `derived_tan_delta` derived column: `tan_delta_effective_surface` → `loss_tangent_interface` → `loss_tangent_substrate` priority. Follows established `derived_X` pattern. 19 samples populated (Hedrick 2026 Al, Joshi 2026 β-Ta, Bland 2025 α-Ta).
+**Changes in v0.13 (May 2026):**
+- `T2_ramsey_us` promoted from schema-defined field to named DB column. Was always in Block 3.4; now queryable and plottable in Explorer. Extraction prompt updated with explicit T2 echo vs Ramsey disambiguation.
+- Explorer: per-point symbol encoding (solid/open circles) for derived best-available fields; variant legend inside chart when both variants present. Sidecar download button (MD/JSON). Strip plot jitter fix (range-relative). Dropdown reordered into logical groups.
+- Manual exclusions expanded; corpus cleaned of non-superconducting systems and theory proposals with C2QA acknowledgments.
+
+**Changes in v0.12 (May 2026):**
+- Added `derived_tan_delta` derived column: `tan_delta_effective_surface` → `loss_tangent_interface` → `loss_tangent_substrate` priority.
 - Added `Q_TLS_0` as plottable field in Explorer — physically distinct from Qi, not folded into `derived_Qi`.
 - Removed raw Qi variants and raw loss tangent variants from Explorer dropdown — superseded by derived best-available fields.
-- Added `derived_resistivity_uOhm_cm` fallback to `normal_state_resistivity_uOhm_cm` named field. Scaffold in place; will fire once extraction prompt updated for Bahrami/Yang.
-- Added manual exclusions mechanism: `exclusions.json` + `build_sqlite.py` support. Three papers excluded (Hays, Marcenac, WangX). JSONL unchanged.
-- Explorer click hint restyled: boxed, upper-right of chart, shortened text, pointer-events: none.
+- Added `derived_resistivity_uOhm_cm` fallback to `normal_state_resistivity_uOhm_cm` named field.
+- Added manual exclusions mechanism: `exclusions.json` + `build_sqlite.py` support. JSONL unchanged.
 
-**Changes in v0.11 (May 16, 2026):**
-- Added four resonator geometry fields to Block 3.3: `Q_TLS_0`, `resonator_type`, `resonator_gap_width_um`, `p_MS_resonator`, `p_MS_pad` — enabling correct tan_delta extraction from resonator measurements
-- Added extraction prompt guidance for these fields explaining the two-step Joshi inversion (Q_TLS,0 + p_MS_resonator → tan_delta → p_MS_pad → T1_pad_TLS)
-- Updated Known Materials-to-Device Connections: replaced simple Qi/ω formula with correct two-step inversion; added TLS saturation note
-- Streamlined corpus stats in Implementation Status — live counts in Explorer header, not maintained here
-- max_tokens bumped to 64000 in pipeline_ingest.py (was 32000) — required for large multi-qubit papers
-- Backfill null-check bug fixed in backfill_similarity_profiles.py line 215
-- Re-ingested Joshi 2026 and Bland 2025 with updated prompt; resonator geometry fields now populated
-- Updated version header
+**Changes in v0.11 (May 2026):**
+- Added resonator geometry fields to Block 3.3: `Q_TLS_0`, `resonator_type`, `resonator_gap_width_um`, `p_MS_resonator`, `p_MS_pad` — enabling correct tan_delta extraction from resonator measurements.
+- Added extraction prompt guidance for two-step Joshi inversion (Q_TLS,0 + p_MS_resonator → tan_delta → p_MS_pad → T1_pad_TLS).
+- Updated Known Materials-to-Device Connections: replaced simple Qi/ω formula with correct two-step inversion; added TLS saturation note.
 
-**Changes in v0.10 (May 14, 2026):**
-- Updated corpus stats: 115 papers, 170 samples, ~1,390 catchall items (May 14)
-- Added `derived_Qi` column: `Qi_single_photon` → `Qi_internal_quality_factor` priority. Single-photon Qi preferred for plotting (qubit operating regime).
+**Changes in v0.10 (May 2026):**
+- Added `derived_Qi` column: `Qi_single_photon` → `Qi_internal_quality_factor` priority.
 - Added `derived_T2_us` column: `T2_echo_us` → `T2_ramsey_us` priority.
-- Established `derived_X` pattern for fields with multiple measurement variants — Explorer plots `derived_X`, detail drawer shows raw values.
-- Multi-device extraction prompt fix: each characterized qubit/resonator with distinct measured values is now explicitly extracted as a separate sample record.
-- Ingested Joshi 2026 β-Ta paper: 12 samples (11 qubits + 1 representative resonator). Notable: β-Ta Tc=0.7K does not degrade qubit performance — QP channel negligible at 20mK, TLS dominates.
-- Updated mining results: 19 sufficient evidence tables, 1 positive finding (Ta-Hf Tc vs deposition temperature, confidence 0.72)
-- Schema promotion status updated: three promoted fields (`kinetic_inductance_sheet_pH_sq`, `mean_free_path_nm`, `vortex_activation_temperature_K`) are now ✅ operational named columns — no longer pending
-- Added `derived_substrate` and `derived_deposition_method` normalization columns to Implementation Status — these are Explorer display/navigation fields, not PUK schema fields
-- Added `Mo3Al2C`, `NbSe2`, `PtSi` to material name standardization table
-- Added `molybdenum_aluminum_carbide` to Block 6 `material_class` vocabulary
-- Clarified `film_material` rule: superconducting film identity only; junction materials go in `junction_material`. Added note about parenthetical stripping in `normalize_film_material()`.
-- Added note to `junction_material` field description reinforcing separation from `film_material`
-- Added corpus finding note to `vortex_activation_temperature_K` (dirty-limit Ta ~10× higher than clean-limit)
-- Added T1_TLS formula reference to Known Materials-to-Device Connections
-- Added planned Block 4 extension note for QREM Stage 4 loss mechanism attribution
-- Added known limitation note to Block 6 re: `sim_material_class` unreliability for uncommon materials
-- Updated schema_version field example to `0.8`
+- Established `derived_X` pattern for fields with multiple measurement variants.
+- Multi-device extraction prompt fix: each characterized qubit/resonator extracted as a separate sample record.
 
-**Changes in v0.7 (April 28, 2026):**
-- Promoted three fields to Block 3.1: `kinetic_inductance_sheet_pH_sq`, `mean_free_path_nm`, `vortex_activation_temperature_K` — frequency-driven promotion based on corpus analysis
-- Added `surface_participation_ratio` to Block 3.2
-- Added `film_width_um` to Block 2.2 and `junction_vacuum_condition` to Block 2.3
-- Added `source_files` to Block 1 (for SI linking)
-- Retired `schema_candidate` catchall type — merged into `additional_measurement`; schema promotion now frequency-driven not per-paper
-- Added `niobium_diselenide` and `platinum_silicide` to Block 6 `material_class` vocabulary; added `kinetic_inductance_to_loss` to `key_correlations`
-- Updated corpus stats and coverage percentages
-- Added corpus mining pipeline documentation to Implementation Status
-- Clarified Ic/Jc disambiguation as planned future work
+**Changes in v0.7 (April 2026):**
+- Promoted three fields to Block 3.1: `kinetic_inductance_sheet_pH_sq`, `mean_free_path_nm`, `vortex_activation_temperature_K`.
+- Added `surface_participation_ratio` to Block 3.2; `film_width_um` to Block 2.2; `junction_vacuum_condition` to Block 2.3; `source_files` to Block 1.
+- Retired `schema_candidate` catchall type — merged into `additional_measurement`; schema promotion now frequency-driven.
+- Added `niobium_diselenide` and `platinum_silicide` to Block 6 `material_class` vocabulary; added `kinetic_inductance_to_loss` to `key_correlations`.
 
 **Changes in v0.6:** Block 6 similarity profiles; hybrid similarity scoring; Explorer material class sidebar.
 
@@ -579,7 +557,7 @@ Human scientists review mining findings via the ingestion pipeline UI (Stage 4).
 
 ---
 
-*End of Schema Document v0.12*
-*Updated May 19, 2026.*
+*End of Schema Document v0.13*
+*Updated May 20, 2026.*
 *Proposed for discussion at Five-Center Materials Working Group*
 *Contact: C2QA QREM Team*

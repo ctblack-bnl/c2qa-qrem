@@ -548,11 +548,11 @@
         <span class="slider-value" id="t1-display">200 µs</span>
         <span class="slider-label" style="margin-left:8px; font-size:10px; color:var(--text-muted)" id="t1-provenance">[ASSUMED]</span>
       </div>
-      <input type="range" id="t1-slider" min="10" max="500" step="5" value="200">
+      <input type="range" id="t1-slider" min="10" max="1000" step="5" value="200">
       <div class="slider-ticks">
         <span>10 µs</span>
-        <span>250 µs</span>
         <span>500 µs</span>
+        <span>1000 µs</span>
       </div>
     </div>
 
@@ -744,7 +744,62 @@
         </table>
         <div id="cb-provenance" style="margin-top:6px; font-size:10px; color:var(--text-muted); font-family:var(--mono)"></div>
       </div>
+
+      <!-- T1 Loss Channel Breakdown — Stage 4 — hidden until corpus profile loaded -->
+      <div id="t1-decomp-panel" style="display:none; margin-top:12px; border-top:1px solid var(--border); padding-top:10px">
+        <div class="section-label" style="font-size:10px; margin-bottom:8px; cursor:pointer" id="t1-decomp-header" onclick="toggleT1Decomp()">
+          T1 Loss Channel Breakdown <span id="t1-decomp-chevron">▸</span>
+        </div>
+        <div id="t1-decomp-body" style="display:none">
+          <table class="analysis-table" style="margin-bottom:8px">
+            <tr>
+              <td style="color:var(--text-muted)">tan_delta</td>
+              <td id="decomp-tan-delta">—</td>
+              <td id="decomp-tan-delta-prov" style="color:var(--text-muted); font-size:10px; font-family:var(--mono)">—</td>
+            </tr>
+          </table>
+          <table class="analysis-table">
+            <tr>
+              <td>Pad TLS</td>
+              <td id="decomp-pad-tls">—</td>
+              <td id="decomp-pad-tls-prov" style="color:var(--text-muted); font-size:10px; font-family:var(--mono)">—</td>
+            </tr>
+            <tr>
+              <td>Junction TLS</td>
+              <td id="decomp-junc-tls">—</td>
+              <td id="decomp-junc-tls-prov" style="color:var(--text-muted); font-size:10px; font-family:var(--mono)">—</td>
+            </tr>
+            <tr>
+              <td>Quasiparticle</td>
+              <td id="decomp-qp">—</td>
+              <td id="decomp-qp-prov" style="color:var(--text-muted); font-size:10px; font-family:var(--mono)">—</td>
+            </tr>
+            <tr>
+              <td>Vortex</td>
+              <td id="decomp-vortex">—</td>
+              <td id="decomp-vortex-prov" style="color:var(--text-muted); font-size:10px; font-family:var(--mono)">—</td>
+            </tr>
+            <tr>
+              <td>Radiation</td>
+              <td id="decomp-radiation">—</td>
+              <td id="decomp-radiation-prov" style="color:var(--text-muted); font-size:10px; font-family:var(--mono)">—</td>
+            </tr>
+            <tr style="border-top:1px solid var(--border)">
+              <td>T1 predicted</td>
+              <td id="decomp-t1-predicted">—</td>
+              <td id="decomp-validation" style="font-size:10px; font-family:var(--mono)">—</td>
+            </tr>
+            <tr id="decomp-measured-row" style="display:none">
+              <td>T1 measured</td>
+              <td id="decomp-t1-measured">—</td>
+              <td></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
     </div>
+  </div>
 
   </div>
 
@@ -899,7 +954,8 @@ async function fetchAndInitSliders(qubitsProfileName) {
     if (!data.ok) return;
 
     const T1 = data.T1_us ?? 200;
-    t1Slider.value = Math.min(Math.max(T1, 10), 500);
+    profileRawT1 = T1;  // store before clamping — used for decomp "T1 measured" display
+    t1Slider.value = Math.min(Math.max(T1, 10), 1000);
     t1Display.textContent = T1.toFixed(0) + ' µs';
     document.getElementById('t1-provenance').textContent =
       (data.measured_fields || []).includes('T1_us') ? '[MEASURED]' : '[ASSUMED]';
@@ -921,6 +977,10 @@ async function fetchAndInitSliders(qubitsProfileName) {
     document.getElementById('gate-time-provenance').textContent =
       (data.measured_fields || []).includes('two_qubit_gate_time_ns')
         ? '[MEASURED]' : '[ASSUMED]';
+
+    // Reset sliders-moved flag — panel is valid again for this profile
+    slidersMoved = false;
+    hideT1Decomp();
   } catch(e) {
     console.warn('Could not fetch profile values:', e);
   }
@@ -1271,7 +1331,7 @@ function buildT1Curve(result, t2_linked) {
   const target_LER = result.target_logical_error_rate;
   const n_logical  = result.num_logical_qubits;
   const points = [];
-  for (let T1 = 10; T1 <= 500; T1 += 5) {
+  for (let T1 = 10; T1 <= 1000; T1 += 5) {
     const T2 = t2_linked ? Math.min(2 * T1, 1000) : T2_fixed;
     const eps_T1    = gate_time_us / T1;
     const eps_T2    = gate_time_us / T2;
@@ -1289,6 +1349,108 @@ function buildT1Curve(result, t2_linked) {
     });
   }
   return points;
+}
+
+// ─────────────────────────────────────────────────────────────
+// T1 Loss Channel Breakdown — Stage 4
+// ─────────────────────────────────────────────────────────────
+
+// Track whether sliders have been moved since last profile load
+let slidersMoved = false;
+let profileRawT1 = null;  // actual profile T1 before slider clamping
+
+function toggleT1Decomp() {
+  const body    = document.getElementById('t1-decomp-body');
+  const chevron = document.getElementById('t1-decomp-chevron');
+  const open    = body.style.display !== 'none';
+  body.style.display  = open ? 'none' : 'block';
+  chevron.textContent = open ? '▸' : '▾';
+}
+
+function hideT1Decomp() {
+  const panel   = document.getElementById('t1-decomp-panel');
+  const body    = document.getElementById('t1-decomp-body');
+  const chevron = document.getElementById('t1-decomp-chevron');
+  if (panel)   panel.style.display   = 'none';
+  if (body)    body.style.display    = 'none';
+  if (chevron) chevron.textContent   = '▸';
+  // Remove ▸ affordance from ε_T1 row
+  const epsRow = document.getElementById('eps-T1-row');
+  if (epsRow) {
+    epsRow.style.cursor = 'default';
+    epsRow.title = '';
+    const ch = epsRow.querySelector('span[style*="font-size:10px"]');
+    if (ch) ch.style.visibility = 'hidden';
+  }
+}
+
+function showT1DecompAffordance() {
+  const epsRow = document.getElementById('eps-T1-row');
+  if (epsRow) {
+    epsRow.style.cursor = 'pointer';
+    epsRow.title = 'Click to see T1 loss channel breakdown';
+    const ch = epsRow.querySelector('span[style*="font-size:10px"]');
+    if (ch) ch.style.visibility = 'visible';
+  }
+}
+
+function updateT1Decomposition(result) {
+  const panel = document.getElementById('t1-decomp-panel');
+  if (!panel) return;
+
+  const d = result.t1_decomposition;
+
+  // Hide if no decomposition data
+  if (!d) { hideT1Decomp(); return; }
+
+  // Hide if sliders have been moved away from profile values
+  if (slidersMoved) { hideT1Decomp(); return; }
+
+  // Formatters
+  const fmtT1   = v => v == null ? '—' : v > 1e6 ? '> 1×10⁶ µs' : v.toFixed(0) + ' µs';
+  const fmtTd   = v => v == null ? '—' : v.toExponential(2);
+  const fmtProv = v => v ? '[' + v + ']' : '';
+  const s       = id => document.getElementById(id);
+
+  // tan_delta
+  if (s('decomp-tan-delta'))      s('decomp-tan-delta').textContent      = fmtTd(d.tan_delta);
+  if (s('decomp-tan-delta-prov')) s('decomp-tan-delta-prov').textContent = fmtProv(d.tan_delta_provenance);
+
+  // Channels
+  const pad  = d.components && d.components.pad;
+  const junc = d.components && d.components.junction;
+  const rad  = d.components && d.components.radiation;
+
+  if (s('decomp-pad-tls'))       s('decomp-pad-tls').textContent       = fmtT1(pad && pad.channels && pad.channels.TLS && pad.channels.TLS.T1_TLS_us);
+  if (s('decomp-pad-tls-prov'))  s('decomp-pad-tls-prov').textContent  = fmtProv(pad && pad.channels && pad.channels.TLS && pad.channels.TLS.provenance);
+  if (s('decomp-junc-tls'))      s('decomp-junc-tls').textContent      = fmtT1(junc && junc.channels && junc.channels.TLS && junc.channels.TLS.T1_TLS_us);
+  if (s('decomp-junc-tls-prov')) s('decomp-junc-tls-prov').textContent = fmtProv(junc && junc.channels && junc.channels.TLS && junc.channels.TLS.provenance);
+  if (s('decomp-qp'))            s('decomp-qp').textContent            = fmtT1(pad && pad.channels && pad.channels.QP && pad.channels.QP.T1_QP_us);
+  if (s('decomp-qp-prov'))       s('decomp-qp-prov').textContent       = fmtProv(pad && pad.channels && pad.channels.QP && pad.channels.QP.provenance);
+  if (s('decomp-vortex'))        s('decomp-vortex').textContent        = fmtT1(pad && pad.channels && pad.channels.vortex && pad.channels.vortex.T1_vortex_us);
+  if (s('decomp-vortex-prov'))   s('decomp-vortex-prov').textContent   = fmtProv(pad && pad.channels && pad.channels.vortex && pad.channels.vortex.provenance);
+  if (s('decomp-radiation'))     s('decomp-radiation').textContent     = fmtT1(rad && rad.T1_radiation_us);
+  if (s('decomp-radiation-prov'))s('decomp-radiation-prov').textContent= fmtProv(rad && rad.provenance);
+
+  // Predicted vs measured
+  if (s('decomp-t1-predicted')) s('decomp-t1-predicted').textContent = fmtT1(d.T1_predicted_us);
+  const measuredT1 = d.T1_measured_us ?? profileRawT1;
+  if (measuredT1 != null) {
+    if (s('decomp-measured-row')) s('decomp-measured-row').style.display = '';
+    if (s('decomp-t1-measured'))  s('decomp-t1-measured').textContent    = fmtT1(measuredT1);
+    if (s('decomp-validation')) {
+      const ok = d.model_validates;
+      s('decomp-validation').textContent = ok ? '✓ within 5×' : '✗ outside 5×';
+      s('decomp-validation').style.color = ok ? 'var(--green)' : 'var(--warn)';
+    }
+  } else {
+    if (s('decomp-measured-row')) s('decomp-measured-row').style.display = 'none';
+    if (s('decomp-validation'))   s('decomp-validation').textContent     = '[DERIVED]';
+  }
+
+  // Show panel and affordance
+  panel.style.display = 'block';
+  showT1DecompAffordance();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1482,6 +1644,7 @@ async function triggerEstimation() {
     lastResult = result;
     updateCards(result);
     updateCoherenceBudget(result);
+    updateT1Decomposition(result);
     const t2_linked = document.getElementById('t2-link').checked;
     curveData = buildT1Curve(result, t2_linked);
     drawT1Chart(curveData, t1_us, result.total_physical_qubits);
@@ -1500,12 +1663,16 @@ function scheduleRun(delay = 400) {
 
 // Sliders — debounced
 t1Slider.addEventListener('input', () => {
+  slidersMoved = true;
+  hideT1Decomp();
   t1Display.textContent = getT1().toFixed(0) + ' µs';
   if (t2Link.checked) syncT2toT1();
   scheduleRun(400);
 });
 
 t2Slider.addEventListener('input', () => {
+  slidersMoved = true;
+  hideT1Decomp();
   t2Display.textContent = getT2().toFixed(0) + ' µs';
   t2Prov.textContent = '[MANUAL]';
   t2Link.checked = false;

@@ -1016,10 +1016,29 @@
   </main>
 </div>
 <script>
+// Explicit per-material color map — hues spread across the full wheel to
+// avoid the blue/cyan and purple/pink confusion in the old rotated palette.
+// Fallback PALETTE used for any material class not listed here.
+const MATERIAL_COLOR_MAP = {
+  'tantalum':                   '#58a6ff', // steel blue
+  'niobium':                    '#2dd4bf', // teal
+  'aluminum':                   '#3fb950', // green
+  'rhenium':                    '#e3b341', // gold
+  'tantalum_hafnium':           '#ffa657', // orange
+  'niobium_nitride':            '#f78166', // coral
+  'titanium_nitride':           '#ff7b72', // rose
+  'niobium_titanium_nitride':   '#ffb86c', // amber
+  'tantalum_nitride':           '#89d4a0', // sage
+  'niobium_diselenide':         '#d2a8ff', // violet
+  'platinum_silicide':          '#79c0ff', // sky
+  'molybdenum_aluminum_carbide':'#f0a0c0', // magenta
+  'other':                      '#8b949e', // muted grey
+  'unknown':                    '#8b949e', // muted grey
+};
 const PALETTE = [
-  '#58a6ff','#3fb950','#f78166','#d2a8ff',
-  '#ffa657','#79c0ff','#56d364','#ff7b72',
-  '#bc8cff','#ffb86c','#e3b341','#89ddff'
+  '#58a6ff','#2dd4bf','#3fb950','#e3b341',
+  '#ffa657','#f78166','#ff7b72','#ffb86c',
+  '#89d4a0','#d2a8ff','#79c0ff','#f0a0c0'
 ];
 // ── Derived-field variant encoding ────────────────────────────────────────
 // Maps each "best available" derived field to the source key returned by
@@ -1822,11 +1841,15 @@ function getFilteredSamples() {
 }
 function buildMaterialFilters() {
   const classes = [...new Set(allSamples.map(s => s.sim_material_class).filter(Boolean))].sort();
-  classes.forEach((c, i) => { colorMap[c] = PALETTE[i % PALETTE.length]; });
+  classes.forEach((c, i) => {
+    colorMap[c] = MATERIAL_COLOR_MAP[c] || PALETTE[i % PALETTE.length];
+  });
   // Also map derived_material keys to colors for chart grouping
   allSamples.forEach(s => {
     if (s.derived_material && !colorMap[s.derived_material]) {
-      colorMap[s.derived_material] = colorMap[s.sim_material_class] || PALETTE[Object.keys(colorMap).length % PALETTE.length];
+      colorMap[s.derived_material] = MATERIAL_COLOR_MAP[s.derived_material]
+        || colorMap[s.sim_material_class]
+        || PALETTE[Object.keys(colorMap).length % PALETTE.length];
     }
   });
   const container = document.getElementById('materialFilters');

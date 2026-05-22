@@ -28,6 +28,13 @@
       "decision": "not_duplicate",
       "keep": null,
       "decided_at": "2026-04-24"
+    },
+    {
+      "paper_a": "PhysRevLett.134.100601.pdf",
+      "paper_b": "2025-PhysRevLett-Hazra.pdf",
+      "decision": "duplicate",
+      "keep": "PhysRevLett.134.100601.pdf",
+      "decided_at": "2026-05-20"
     }
   ]
 }

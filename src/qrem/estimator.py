@@ -41,6 +41,7 @@ import math
 import yaml
 import dataclasses
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from analyzer import AnalysisResult
 from profile_loader import load_profile, list_profiles
@@ -548,17 +549,8 @@ def run_estimation(
 
     if profile_path:
         # Load clean profile (no overrides) to derive stable ε_ctrl baseline
-        clean_profile = load_profile(legacy_path=profile_path)
         profile = load_profile(legacy_path=profile_path, overrides=profile_overrides)
     elif profiles_dir:
-        # Load clean profile (no overrides) to derive stable ε_ctrl baseline
-        clean_profile = load_profile(
-            profiles_dir=profiles_dir,
-            qubits=qubits,
-            interconnect=interconnect,
-            module=module,
-            error_correction=error_correction,
-        )
         profile = load_profile(
             profiles_dir=profiles_dir,
             qubits=qubits,
@@ -569,6 +561,24 @@ def run_estimation(
         )
     else:
         raise ValueError("Must provide either profile_path or profiles_dir + component names")
+
+    # Always derive ε_ctrl from transmon_baseline_2026 — the controls baseline.
+    # ε_ctrl represents pulse engineering quality (pulse errors, leakage, calibration).
+    # It is fixed by the control system, not by the material profile being studied.
+    # Loading a corpus profile (Wang, Bland, Joshi) changes T1/T2 but never ε_ctrl.
+    if profiles_dir:
+        controls_baseline = load_profile(
+            profiles_dir=profiles_dir,
+            qubits='transmon_baseline_2026',
+        )
+    else:
+        # Legacy mode — resolve baseline relative to the legacy profile path
+        baseline_path = Path(profile_path).parent / 'transmon_baseline_2026.yaml'
+        if baseline_path.exists():
+            controls_baseline = load_profile(legacy_path=str(baseline_path))
+        else:
+            controls_baseline = profile  # last resort fallback
+    epsilon_ctrl = _derive_control_error_baseline(controls_baseline)
 
     ir = parse_qasm(circuit_path)
     analysis = analyze(ir)
@@ -621,7 +631,7 @@ def run_estimation(
 
     return estimate(analysis, profile_path=None, profile=profile,
                     verbose=verbose, ir=ir,
-                    epsilon_control_baseline=_derive_control_error_baseline(clean_profile),
+                    epsilon_control_baseline=epsilon_ctrl,
                     t1_decomposition=t1_decomp_result)
 
 
