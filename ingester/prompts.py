@@ -370,8 +370,21 @@ These errors have been observed in testing — be especially careful:
   If a paper reports a single "surface loss tangent" or "tan delta" from a Q_TLS,0 vs SPR
   fit (like Joshi Figure 3b, Bland Figure 2, or Hedrick Figure 3b), put it in
   tan_delta_effective_surface, NOT loss_tangent_interface.
+
+  PARTICIPATION MATRIX PAPERS (like Wang 2026, Ganjam 2024):
+  Some papers extract loss factors Γ_i using participation matrix inversion rather than
+  Q_TLS,0 vs p_MS fits. In these papers, Γ_surf (or Γ_surface) IS the effective surface
+  loss tangent — extract it as tan_delta_effective_surface.
+  The formula is: Γ_surf = tan_delta_effective_surface (dimensionless, ~1e-4 to 1e-3).
+  Look for: Tables titled "Loss factors", "Loss contributions", or "Loss budget" that list
+  Γ_surf, Γ_surface, or "surface loss factor" alongside participation ratios.
+  Note: Γ_surf from participation matrix papers uses a COLLAPSED surface participation
+  (p_surf = p_MA + p_MS + p_SA summed), not per-interface breakdown.
+
   Examples:
     "tan δ = 1.6e-3 from fitting QTLS,0 vs pMS"  → tan_delta_effective_surface
+    "Γ_surf = 3.6×10⁻⁴ from participation matrix inversion" → tan_delta_effective_surface
+    "surface loss factor Γ_surface = 3.4×10⁻⁴" → tan_delta_effective_surface
     "tan δMS = 8e-4 at the metal-substrate interface" → loss_tangent_interface (type: metal_substrate)
     
 ---
@@ -473,9 +486,16 @@ p_MS_pad:
   capacitor pads. Physically distinct from p_MS_resonator — qubit pads are
   designed to have much lower p_MS than resonators.
   Often reported as "p_MS of the qubit", "qubit SPR", or stated as a design parameter.
-  Look for: "qubits are designed with p_MS of X", HFSS simulation results for qubit geometry,
-  tables comparing resonator and qubit participation ratios.
-  Source: Main text, supplementary simulation section.
+  Look for:
+    - "qubits are designed with p_MS of X" (design parameter statement)
+    - HFSS or Maxwell simulation results for qubit geometry
+    - Tables of participations listing values for multiple devices including the transmon
+      (e.g. "Participation, p_i ... Transmon" columns — the p_MS or p_MS_resonator row
+      for the transmon column is p_MS_pad)
+    - Supplementary tables of device participations (look for "Transmon" column)
+  Note: in participation tables, p_MS for the transmon column IS p_MS_pad.
+  Typical values: 1e-4 to 3e-4 for optimized 2D transmon designs.
+  Source: Main text, supplementary simulation section, participation tables.
   
 qubit_frequency_GHz:
   The qubit operating frequency in GHz. Required for pad TLS loss calculation.

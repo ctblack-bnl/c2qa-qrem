@@ -93,9 +93,24 @@ MATERIAL_FIELD_MAPPINGS = [
 # Defaults — loaded from transmon_baseline_2026.yaml at runtime
 DEFAULT_PROFILE_NAME = 'transmon_baseline_2026'
 
-# Relative path from qubits/ directory to the analytical defaults YAML.
-# Used to populate provenance.defaults_path so the estimator can find it.
-ANALYTICAL_DEFAULTS_RELATIVE = '../mapping_models/transmon_analytical_defaults.yaml'
+# Relative path from qubits/ directory to the material_defaults/ directory.
+MATERIAL_DEFAULTS_DIR = '../material_defaults'
+GENERAL_DEFAULTS_NAME = 'transmon_general_defaults.yaml'
+
+
+def _resolve_defaults_path(derived_material: str, profiles_dir: str) -> str:
+    """
+    Return the relative defaults_path for a given derived_material.
+    Looks for a per-material file in material_defaults/; falls back to
+    transmon_general_defaults.yaml if not found.
+    Path is relative to the qubits/ directory (where the profile YAML lives).
+    """
+    if derived_material and derived_material not in ('other', 'unknown'):
+        candidate = (Path(profiles_dir) / 'material_defaults' /
+                     f'{derived_material}_material_defaults.yaml')
+        if candidate.exists():
+            return f'{MATERIAL_DEFAULTS_DIR}/{derived_material}_material_defaults.yaml'
+    return f'{MATERIAL_DEFAULTS_DIR}/{GENERAL_DEFAULTS_NAME}'
 
 
 def load_defaults(profiles_dir: str) -> dict:
@@ -255,7 +270,7 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
         'date_generated':      str(date.today()),
         'generated_by':        'generate_qubit_profile.py',
         'defaults_from':       DEFAULT_PROFILE_NAME,
-        'defaults_path':       ANALYTICAL_DEFAULTS_RELATIVE,
+        'defaults_path':       _resolve_defaults_path(sample.get('derived_material'), profiles_dir),
         'measured_fields':     measured_fields,
         'assumed_fields':      assumed_fields,
         'material_fields':     material_fields,
