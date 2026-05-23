@@ -352,6 +352,10 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             -- Q_TLS_0: unsaturated TLS quality factor — preferred over Qi for loss model input.
             -- Extracted from power+temperature sweeps; free of TLS saturation artifacts.
             Q_TLS_0                 TEXT,
+            -- Promoted May 2026 from catchall (frequency-driven schema evolution)
+            mean_free_path_nm               TEXT,
+            vortex_activation_temperature_K TEXT,
+            kinetic_inductance_sheet_pH_sq  TEXT,
             -- Similarity profile (Pass 3, AI-generated)
             sim_material_class      TEXT,
             sim_transport_regime    TEXT,
@@ -516,6 +520,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     p_MS_pad,
                     qubit_frequency_GHz,
                     Q_TLS_0,
+                    mean_free_path_nm,
+                    vortex_activation_temperature_K,
+                    kinetic_inductance_sheet_pH_sq,
                     derived_Qi,
                     derived_T2_us,
                     derived_tan_delta,
@@ -535,9 +542,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?,
+                    ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?
+                    ?, ?
                 )
             """, (
                 paper_id, rec.get("filename"), sid, display_name,
@@ -590,6 +597,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("p_MS_pad")[0],
                 gf("qubit_frequency_GHz")[0],
                 gf("Q_TLS_0")[0],
+                gf("mean_free_path_nm")[0],
+                gf("vortex_activation_temperature_K")[0],
+                gf("kinetic_inductance_sheet_pH_sq")[0],
                 derived_Qi,
                 derived_T2_us,
                 derived_tan_delta,

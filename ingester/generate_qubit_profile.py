@@ -35,10 +35,10 @@ from datetime import date
 
 # ── Field mappings: database column → QREM profile section.field ─────────
 # Each entry: (db_column, yaml_section, yaml_field, units_note)
+# Note: T2_us uses fallback logic in generate_profile() — not listed here.
 FIELD_MAPPINGS = [
     # Coherence
     ('T1_us',               'coherence', 'T1_us',                    'µs'),
-    ('T2_echo_us',          'coherence', 'T2_us',                    'µs'),
     # Gates
     ('gate_1q_fidelity_pct','gates',     'single_qubit_fidelity_pct','%'),
     ('gate_2q_fidelity_pct','gates',     'two_qubit_fidelity_pct',   '%'),
@@ -48,13 +48,41 @@ FIELD_MAPPINGS = [
     ('two_qubit_gate_time_ns',    'gates', 'two_qubit_gate_time_ns',    'ns'),
 ]
 
+# Derived field fallback chains — mirrors build_sqlite.py derived_X pattern.
+# Each entry: (yaml_field, [(db_col, provenance_label), ...], section, units, comment)
+# First non-null value in the db_col list wins.
+DERIVED_COHERENCE_FIELDS = [
+    # T2: echo preferred (refocuses low-frequency noise); fall back to Ramsey
+    ('T2_us', [
+        ('T2_echo_us',    'T2_echo'),
+        ('T2_ramsey_us',  'T2_ramsey'),
+    ], 'coherence', 'µs', 'Dephasing time (µs)'),
+]
+
+DERIVED_MATERIAL_FIELDS = [
+    # Qi: single-photon preferred (TLS-unsaturated regime); fall back to internal Qi
+    ('Qi', [
+        ('Qi_single_photon',           'Qi_single_photon'),
+        ('Qi_internal', 'Qi_internal'),
+    ], 'materials', 'dimensionless',
+     'Internal quality factor — single-photon preferred (TLS unsaturated). Q_TLS_0 preferred over Qi for loss model.'),
+
+    # tan_delta: effective surface preferred; fall back to interface, then substrate
+    ('tan_delta', [
+        ('tan_delta_effective_surface', 'tan_delta_effective_surface'),
+        ('loss_tangent_interface',      'loss_tangent_interface'),
+        ('loss_tangent_substrate',      'loss_tangent_substrate'),
+    ], 'materials', 'dimensionless',
+     'Surface loss tangent — best available: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate'),
+]
+
 # Stage 4: material field mappings — db column → yaml field, units, comment
 # These go into the new materials/device/surface_participation sections.
 # All are optional — null if not in corpus record.
+# Note: Qi and tan_delta use fallback logic via DERIVED_MATERIAL_FIELDS — not listed here.
 MATERIAL_FIELD_MAPPINGS = [
     # (db_column, yaml_section, yaml_field, units, comment)
     ('Tc_K',                        'materials',           'Tc_K',           'K',         'Superconducting critical temperature'),
-    ('Qi_internal_quality_factor',  'materials',           'Qi',             'dimensionless', 'Internal quality factor (resonator). Q_TLS_0 preferred if available.'),
     ('Q_TLS_0',                     'materials',           'Q_TLS_0',        'dimensionless', 'Unsaturated TLS quality factor — preferred over Qi for loss model'),
     ('mean_free_path_nm',           'materials',           'mean_free_path_nm', 'nm',      'Electron mean free path — determines clean vs dirty limit'),
     ('qubit_frequency_GHz',         'device',              'f_qubit_GHz',    'GHz',       'Qubit operating frequency — required for pad TLS calculation'),
@@ -120,6 +148,9 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
 
     # ── Build coherence section ───────────────────────────────────────────
     coherence = {}
+    t2_provenance_tags = {}   # yaml_field → provenance label string, for YAML comments
+
+    # Simple one-to-one fields (T1)
     for db_col, section, yaml_field, units in FIELD_MAPPINGS:
         if section != 'coherence':
             continue
@@ -130,6 +161,25 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
         else:
             coherence[yaml_field] = defaults.get('coherence', {}).get(yaml_field)
             assumed_fields.append(yaml_field)
+
+    # Derived coherence fields with fallback chains (T2: echo → Ramsey)
+    for yaml_field, fallback_chain, section, units, comment in DERIVED_COHERENCE_FIELDS:
+        val = None
+        provenance_label = None
+        for db_col, label in fallback_chain:
+            candidate = sample.get(db_col)
+            if candidate is not None:
+                val = float(candidate)
+                provenance_label = label
+                break
+        if val is not None:
+            coherence[yaml_field] = val
+            measured_fields.append(yaml_field)
+            t2_provenance_tags[yaml_field] = f'[MEASURED — {provenance_label}]'
+        else:
+            coherence[yaml_field] = defaults.get('coherence', {}).get(yaml_field)
+            assumed_fields.append(yaml_field)
+            t2_provenance_tags[yaml_field] = '[ASSUMED] '
 
     # ── Build gates section ───────────────────────────────────────────────
     gates = {}
@@ -147,20 +197,24 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
     # ── Build Stage 4 material sections ──────────────────────────────────
     # These are always written — null if not in corpus.
     # The t1_decomposition fallback hierarchy handles nulls gracefully.
-    materials           = {}
-    device              = {}
+    materials             = {}
+    device                = {}
     surface_participation = {}
-    material_fields     = []   # tracks which Stage 4 fields have actual values
+    material_fields       = []   # tracks which Stage 4 fields have actual values
+    material_provenance_tags = {}  # yaml_field → provenance label string, for YAML comments
 
+    # Simple one-to-one material fields
     for db_col, yaml_section, yaml_field, units, comment in MATERIAL_FIELD_MAPPINGS:
         val = sample.get(db_col)
-        # Convert numeric types; leave None as None
         if val is not None:
             try:
                 val = float(val)
             except (TypeError, ValueError):
                 pass
             material_fields.append(yaml_field)
+            material_provenance_tags[yaml_field] = '[MEASURED]'
+        else:
+            material_provenance_tags[yaml_field] = '[null]   '
 
         if yaml_section == 'materials':
             materials[yaml_field] = val
@@ -168,6 +222,26 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
             device[yaml_field] = val
         elif yaml_section == 'surface_participation':
             surface_participation[yaml_field] = val
+
+    # Derived material fields with fallback chains (Qi, tan_delta)
+    for yaml_field, fallback_chain, section, units, comment in DERIVED_MATERIAL_FIELDS:
+        val = None
+        provenance_label = None
+        for db_col, label in fallback_chain:
+            candidate = sample.get(db_col)
+            if candidate is not None:
+                try:
+                    val = float(candidate)
+                except (TypeError, ValueError):
+                    val = candidate
+                provenance_label = label
+                break
+        if val is not None:
+            material_fields.append(yaml_field)
+            material_provenance_tags[yaml_field] = f'[MEASURED — {provenance_label}]'
+        else:
+            material_provenance_tags[yaml_field] = '[null]   '
+        materials[yaml_field] = val
 
     # ── Build provenance section ──────────────────────────────────────────
     provenance = {
@@ -210,7 +284,8 @@ def generate_profile(sample: dict, profiles_dir: str) -> dict:
 
     yaml_str = _build_yaml_string(
         profile, display_name,
-        measured_fields, assumed_fields, material_fields
+        measured_fields, assumed_fields, material_fields,
+        t2_provenance_tags, material_provenance_tags
     )
 
     return {
@@ -246,7 +321,9 @@ def _build_description(sample: dict, measured_fields: list,
 
 def _build_yaml_string(profile: dict, display_name: str,
                         measured_fields: list, assumed_fields: list,
-                        material_fields: list) -> str:
+                        material_fields: list,
+                        t2_provenance_tags: dict,
+                        material_provenance_tags: dict) -> str:
     """Build the YAML string with header comments and inline provenance tags."""
     lines = []
 
@@ -283,7 +360,10 @@ def _build_yaml_string(profile: dict, display_name: str,
     }
     lines.append('coherence:')
     for field, val in profile['coherence'].items():
-        tag = '[MEASURED]' if field in measured_fields else '[ASSUMED] '
+        if field in t2_provenance_tags:
+            tag = t2_provenance_tags[field]
+        else:
+            tag = '[MEASURED]' if field in measured_fields else '[ASSUMED] '
         comment = coherence_comments.get(field, '')
         lines.append(f"  {field}: {val}    # {tag} {comment}")
     lines.append('')
@@ -310,12 +390,13 @@ def _build_yaml_string(profile: dict, display_name: str,
     lines.append('materials:')
     mat_comments = {
         'Tc_K':             'Superconducting critical temperature (K)',
-        'Qi':               'Internal quality factor — resonator (dimensionless). Q_TLS_0 preferred.',
+        'Qi':               'Internal quality factor — single-photon preferred, falls back to internal Qi. Q_TLS_0 preferred over Qi for loss model.',
         'Q_TLS_0':          'Unsaturated TLS quality factor — preferred over Qi for loss model',
+        'tan_delta':        'Surface loss tangent — best available: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate',
         'mean_free_path_nm':'Electron mean free path (nm) — determines clean vs dirty vortex limit',
     }
     for field, val in profile['materials'].items():
-        tag = '[MEASURED]' if field in material_fields else '[null]   '
+        tag = material_provenance_tags.get(field, '[null]   ')
         comment = mat_comments.get(field, '')
         lines.append(f"  {field}: {_yaml_scalar(val)}    # {tag} {comment}")
     lines.append('')
@@ -327,7 +408,7 @@ def _build_yaml_string(profile: dict, display_name: str,
         'f_qubit_GHz': 'Qubit operating frequency (GHz) — required for pad TLS calculation',
     }
     for field, val in profile['device'].items():
-        tag = '[MEASURED]' if field in material_fields else '[null]   '
+        tag = material_provenance_tags.get(field, '[null]   ')
         comment = dev_comments.get(field, '')
         lines.append(f"  {field}: {_yaml_scalar(val)}    # {tag} {comment}")
     lines.append('')
@@ -341,7 +422,7 @@ def _build_yaml_string(profile: dict, display_name: str,
         'p_MS_resonator': 'Resonator metal-substrate participation ratio (FEM). Default: 8.63e-4',
     }
     for field, val in profile['surface_participation'].items():
-        tag = '[MEASURED]' if field in material_fields else '[null]   '
+        tag = material_provenance_tags.get(field, '[null]   ')
         comment = sp_comments.get(field, '')
         lines.append(f"  {field}: {_yaml_scalar(val)}    # {tag} {comment}")
     lines.append('')

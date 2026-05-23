@@ -86,26 +86,41 @@ FIELD_MAP: Dict[str, str] = {
     "vortex motion":                "vortex_activation_temperature_K",
     "tact":                         "vortex_activation_temperature_K",
 
+    # Microwave performance
+    "qi_internal":                  "Qi_internal",
+    "qi ":                          "Qi_internal",
+    "internal quality factor":      "Qi_internal",
+    "quality factor":               "Qi_internal",
+    "microwave loss":               "Qi_internal",
+    "qc":                           "json:Qc_coupling_quality_factor",
+    "coupling quality factor":      "json:Qc_coupling_quality_factor",
+    # Q_TLS_0 — distinct from Qi; must come after Qi entries to avoid shadowing
+    "qtls,0":                       "Q_TLS_0",
+    "q_tls,0":                      "Q_TLS_0",
+    "qtls,zero":                    "Q_TLS_0",
+    "unsaturated tls quality":      "Q_TLS_0",
+    "unsaturated tls q":            "Q_TLS_0",
+    "tls-limited quality factor":   "Q_TLS_0",
+    "qtls":                         "Q_TLS_0",   # was Qi_internal — fixed
+
     # Dielectric and surface loss
-    "loss tangent":                 "loss_tangent_substrate",
+    "tan_delta":                    "derived_tan_delta",
+    "tan delta":                    "derived_tan_delta",
+    "surface loss tangent":         "derived_tan_delta",
+    "effective surface loss":       "derived_tan_delta",
+    "loss tangent":                 "derived_tan_delta",   # was loss_tangent_substrate — updated to derived
     "tls density":                  "TLS_density",
     "two-level system density":     "TLS_density",
     "surface oxide":                "surface_oxide_nm",
     "oxide thickness":              "surface_oxide_nm",
     "native oxide":                 "surface_oxide_nm",
     "taox thickness":               "surface_oxide_nm",
-    "surface participation":        "json:surface_participation_ratio",
-    "participation ratio":          "json:surface_participation_ratio",
-    "pms":                          "json:surface_participation_ratio",
-
-    # Microwave performance
-    "qi_internal":                  "Qi_internal",
-    "qi ":                          "Qi_internal",
-    "internal quality factor":      "Qi_internal",
-    "qtls":                         "Qi_internal",
-    "qc":                           "json:Qc_coupling_quality_factor",
-    "coupling quality factor":      "json:Qc_coupling_quality_factor",
-    "microwave loss":               "Qi_internal",
+    "surface participation":        "p_MS_resonator",      # now a named column
+    "participation ratio":          "p_MS_resonator",
+    "p_ms_resonator":               "p_MS_resonator",
+    "resonator gap width":          "resonator_gap_width_um",
+    "gap width":                    "resonator_gap_width_um",
+    "pms":                          "p_MS_resonator",
 
     # Qubit performance
     "t1 ":                          "T1_us",
@@ -117,14 +132,14 @@ FIELD_MAP: Dict[str, str] = {
     "t2e":                          "T2_echo_us",
     "t2 echo":                      "T2_echo_us",
     "t2,cpmg":                      "T2_echo_us",
-    "t2,ramsey":                    "json:T2_ramsey_us",
-    "t2 ramsey":                    "json:T2_ramsey_us",
+    "t2,ramsey":                    "T2_ramsey_us",
+    "t2 ramsey":                    "T2_ramsey_us",
     "gate fidelity":                "gate_2q_fidelity_pct",
     "two-qubit gate fidelity":      "gate_2q_fidelity_pct",
     "2q fidelity":                  "gate_2q_fidelity_pct",
     "single-qubit gate fidelity":   "gate_1q_fidelity_pct",
     "readout fidelity":             "json:readout_fidelity_pct",
-    "qubit frequency":              "json:qubit_frequency_GHz",
+    "qubit frequency":              "qubit_frequency_GHz",
     "anharmonicity":                "json:anharmonicity_MHz",
 
     # Fabrication parameters
@@ -438,8 +453,9 @@ def load_corpus(db_path: Path) -> List[dict]:
             s.derived_material,
             s.Tc_K, s.RRR, s.sheet_resistance_Ohm_sq,
             s.loss_tangent_substrate, s.loss_tangent_interface,
+            s.tan_delta_effective_surface,
             s.TLS_density, s.Qi_internal, s.Qi_single_photon,
-            s.surface_oxide_nm, s.T1_us, s.T2_echo_us,
+            s.surface_oxide_nm, s.T1_us, s.T2_echo_us, s.T2_ramsey_us,
             s.gate_1q_fidelity_pct, s.gate_2q_fidelity_pct,
             s.normal_state_resistance_Ohm,
             s.room_temperature_resistance_Ohm,
@@ -451,6 +467,12 @@ def load_corpus(db_path: Path) -> List[dict]:
             s.mean_free_path_nm,
             s.vortex_activation_temperature_K,
             s.kinetic_inductance_sheet_pH_sq,
+            s.Q_TLS_0,
+            s.derived_tan_delta,
+            s.resonator_gap_width_um,
+            s.p_MS_resonator,
+            s.p_MS_pad,
+            s.qubit_frequency_GHz,
             p.authors, p.doi, p.title, p.journal
         FROM samples s
         JOIN papers p ON s.paper_id = p.id
