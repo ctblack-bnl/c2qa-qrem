@@ -71,4 +71,4 @@ provenance:
     - two_qubit_gate_time_ns
     - readout_fidelity_pct
     - readout_time_ns
-  defaults_path: ../mapping_models/transmon_analytical_defaults.yaml
+  defaults_path: ../material_defaults/transmon_general_defaults.yaml

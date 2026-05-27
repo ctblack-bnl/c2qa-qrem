@@ -23,7 +23,7 @@ from pathlib import Path
 PORT = 8000
 
 # ── Resolve repo root (parent of scripts/) ────────────────────────────────────
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Add qrem to path so we can import the pipeline modules
 QREM_SRC = REPO_ROOT / "qrem"
@@ -38,12 +38,12 @@ LEGACY_PROFILE_PATH = PROFILES_DIR / "superconducting.yaml"
 CIRCUITS_DIR = REPO_ROOT / "data" / "circuits"
 
 
-STATIC_DIR = REPO_ROOT / "ingester" / "static"
+STATIC_DIR = REPO_ROOT / "explorer" / "static"
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(REPO_ROOT), **kwargs)
+        super().__init__(*args, directory=str(REPO_ROOT / "qrem"), **kwargs)
 
     # ── Route GET requests ────────────────────────────────────────────────────
     def do_GET(self):
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     print(f"QREM Pipeline — Local Server")
     print(f"Serving from: {REPO_ROOT}")
     print(f"")
-    print(f"  QREM UI:    http://localhost:{PORT}/scripts/qrem_ui.html")
+    print(f"  QREM UI:    http://localhost:{PORT}/scripts/qrem_ui.html  (run from repo root)")
     print(f"")
     print(f"Press Ctrl+C to stop.")
     print(f"")

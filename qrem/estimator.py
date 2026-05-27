@@ -595,10 +595,10 @@ def run_estimation(
         # provenance.defaults_path is relative to the qubits/ directory
         provenance = profile.get('provenance', {})
         defaults_rel = provenance.get('defaults_path',
-                                      '../mapping_models/transmon_analytical_defaults.yaml')
+                                      '../hardware_profiles/material_defaults/transmon_general_defaults.yaml')
         if profiles_dir:
             defaults_abs = os.path.normpath(
-                os.path.join(profiles_dir, 'qubits', defaults_rel)
+                os.path.join(profiles_dir, "qubits", defaults_rel)
             )
         else:
             # Legacy mode — resolve relative to profile_path

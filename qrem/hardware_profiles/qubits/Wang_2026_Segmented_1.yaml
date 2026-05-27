@@ -61,7 +61,7 @@ provenance:
   date_generated: 2026-05-22
   generated_by: generate_qubit_profile.py
   defaults_from: transmon_baseline_2026
-  defaults_path: ../mapping_models/transmon_analytical_defaults.yaml
+  defaults_path: ../material_defaults/transmon_general_defaults.yaml
   measured_fields: []
   assumed_fields:
     - T1_us
