@@ -277,6 +277,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
             import math
             result_dict = result.to_dict()
+            print(f"[DEBUG] t1_decomposition is: {type(result_dict.get('t1_decomposition'))} — {result_dict.get('t1_decomposition') is not None}")
             # JSON doesn't support Infinity or NaN — replace with null
             for key, val in result_dict.items():
                 if isinstance(val, float) and not math.isfinite(val):

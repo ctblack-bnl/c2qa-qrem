@@ -38,7 +38,7 @@ PROFILE_SUBDIRS = {
 # Sections each subdir contributes to the merged profile dict.
 # Keys here match what estimator.py reads from profile[section].
 SECTION_KEYS = {
-    "qubits":           ["coherence", "gates", "provenance"],
+    "qubits":           ["coherence", "gates", "provenance", "materials", "device", "surface_participation"],
     "interconnect":     ["intermodule"],
     "module":           ["module"],
     "error_correction": ["error_correction"],

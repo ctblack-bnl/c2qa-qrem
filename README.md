@@ -20,7 +20,7 @@ A modular, staged pipeline for quantum resource estimation and materials charact
 
 **Materials Predictor** — similarity search is operational (hybrid scoring: 75% semantic profile + 25% numeric field distance). Gaussian process regression not yet built.
 
-**Materials-to-Device Mapping Layer** — bridges material properties (Tc, RRR, Qi, loss tangent) to device parameters (T1, gate fidelity) for samples without direct device measurements. Stage C complete (May 2026): `t1_decomposition.py` integrated into Baby QREM — T1 channel breakdown (pad TLS, junction TLS, QP, radiation) computed for every estimate.
+**Materials-to-Device Mapping Layer** — bridges material properties (Tc, RRR, Qi, loss tangent) to device parameters (T1, gate fidelity) for samples without direct device measurements. `t1_decomposition.py` is integrated into Baby QREM: when a profile contains measured surface loss data (tan_delta, Q_TLS,0), the UI shows a T1 loss channel breakdown panel (pad TLS, junction TLS, quasiparticle, radiation).
 
 ---
 
@@ -49,8 +49,12 @@ pip install qiskit networkx pyyaml anthropic
     profile_loader.py                 ← Profile loader: qubits + QEC
     hardware_profiles/
       qubits/
-        transmon_baseline_2026.yaml   ← Baseline: T1=200µs, T2=300µs, gate=50ns
-        {sample_display_name}.yaml    ← Corpus-derived profiles (Hardware Profile Updater)
+        transmon_baseline_2026.yaml   ← Controls baseline: T1=200µs, T2=300µs, gate=50ns
+        {Material}_corpus_average.yaml ← Per-material corpus-average profiles (auto-generated)
+        {sample_display_name}.yaml    ← Per-sample corpus-derived profiles (Hardware Profile Updater)
+      material_defaults/
+        transmon_general_defaults.yaml ← Fallback class defaults for t1_decomposition.py
+        {Material}_material_defaults.yaml ← Per-material corpus-averaged defaults (auto-generated)
       error_correction/
         surface_code_1e6.yaml         ← Surface code threshold + target LER
       superconducting.yaml            ← Legacy monolithic profile (still supported)
@@ -70,6 +74,7 @@ pip install qiskit networkx pyyaml anthropic
     promote_fields.py                 ← Schema field promotion from catchall to named columns
     backfill_similarity_profiles.py   ← Pass 3 backfill; --filter flag for targeted reprocessing
     generate_qubit_profile.py         ← Hardware Profile Updater: QREM YAML from corpus sample
+    compute_class_defaults.py         ← Generates per-material corpus-average profile YAMLs
     serve_materials.py                ← HTTP server: Materials Explorer + Ingestion Pipeline UI
     materials_explorer.html           ← Explorer UI: Explore / Search / Findings / Catchall tabs
     ingest_pipeline.html              ← Pipeline UI: Stages 1-4 (ingest → dedup → build → mine)
@@ -88,6 +93,7 @@ pip install qiskit networkx pyyaml anthropic
       records.jsonl                   ← Append-only canonical ingestion ledger (source of truth)
       processed_ledger.json           ← Tracks processed papers (skip on re-run)
       deduplication.json              ← Human decisions on duplicate paper pairs
+      exclusions.json                 ← Manual post-hoc exclusions (JSONL never modified)
       records.db                      ← SQLite browse database (derived, rebuildable)
       findings.jsonl                  ← Append-only approved mining findings ledger
       mining_evidence.jsonl           ← Phase A output: evidence tables per hypothesis
@@ -146,14 +152,15 @@ fidelity = 1 - ε_T1 - ε_T2 - ε_ctrl
 
 The required logical error rate is derived from circuit depth and target success rate, making resource estimates circuit-specific rather than generic. Modular overhead (inter-module links, purification, communication qubits) is deliberately out of scope for Baby QREM — those functions are preserved in `estimator_tier2_modular.py` but not active.
 
-Every input follows a four-tier fallback hierarchy so the estimator always produces a result:
+Every input follows a five-tier fallback hierarchy so the estimator always produces a result:
 
 | Tier | Label | Source |
 |---|---|---|
 | 1 | `[MEASURED]` | Directly reported in the paper |
 | 2 | `[DERIVED]` | Computed from measured quantities via physics formulas |
-| 3 | `[CLASS DEFAULT]` | Typical value for this material class |
-| 4 | `[ASSUMED]` | Baseline profile default |
+| 3 | `[CORPUS AVERAGE]` | Mean across corpus samples of this material class (n≥3) |
+| 4 | `[CLASS DEFAULT]` | Typical value for this material class |
+| 5 | `[ASSUMED]` | Baseline profile default |
 
 ### Example output (test_circuit.qasm, T1=200µs, T2=300µs)
 
@@ -322,7 +329,7 @@ See the Explorer header at https://c2qa-materials-explorer.onrender.com for live
 - Analytical surface code approximation — not full Stim simulation.
 - T gate counting is a placeholder (0) — magic state factory costs underestimated for T-gate-heavy circuits.
 - Modular overhead (inter-module links, purification) not modeled — preserved in `estimator_tier2_modular.py`, not active.
-- Loss mechanism attribution (T1 → TLS / quasiparticle / vortex / radiation breakdown) not yet implemented — planned as Stage 4.
+- Loss mechanism attribution panel: T1 breakdown into TLS / quasiparticle / vortex / radiation shown when the loaded profile contains measured surface loss data (tan_delta, Q_TLS,0). Hidden for profiles with no surface loss measurements or when T1/T2 sliders are moved from profile values.
 
 **Publications Ingester:**
 - Qi and T1 data reported only in figures (not tables) may be missed or extracted at lower confidence.

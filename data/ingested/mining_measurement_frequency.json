@@ -1,10 +1,120 @@
 {
-  "generated_at": "2026-05-07T22:11:34.593924",
-  "materials_samples_scanned": 154,
+  "generated_at": "2026-05-22T19:10:01.596766",
+  "materials_samples_scanned": 193,
   "top_measurements": [
     {
+      "term": "resonator_gap_width_um",
+      "count": 57,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Bland_2025_Qubit_1",
+          "film": "Ta",
+          "description": "Capacitor gap width"
+        },
+        {
+          "sample": "Bland_2025_Qubit_10",
+          "film": "Ta",
+          "description": "Gap width"
+        },
+        {
+          "sample": "Bland_2025_Qubit_11",
+          "film": "Ta",
+          "description": "Gap width"
+        }
+      ]
+    },
+    {
+      "term": "json:junction_vacuum_condition",
+      "count": 57,
+      "in_schema": true,
+      "examples": [
+        {
+          "sample": "Bland_2025_Qubit_1",
+          "film": "Ta",
+          "description": "Junction deposition vacuum"
+        },
+        {
+          "sample": "Bland_2025_Qubit_10",
+          "film": "Ta",
+          "description": "Junction deposition vacuum"
+        },
+        {
+          "sample": "Bland_2025_Qubit_11",
+          "film": "Ta",
+          "description": "Junction deposition vacuum"
+        }
+      ]
+    },
+    {
+      "term": "Qavg",
+      "count": 55,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Bland_2025_Qubit_10",
+          "film": "Ta",
+          "description": "Qavg"
+        },
+        {
+          "sample": "Bland_2025_Qubit_11",
+          "film": "Ta",
+          "description": "Qavg"
+        },
+        {
+          "sample": "Bland_2025_Qubit_12",
+          "film": "Ta",
+          "description": "Qavg"
+        }
+      ]
+    },
+    {
+      "term": "T1max",
+      "count": 55,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Bland_2025_Qubit_10",
+          "film": "Ta",
+          "description": "T1max"
+        },
+        {
+          "sample": "Bland_2025_Qubit_11",
+          "film": "Ta",
+          "description": "T1max"
+        },
+        {
+          "sample": "Bland_2025_Qubit_12",
+          "film": "Ta",
+          "description": "T1max"
+        }
+      ]
+    },
+    {
+      "term": "Qmax",
+      "count": 55,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Bland_2025_Qubit_10",
+          "film": "Ta",
+          "description": "Qmax"
+        },
+        {
+          "sample": "Bland_2025_Qubit_11",
+          "film": "Ta",
+          "description": "Qmax"
+        },
+        {
+          "sample": "Bland_2025_Qubit_12",
+          "film": "Ta",
+          "description": "Qmax"
+        }
+      ]
+    },
+    {
       "term": "kinetic_inductance_sheet_pH_sq",
-      "count": 49,
+      "count": 53,
       "in_schema": true,
       "examples": [
         {
@@ -26,7 +136,7 @@
     },
     {
       "term": "json:critical_current_density",
-      "count": 35,
+      "count": 33,
       "in_schema": true,
       "examples": [
         {
@@ -35,42 +145,64 @@
           "description": "SNAIL array composition: number of SNAILs and junction critical currents"
         },
         {
-          "sample": "Hays_2025_harmonium-optimized",
-          "film": "Al (with Al/AlOx junction)",
-          "description": "Estimated pure dephasing time from critical current noise (echo)"
+          "sample": "Orban_2026_Device_1_(single_crystal_Mo3Al2C)",
+          "film": "Mo3Al2C",
+          "description": "Critical current of single crystal at T=1.8 K, positive direction"
         },
         {
-          "sample": "Hays_2025_harmonium-optimized",
-          "film": "Al (with Al/AlOx junction)",
-          "description": "Assumed JJ critical current density (jc) for Al/AlOx JJs"
+          "sample": "Orban_2026_Device_1_(single_crystal_Mo3Al2C)",
+          "film": "Mo3Al2C",
+          "description": "Critical current of single crystal at T=1.8 K, negative direction"
         }
       ]
     },
     {
-      "term": "film_thickness_nm",
-      "count": 25,
+      "term": "T2_echo_us",
+      "count": 31,
       "in_schema": true,
       "examples": [
         {
-          "sample": "Nho_2026_Big-delta_device",
-          "film": "Al",
-          "description": "Film thickness pair for junction leads (thin/thick)"
+          "sample": "Bland_2025_Qubit_1",
+          "film": "Ta",
+          "description": "Maximum T2E (T2Emax)"
         },
         {
-          "sample": "Nho_2026_Medium-delta_device",
-          "film": "Al",
-          "description": "Film thickness pair for junction leads"
+          "sample": "Bland_2025_Qubit_16",
+          "film": "Ta",
+          "description": "T2Emax"
         },
         {
-          "sample": "Nho_2026_Small-delta_device",
+          "sample": "Bland_2025_Qubit_17",
+          "film": "Ta",
+          "description": "T2Emax"
+        }
+      ]
+    },
+    {
+      "term": "Qi_internal",
+      "count": 28,
+      "in_schema": true,
+      "examples": [
+        {
+          "sample": "Dai_2025_F-SPA_(Filter-coupled_SNAIL_Parametric_Amplifier)",
           "film": "Al",
-          "description": "Film thickness pair for junction leads"
+          "description": "Product pJ_a × Q_a (Josephson participation × quality factor)"
+        },
+        {
+          "sample": "Bøttcher_2025_NbN_CPW_resonators_(ALE-thinned,_bulk_film_characterization)",
+          "film": "NbN",
+          "description": "Qi independent of gap between center conductor and ground plane (ALE-etched resonators)"
+        },
+        {
+          "sample": "Bøttcher_2025_NbN_CPW_resonators_(ALE-thinned,_bulk_film_characterization)",
+          "film": "NbN",
+          "description": "Unetched (no ALE) NbN films show reduced Qi that depends on gap"
         }
       ]
     },
     {
       "term": "Tc_K",
-      "count": 18,
+      "count": 19,
       "in_schema": true,
       "examples": [
         {
@@ -91,46 +223,68 @@
       ]
     },
     {
-      "term": "T1_us",
+      "term": "film_thickness_nm",
       "count": 17,
       "in_schema": true,
       "examples": [
         {
-          "sample": "Marcenac_2026_NV-center-room-temperature",
-          "film": null,
-          "description": "T1 at saturation laser intensity (AOM leakage limited)"
+          "sample": "Hedrick_2026_Table_II_Row_8_-_RT_Si_49%_HF_10s_(replicate_1)",
+          "film": "Al",
+          "description": "Residual SiOx thickness at SA interface after HF treatment"
         },
         {
-          "sample": "Wu_2026_Superconducting_transmon_qubit_(Rigetti_foundry)",
-          "film": null,
-          "description": "Qubit T1 measured via optical readout (M2M-M2O cascaded chain)"
+          "sample": "Nho_2026_Big-delta_device",
+          "film": "Al",
+          "description": "Film thickness pair for junction leads (thin/thick)"
         },
         {
-          "sample": "Lambert_2025_Cr(III)_in_AlN_[CrAl0]",
-          "film": "Cr substitutional impurity (neutral charge state, d3)",
-          "description": "Zero-phonon line energy for lowest-energy spin-flip transition (4T1 -> 2E)"
+          "sample": "Nho_2026_Medium-delta_device",
+          "film": "Al",
+          "description": "Film thickness pair for junction leads"
         }
       ]
     },
     {
-      "term": "derived_resistivity_uOhm_cm",
-      "count": 16,
+      "term": "vortex_activation_temperature_K",
+      "count": 15,
       "in_schema": true,
       "examples": [
         {
+          "sample": "Bahrami_2026_CPW-resonator-fieldStudy",
+          "film": "Ta",
+          "description": "Magnetic field at which vortex motion loss (1/AVX) was extrapolated to zero field"
+        },
+        {
           "sample": "Bahrami_2026_D1",
           "film": "Ta",
-          "description": "Normal state resistivity rho_n at 5 K"
+          "description": "Vortex activation temperature (Tact) extracted from exponential temperature-dependent microwave loss"
         },
         {
-          "sample": "Bahrami_2026_D2",
+          "sample": "Bahrami_2026_D1",
           "film": "Ta",
-          "description": "Normal state resistivity rho_n at 5 K"
+          "description": "Viscous drag coefficient eta for vortex motion"
+        }
+      ]
+    },
+    {
+      "term": "p_MS_resonator",
+      "count": 14,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Dai_2025_F-SPA_(Filter-coupled_SNAIL_Parametric_Amplifier)",
+          "film": "Al",
+          "description": "Josephson participation ratio pJ_a of resonant mode"
         },
         {
-          "sample": "Bahrami_2026_D3",
-          "film": "Ta",
-          "description": "Normal state resistivity rho_n at 5 K"
+          "sample": "Wang_2026_Tripole_1",
+          "film": "Re",
+          "description": "Surface participation p_surf for D1 mode of tripole"
+        },
+        {
+          "sample": "Wang_2026_Tripole_1",
+          "film": "Re",
+          "description": "Surface participation p_surf for D2 mode of tripole"
         }
       ]
     },
@@ -153,6 +307,28 @@
           "sample": "Zaman_2025_D11",
           "film": "NbSe2",
           "description": "Self-Kerr nonlinearity coefficient K/2pi"
+        }
+      ]
+    },
+    {
+      "term": "T1_us",
+      "count": 13,
+      "in_schema": true,
+      "examples": [
+        {
+          "sample": "Wu_2026_Superconducting_transmon_qubit_(Rigetti_foundry)",
+          "film": null,
+          "description": "Qubit T1 measured via optical readout (M2M-M2O cascaded chain)"
+        },
+        {
+          "sample": "Joshi_2025_SPA_Device_A_(main_text_device)",
+          "film": "Nb (with Al/AlOx junction)",
+          "description": "Qubit T1 relaxation time (system 1)"
+        },
+        {
+          "sample": "Joshi_2025_SPA_Device_A_(main_text_device)",
+          "film": "Nb (with Al/AlOx junction)",
+          "description": "Qubit T1 relaxation time (system 2)"
         }
       ]
     },
@@ -267,24 +443,24 @@
       ]
     },
     {
-      "term": "vortex_activation_temperature_K",
+      "term": "EJ/EC ratio",
       "count": 11,
-      "in_schema": true,
+      "in_schema": false,
       "examples": [
         {
-          "sample": "Bahrami_2026_D1",
+          "sample": "Joshi_2026_qubit-1",
           "film": "Ta",
-          "description": "Vortex activation temperature (Tact) extracted from temperature-dependent microwave loss"
+          "description": "EJ/EC ratio"
         },
         {
-          "sample": "Bahrami_2026_D1",
+          "sample": "Joshi_2026_qubit-10",
           "film": "Ta",
-          "description": "Viscous drag coefficient eta for vortex motion"
+          "description": "EJ/EC ratio"
         },
         {
-          "sample": "Bahrami_2026_D2",
+          "sample": "Joshi_2026_qubit-11",
           "film": "Ta",
-          "description": "Vortex activation temperature Tact"
+          "description": "EJ/EC ratio"
         }
       ]
     },
@@ -311,30 +487,8 @@
       ]
     },
     {
-      "term": "Relaxation energy in ground state (dg)",
-      "count": 10,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Lambert_2025_Co(II)_in_AlN_[CoAl-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Relaxation energy in ground state (dg)"
-        },
-        {
-          "sample": "Lambert_2025_Co(II)_in_GaN_[CoGa-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Relaxation energy in ground state (dg)"
-        },
-        {
-          "sample": "Lambert_2025_Cr(III)_in_AlN_[CrAl0]",
-          "film": "Cr substitutional impurity (neutral charge state, d3)",
-          "description": "Relaxation energy in ground state (dg)"
-        }
-      ]
-    },
-    {
       "term": "mean_free_path_nm",
-      "count": 9,
+      "count": 10,
       "in_schema": true,
       "examples": [
         {
@@ -355,46 +509,24 @@
       ]
     },
     {
-      "term": "json:qubit_frequency_GHz",
+      "term": "surface_oxide_nm",
       "count": 8,
       "in_schema": true,
       "examples": [
         {
-          "sample": "Joshi_2025_Transmon_System_1_(3D_Al_cavity)",
-          "film": null,
-          "description": "Qubit frequency"
+          "sample": "Hedrick_2026_Table_II_Row_5_-_H2O2,_49%_HF_5s",
+          "film": "Al",
+          "description": "Oxide thickness reduction by HF treatment"
         },
         {
-          "sample": "Joshi_2025_Transmon_System_2_(3D_Al_cavity)",
-          "film": null,
-          "description": "Qubit frequency"
+          "sample": "Orban_2026_Device_1_(single_crystal_Mo3Al2C)",
+          "film": "Mo3Al2C",
+          "description": "Native oxide layer thickness on Mo3Al2C crystal surface (tunnel barrier)"
         },
         {
-          "sample": "Hays_2025_harmonium-optimized",
-          "film": "Al (with Al/AlOx junction)",
-          "description": "Qubit frequency range as function of kite JJ asymmetry"
-        }
-      ]
-    },
-    {
-      "term": "Equilibrium geometry difference (delta Q)",
-      "count": 8,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Lambert_2025_Co(II)_in_AlN_[CoAl-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Equilibrium geometry difference (delta Q)"
-        },
-        {
-          "sample": "Lambert_2025_Co(II)_in_GaN_[CoGa-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Equilibrium geometry difference (delta Q)"
-        },
-        {
-          "sample": "Lambert_2025_Cr(III)_in_AlN_[CrAl0]",
-          "film": "Cr substitutional impurity (neutral charge state, d3)",
-          "description": "Equilibrium geometry difference (delta Q)"
+          "sample": "Joshi_2026_beta-Ta-silicon-resonators",
+          "film": "Ta",
+          "description": "Native oxide thickness at MA interface of β-Ta-on-Si film"
         }
       ]
     },
@@ -406,7 +538,7 @@
         {
           "sample": "Bahrami_2026_D1",
           "film": "Ta",
-          "description": "Upper critical field Hc2(0) extracted from Ginzburg-Landau fit to magnetoresistivity"
+          "description": "Upper critical field Hc2(0) extracted from Ginzburg-Landau fit to magnetoresistivity phase diagram"
         },
         {
           "sample": "Bahrami_2026_D2",
@@ -417,94 +549,50 @@
           "sample": "Bahrami_2026_D3",
           "film": "Ta",
           "description": "Upper critical field Hc2(0)"
+        }
+      ]
+    },
+    {
+      "term": "json:surface_treatment",
+      "count": 7,
+      "in_schema": true,
+      "examples": [
+        {
+          "sample": "Hedrick_2026_Table_II_Row_1_-_Wet_etch",
+          "film": "Al",
+          "description": "Surface treatment"
+        },
+        {
+          "sample": "Hedrick_2026_Table_II_Row_2_-_H2O2",
+          "film": "Al",
+          "description": "Surface treatment applied"
+        },
+        {
+          "sample": "Hedrick_2026_Table_II_Row_5_-_H2O2,_49%_HF_5s",
+          "film": "Al",
+          "description": "Surface treatment: H2O2 followed by 49% HF for 5 seconds"
         }
       ]
     },
     {
       "term": "Superconducting limit classification",
-      "count": 8,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Bahrami_2026_D1",
-          "film": "Ta",
-          "description": "Superconducting limit classification"
-        },
-        {
-          "sample": "Bahrami_2026_D2",
-          "film": "Ta",
-          "description": "Superconducting limit classification"
-        },
-        {
-          "sample": "Bahrami_2026_D3",
-          "film": "Ta",
-          "description": "Superconducting limit classification"
-        }
-      ]
-    },
-    {
-      "term": "Hole charge density from Hall measurement at 5 K",
-      "count": 8,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Bahrami_2026_D1",
-          "film": "Ta",
-          "description": "Hole charge density from Hall measurement at 5 K"
-        },
-        {
-          "sample": "Bahrami_2026_D2",
-          "film": "Ta",
-          "description": "Hole charge density from Hall measurement at 5 K"
-        },
-        {
-          "sample": "Bahrami_2026_D3",
-          "film": "Ta",
-          "description": "Hole charge density from Hall measurement at 5 K"
-        }
-      ]
-    },
-    {
-      "term": "Lattice mismatch between Ta-Hf film and sapphire substrate",
-      "count": 8,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Yang_2026_Table_2_Row_1",
-          "film": "Ta-Hf (83:17)",
-          "description": "Lattice mismatch between Ta-Hf film and sapphire substrate"
-        },
-        {
-          "sample": "Yang_2026_Table_2_Row_2",
-          "film": "Ta-Hf (83:17)",
-          "description": "Lattice mismatch between Ta-Hf film and sapphire substrate"
-        },
-        {
-          "sample": "Yang_2026_Table_2_Row_3",
-          "film": "Ta-Hf (83:17)",
-          "description": "Lattice mismatch between Ta-Hf film and sapphire substrate"
-        }
-      ]
-    },
-    {
-      "term": "surface_oxide_nm",
       "count": 7,
-      "in_schema": true,
+      "in_schema": false,
       "examples": [
         {
-          "sample": "Orban_2026_Device_1_(single_crystal_Mo3Al2C)",
-          "film": "Mo3Al2C",
-          "description": "Native oxide layer thickness on Mo3Al2C crystal surface (tunnel barrier)"
-        },
-        {
-          "sample": "Wang_2026_Re_film_characterization_sample_(4mm_x_3mm)",
-          "film": "Re",
-          "description": "TEM confirmation of absence of native oxide at Re metal-air interface"
-        },
-        {
-          "sample": "Potluri_2025_Table_I_Row_1",
+          "sample": "Bahrami_2026_D2",
           "film": "Ta",
-          "description": "AFM surface roughness (Ra) of native oxide control film on Si"
+          "description": "Superconducting limit classification"
+        },
+        {
+          "sample": "Bahrami_2026_D3",
+          "film": "Ta",
+          "description": "Superconducting limit classification"
+        },
+        {
+          "sample": "Bahrami_2026_D4",
+          "film": "Ta",
+          "description": "Superconducting limit classification"
         }
       ]
     },
@@ -531,112 +619,46 @@
       ]
     },
     {
-      "term": "Lattice constant from XRD",
+      "term": "Out-of-plane film orientation and lattice constant",
       "count": 7,
       "in_schema": false,
       "examples": [
         {
           "sample": "Bahrami_2026_D2",
           "film": "Ta",
-          "description": "Lattice constant from XRD"
+          "description": "Out-of-plane film orientation and lattice constant"
         },
         {
           "sample": "Bahrami_2026_D3",
           "film": "Ta",
-          "description": "Lattice constant from XRD"
+          "description": "Out-of-plane film orientation and lattice constant"
         },
         {
           "sample": "Bahrami_2026_D4",
           "film": "Ta",
-          "description": "Lattice constant from XRD"
+          "description": "Out-of-plane film orientation and lattice constant"
         }
       ]
     },
     {
-      "term": "Film crystal growth orientation",
+      "term": "Hole-charge density from Hall measurements",
       "count": 7,
       "in_schema": false,
       "examples": [
         {
           "sample": "Bahrami_2026_D2",
           "film": "Ta",
-          "description": "Film crystal growth orientation"
+          "description": "Hole-charge density from Hall measurements"
         },
         {
           "sample": "Bahrami_2026_D3",
           "film": "Ta",
-          "description": "Film crystal growth orientation"
+          "description": "Hole-charge density from Hall measurements"
         },
         {
           "sample": "Bahrami_2026_D4",
           "film": "Ta",
-          "description": "Film crystal growth orientation"
-        }
-      ]
-    },
-    {
-      "term": "T2_echo_us",
-      "count": 7,
-      "in_schema": true,
-      "examples": [
-        {
-          "sample": "Bland_2025_45-qubit_ensemble_(HV_and_UHV,_Extended_Data_Table_1)",
-          "film": "Ta (with Al/AlOx junction)",
-          "description": "Mean T2E for HV-junction qubits (subset with T2E measured)"
-        },
-        {
-          "sample": "Bland_2025_45-qubit_ensemble_(HV_and_UHV,_Extended_Data_Table_1)",
-          "film": "Ta (with Al/AlOx junction)",
-          "description": "Mean T2E for UHV-junction qubits"
-        },
-        {
-          "sample": "Bland_2025_45-qubit_ensemble_(HV_and_UHV,_Extended_Data_Table_1)",
-          "film": "Ta (with Al/AlOx junction)",
-          "description": "Mean T2E fluctuation span across qubits"
-        }
-      ]
-    },
-    {
-      "term": "loss_tangent_substrate",
-      "count": 6,
-      "in_schema": true,
-      "examples": [
-        {
-          "sample": "Turiansky_2026_Cr-in-HEMEX-sapphire",
-          "film": null,
-          "description": "Calculated bulk loss tangent at 4.5 GHz due to magnetic dipole transitions at Cr3+ impurities in HEM"
-        },
-        {
-          "sample": "Turiansky_2026_Cr-in-HEMEX-sapphire",
-          "film": null,
-          "description": "On-resonance bulk loss tangent for Cr3+ in HEMEX sapphire"
-        },
-        {
-          "sample": "Turiansky_2026_Cr-in-HEMEX-sapphire",
-          "film": null,
-          "description": "Experimentally measured bulk loss tangent of HEMEX sapphire at 4.5 GHz (reference value from Read et"
-        }
-      ]
-    },
-    {
-      "term": "Zero-phonon line energy for spin-flip transition (4A2 -> 2E)",
-      "count": 6,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Lambert_2025_Co(II)_in_AlN_[CoAl-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Zero-phonon line energy for spin-flip transition (4A2 -> 2E)"
-        },
-        {
-          "sample": "Lambert_2025_Co(II)_in_GaN_[CoGa-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Zero-phonon line energy for spin-flip transition (4A2 -> 2E)"
-        },
-        {
-          "sample": "Lambert_2025_Cu(IV)_in_AlN_[CuAl+]",
-          "film": "Cu substitutional impurity (positive charge state, d7)",
-          "description": "Zero-phonon line energy for spin-flip transition (4A2 -> 2E)"
+          "description": "Hole-charge density from Hall measurements"
         }
       ]
     },
@@ -646,11 +668,6 @@
       "in_schema": false,
       "examples": [
         {
-          "sample": "Bahrami_2026_D2",
-          "film": "Ta",
-          "description": "Lattice mismatch with sapphire"
-        },
-        {
           "sample": "Bahrami_2026_D3",
           "film": "Ta",
           "description": "Lattice mismatch with sapphire"
@@ -659,182 +676,55 @@
           "sample": "Bahrami_2026_D4",
           "film": "Ta",
           "description": "Lattice mismatch with sapphire"
+        },
+        {
+          "sample": "Bahrami_2026_D5",
+          "film": "Ta",
+          "description": "Lattice mismatch with sapphire"
         }
       ]
     },
     {
-      "term": "Qi_internal",
-      "count": 5,
-      "in_schema": true,
-      "examples": [
-        {
-          "sample": "Hedrick_2026_Table_II_Row_1_-_Wet_etch",
-          "film": "Al",
-          "description": "QTLS,0 (linear TLS quality factor limit)"
-        },
-        {
-          "sample": "Bøttcher_2025_NbN_CPW_resonators_(ALE-thinned,_bulk_film_characterization)",
-          "film": "NbN",
-          "description": "Qi independent of gap between center conductor and ground plane (ALE-etched resonators)"
-        },
-        {
-          "sample": "Bøttcher_2025_NbN_CPW_resonators_(ALE-thinned,_bulk_film_characterization)",
-          "film": "NbN",
-          "description": "Unetched (no ALE) NbN films show reduced Qi that depends on gap"
-        }
-      ]
-    },
-    {
-      "term": "Huang-Rhys factor (ground state Sg)",
+      "term": "Time-averaged pure dephasing time",
       "count": 5,
       "in_schema": false,
       "examples": [
         {
-          "sample": "Lambert_2025_Co(II)_in_AlN_[CoAl-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Huang-Rhys factor (ground state Sg)"
+          "sample": "Joshi_2026_qubit-2",
+          "film": "Ta",
+          "description": "Time-averaged pure dephasing time"
         },
         {
-          "sample": "Lambert_2025_Cu(IV)_in_AlN_[CuAl+]",
-          "film": "Cu substitutional impurity (positive charge state, d7)",
-          "description": "Huang-Rhys factor (ground state Sg)"
+          "sample": "Joshi_2026_qubit-4",
+          "film": "Ta",
+          "description": "Time-averaged pure dephasing time"
         },
         {
-          "sample": "Lambert_2025_Cu(IV)_in_GaN_[CuGa+]",
-          "film": "Cu substitutional impurity (positive charge state, d7)",
-          "description": "Huang-Rhys factor (ground state Sg)"
+          "sample": "Joshi_2026_qubit-5",
+          "film": "Ta",
+          "description": "Time-averaged pure dephasing time"
         }
       ]
     },
     {
-      "term": "Emission energy (vertical de-excitation)",
-      "count": 5,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Lambert_2025_Co(II)_in_AlN_[CoAl-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Emission energy (vertical de-excitation)"
-        },
-        {
-          "sample": "Lambert_2025_Co(II)_in_GaN_[CoGa-]",
-          "film": "Co substitutional impurity (negative charge state, d7)",
-          "description": "Emission energy (vertical de-excitation)"
-        },
-        {
-          "sample": "Lambert_2025_Cr(III)_in_AlN_[CrAl0]",
-          "film": "Cr substitutional impurity (neutral charge state, d3)",
-          "description": "Emission energy (vertical de-excitation)"
-        }
-      ]
-    },
-    {
-      "term": "Ramsey decoherence time T2R",
-      "count": 5,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Wang_2026_Transmon_1",
-          "film": "Re (with Al/AlOx junction)",
-          "description": "Ramsey decoherence time T2R"
-        },
-        {
-          "sample": "Wang_2026_Transmon_2",
-          "film": "Re (with Al/AlOx junction)",
-          "description": "Ramsey decoherence time T2R"
-        },
-        {
-          "sample": "Wang_2026_Transmon_3",
-          "film": "Re (with Al/AlOx junction)",
-          "description": "Ramsey decoherence time T2R"
-        }
-      ]
-    },
-    {
-      "term": "Readout duration (τro)",
+      "term": "qubit_frequency_GHz",
       "count": 4,
       "in_schema": false,
       "examples": [
         {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=100ns",
+          "sample": "Joshi_2025_Transmon_System_1_(3D_Al_cavity)",
           "film": null,
-          "description": "Readout duration (τro)"
+          "description": "Qubit frequency"
         },
         {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=120ns",
+          "sample": "Joshi_2025_Transmon_System_2_(3D_Al_cavity)",
           "film": null,
-          "description": "Readout duration (τro)"
+          "description": "Qubit frequency"
         },
         {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=160ns",
-          "film": null,
-          "description": "Readout duration (τro)"
-        }
-      ]
-    },
-    {
-      "term": "Steady-state intraresonator photon number (n̄r)",
-      "count": 4,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=100ns",
-          "film": null,
-          "description": "Steady-state intraresonator photon number (n̄r)"
-        },
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=120ns",
-          "film": null,
-          "description": "Steady-state intraresonator photon number (n̄r)"
-        },
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=160ns",
-          "film": null,
-          "description": "Steady-state intraresonator photon number (n̄r)"
-        }
-      ]
-    },
-    {
-      "term": "Readout repeatability (R)",
-      "count": 4,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=100ns",
-          "film": null,
-          "description": "Readout repeatability (R)"
-        },
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=120ns",
-          "film": null,
-          "description": "Readout repeatability (R)"
-        },
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=160ns",
-          "film": null,
-          "description": "Readout repeatability (R)"
-        }
-      ]
-    },
-    {
-      "term": "Readout-induced leakage rate per readout (L), measured by RI",
-      "count": 4,
-      "in_schema": false,
-      "examples": [
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=100ns",
-          "film": null,
-          "description": "Readout-induced leakage rate per readout (L), measured by RILB"
-        },
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=120ns",
-          "film": null,
-          "description": "Readout-induced leakage rate per readout (L), measured by RILB"
-        },
-        {
-          "sample": "Hazra_2025_Purcell-protected_transmon,_τro=160ns",
-          "film": null,
-          "description": "Readout-induced leakage rate per readout (L), measured by RILB"
+          "sample": "Dai_2026_3D_transmon_(fixed-frequency)",
+          "film": "Nb/Al",
+          "description": "TLS dissipation rate (strongly dissipative TLS near qubit frequency, transition P region)"
         }
       ]
     },
@@ -861,24 +751,134 @@
       ]
     },
     {
-      "term": "json:quasiparticle_density_per_um3",
+      "term": "Normal state resistance Rn",
+      "count": 4,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Orban_2026_Device_2_(P4132-P4332,_right-handed-left-handed)",
+          "film": "Mo3Al2C",
+          "description": "Normal state resistance Rn"
+        },
+        {
+          "sample": "Orban_2026_Device_3_(P4132-P4332,_right-handed-left-handed)",
+          "film": "Mo3Al2C",
+          "description": "Normal state resistance Rn"
+        },
+        {
+          "sample": "Orban_2026_Device_4_(P4132-P4132,_right-handed-right-handed_control)",
+          "film": "Mo3Al2C",
+          "description": "Normal state resistance Rn"
+        }
+      ]
+    },
+    {
+      "term": "IcRn product",
+      "count": 4,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Orban_2026_Device_2_(P4132-P4332,_right-handed-left-handed)",
+          "film": "Mo3Al2C",
+          "description": "IcRn product"
+        },
+        {
+          "sample": "Orban_2026_Device_3_(P4132-P4332,_right-handed-left-handed)",
+          "film": "Mo3Al2C",
+          "description": "IcRn product"
+        },
+        {
+          "sample": "Orban_2026_Device_4_(P4132-P4132,_right-handed-right-handed_control)",
+          "film": "Mo3Al2C",
+          "description": "IcRn product"
+        }
+      ]
+    },
+    {
+      "term": "json:modulation_depth_pct",
       "count": 4,
       "in_schema": true,
       "examples": [
         {
-          "sample": "Chowdhury_2026_transmon-charge-drive-simulation",
+          "sample": "Nanayakkara_2025_SSQ-25",
+          "film": "PtSi",
+          "description": "Ic modulation depth delta vs temperature for SSQ-25"
+        },
+        {
+          "sample": "Nanayakkara_2026_ASQ-50-100",
+          "film": "PtSi",
+          "description": "SQUID Ic modulation depth δ for asymmetric SQUID with 50 nm and 100 nm nominal constrictions (from F"
+        },
+        {
+          "sample": "Nanayakkara_2026_SSQ-25",
+          "film": "PtSi",
+          "description": "SQUID Ic modulation depth δ at 0.4 K for symmetric SQUID with two 25 nm nominal constrictions"
+        }
+      ]
+    },
+    {
+      "term": "gate_2q_fidelity_pct",
+      "count": 4,
+      "in_schema": true,
+      "examples": [
+        {
+          "sample": "Xia_2025_transmon-qubit-subharmonic",
+          "film": "Ta",
+          "description": "Interleaved gate fidelity for X gate"
+        },
+        {
+          "sample": "Xia_2025_transmon-qubit-subharmonic",
+          "film": "Ta",
+          "description": "Interleaved gate fidelity for √X gate"
+        },
+        {
+          "sample": "Xia_2025_transmon-qubit-subharmonic",
+          "film": "Ta",
+          "description": "Interleaved gate fidelity for Y gate"
+        }
+      ]
+    },
+    {
+      "term": "Qubit transition frequency fq",
+      "count": 3,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Nho_2026_Big-delta_device",
           "film": "Al",
-          "description": "Quasiparticle fraction (xqp) in typical superconducting devices"
+          "description": "Qubit transition frequency fq"
         },
         {
-          "sample": "Hays_2025_harmonium-optimized",
-          "film": "Al (with Al/AlOx junction)",
-          "description": "Estimated bit-flip time from quasiparticles"
+          "sample": "Nho_2026_Medium-delta_device",
+          "film": "Al",
+          "description": "Qubit transition frequency fq"
         },
         {
-          "sample": "Hays_2025_harmonium-optimized",
-          "film": "Al (with Al/AlOx junction)",
-          "description": "Estimated out-of-manifold heating time from quasiparticles"
+          "sample": "Nho_2026_Small-delta_device",
+          "film": "Al",
+          "description": "Qubit transition frequency fq"
+        }
+      ]
+    },
+    {
+      "term": "Approximate period of oscillation in Ic vs H",
+      "count": 3,
+      "in_schema": false,
+      "examples": [
+        {
+          "sample": "Orban_2026_Device_2_(P4132-P4332,_right-handed-left-handed)",
+          "film": "Mo3Al2C",
+          "description": "Approximate period of oscillation in Ic vs H"
+        },
+        {
+          "sample": "Orban_2026_Device_3_(P4132-P4332,_right-handed-left-handed)",
+          "film": "Mo3Al2C",
+          "description": "Approximate period of oscillation in Ic vs H"
+        },
+        {
+          "sample": "Orban_2026_Device_4_(P4132-P4132,_right-handed-right-handed_control)",
+          "film": "Mo3Al2C",
+          "description": "Approximate period of oscillation in Ic vs H"
         }
       ]
     }

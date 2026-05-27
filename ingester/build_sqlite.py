@@ -40,6 +40,11 @@
 #   qubit_frequency_GHz — qubit operating frequency, needed for pad TLS calculation
 #   Q_TLS_0             — unsaturated TLS quality factor, preferred over Qi for loss model
 #
+# Confidence columns expanded (May 2026):
+#   Added: tan_delta_confidence, T2_echo_confidence, surface_oxide_confidence,
+#          film_thickness_confidence, junction_present_confidence,
+#          resonator_gap_width_confidence
+#
 # Usage:
 #   cd ingester
 #   python3 build_sqlite.py
@@ -50,7 +55,6 @@ import sqlite3
 import argparse
 from pathlib import Path
 from derive import derive_all, get_derived_value
-
 # ── Known superconducting materials for Phase A stratification ─────────────────
 #
 # Maps normalized film_material strings to themselves (identity).
@@ -76,7 +80,6 @@ KNOWN_MATERIALS = {
     "Ta-Hf",    # tantalum hafnium alloy (any stoichiometry)
     "Mo3Al2C",  # molybdenum aluminum carbide
 }
-
 def normalize_film_material(film_material: str) -> str:
     """
     Normalize film_material to a canonical material identity for Phase A
@@ -87,8 +90,6 @@ def normalize_film_material(film_material: str) -> str:
         return "unknown"
     base = re.sub(r'\s*\(.*', '', film_material).strip()
     return base if base in KNOWN_MATERIALS else "other"
-
-
 def normalize_substrate(substrate_material: str) -> str:
     """
     Normalize substrate_material to a canonical short list for Explorer filtering.
@@ -106,8 +107,6 @@ def normalize_substrate(substrate_material: str) -> str:
     if 'diamond' in s:
         return "Diamond"
     return "Other"
-
-
 def normalize_deposition_method(deposition_method: str) -> str:
     """
     Normalize deposition_method to a canonical short list for Explorer grouping.
@@ -142,8 +141,6 @@ def normalize_deposition_method(deposition_method: str) -> str:
     if 'sputter' in s:
         return "DC Sputtering"
     return "Other"
-
-
 def make_display_name(authors: str, sample_id: str) -> str:
     """
     Build a human-readable display name for a sample.
@@ -158,11 +155,8 @@ def make_display_name(authors: str, sample_id: str) -> str:
         year = year_match.group(1) if year_match else "????"
     clean_sid = str(sample_id).strip().replace(" ", "_").replace("/", "-")
     return f"{first_author}_{year}_{clean_sid}"
-
-
 def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"Reading: {jsonl_path}")
-
     # --- Load all records ---
     records = []
     with open(jsonl_path, "r", encoding="utf-8") as f:
@@ -175,7 +169,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             except json.JSONDecodeError as e:
                 print(f"  Skipping malformed line: {e}")
     print(f"Loaded {len(records)} records")
-
     # --- Load deduplication decisions ---
     dedup_path = jsonl_path.parent / "deduplication.json"
     skip_filenames = set()
@@ -195,16 +188,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 print(f"Deduplication: skipping {len(skip_filenames)} duplicate(s): {skip_filenames}")
         except Exception as e:
             print(f"  Warning: could not load deduplication.json: {e}")
-
     before = len(records)
     records = [r for r in records if r.get("filename") not in skip_filenames]
     if before != len(records):
         print(f"  Filtered {before - len(records)} duplicate record(s)")
-
     # --- Load manual exclusions ---
-    # exclusions.json: append-only list of records to exclude from SQLite view.
-    # JSONL is never modified — exclusions are applied only at build time.
-    # Match priority: DOI -> arXiv ID -> filename (same as processed ledger).
     exclusions_path = jsonl_path.parent / "exclusions.json"
     excluded_dois      = set()
     excluded_arxiv_ids = set()
@@ -223,7 +211,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             print(f"Exclusions: loaded {n_excl} manual exclusion(s) from exclusions.json")
         except Exception as e:
             print(f"  Warning: could not load exclusions.json: {e}")
-
     def _is_excluded(rec: dict) -> bool:
         if rec.get("doi") and rec["doi"] in excluded_dois:
             return True
@@ -232,32 +219,27 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         if rec.get("filename") and rec["filename"] in excluded_filenames_excl:
             return True
         return False
-
     before = len(records)
     records = [r for r in records if not _is_excluded(r)]
     n_excluded = before - len(records)
     if n_excluded:
         print(f"  Excluded {n_excluded} manually excluded record(s)")
-
     seen = {}
     for r in records:
         seen[r.get("filename")] = r
     if len(seen) < len(records):
         print(f"  De-duplicated {len(records) - len(seen)} repeated filename(s) — keeping latest record")
     records = list(seen.values())
-
     # --- Connect to SQLite ---
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-
     # --- Create tables ---
     cur.executescript("""
         DROP TABLE IF EXISTS papers;
         DROP TABLE IF EXISTS samples;
         DROP TABLE IF EXISTS catchall_items;
-
         CREATE TABLE papers (
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
             filename            TEXT,
@@ -276,7 +258,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             error               TEXT,
             extraction_json     TEXT
         );
-
         CREATE TABLE samples (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             paper_id                INTEGER REFERENCES papers(id),
@@ -315,11 +296,18 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             room_temperature_resistance_Ohm TEXT,
             measured_structure_width_um     TEXT,
             measured_structure_length_um    TEXT,
-            -- Confidence flags
+            -- Confidence flags (original four)
             Tc_confidence           TEXT,
             RRR_confidence          TEXT,
             Qi_confidence           TEXT,
             T1_confidence           TEXT,
+            -- Confidence flags (added May 2026)
+            tan_delta_confidence        TEXT,
+            T2_echo_confidence          TEXT,
+            surface_oxide_confidence    TEXT,
+            film_thickness_confidence   TEXT,
+            junction_present_confidence TEXT,
+            resonator_gap_width_confidence TEXT,
             -- Derived quantities (computed by build_sqlite.py)
             derived_resistivity_uOhm_cm      REAL,
             derived_BCS_gap_meV              REAL,
@@ -347,10 +335,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             p_MS_resonator          TEXT,
             p_MS_pad                TEXT,
             -- Stage 4: device fields for T1 decomposition
-            -- qubit_frequency_GHz: needed for pad TLS calculation (T1 = 1/(p_MS*tan_d*2pi*f))
             qubit_frequency_GHz     TEXT,
-            -- Q_TLS_0: unsaturated TLS quality factor — preferred over Qi for loss model input.
-            -- Extracted from power+temperature sweeps; free of TLS saturation artifacts.
             Q_TLS_0                 TEXT,
             -- Promoted May 2026 from catchall (frequency-driven schema evolution)
             mean_free_path_nm               TEXT,
@@ -370,7 +355,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             -- Full sample JSON
             sample_json             TEXT
         );
-
         CREATE TABLE catchall_items (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             paper_id        INTEGER REFERENCES papers(id),
@@ -384,7 +368,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             notes           TEXT
         );
     """)
-
     # --- Helper to extract a field value and confidence ---
     def get_field(sample: dict, field: str) -> tuple:
         """Returns (value_str, confidence_str) for a field."""
@@ -396,13 +379,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             conf = f.get("confidence")
             return (str(val) if val is not None else None), conf
         return str(f), None
-
     # --- Insert records ---
     papers_inserted = 0
     samples_inserted = 0
     catchall_inserted = 0
     profiles_found = 0
-
     for rec in records:
         ext = rec.get("extraction_json") or {}
         outcome = rec.get("outcome", "unknown")
@@ -411,7 +392,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         samples = ext.get("samples", [])
         num_samples = len(samples)
         authors = rec.get("authors") or ext.get("authors") or ""
-
         cur.execute("""
             INSERT INTO papers (
                 filename, processed_at, outcome, relevance, relevance_reason,
@@ -437,35 +417,25 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         ))
         paper_id = cur.lastrowid
         papers_inserted += 1
-
         similarity_profiles = rec.get("similarity_profiles") or {}
-
         for sample in samples:
             sid = sample.get("sample_id", "unknown")
             display_name = make_display_name(authors, sid)
-
             def gf(field):
                 return get_field(sample, field)
-
             # Compute derived quantities
             derived = derive_all(sample)
-
             # Normalization columns
             film_mat_raw = gf("film_material")[0]
             derived_material = normalize_film_material(film_mat_raw) if film_mat_raw else "unknown"
-
             substrate_raw = gf("substrate_material")[0]
             derived_substrate = normalize_substrate(substrate_raw) if substrate_raw else "Unknown"
-
             deposition_raw = gf("deposition_method")[0]
             derived_deposition_method = normalize_deposition_method(deposition_raw) if deposition_raw else "Unknown"
-
             # derived_Qi — single-photon preferred; falls back to internal Qi
             derived_Qi = gf("Qi_single_photon")[0] or gf("Qi_internal_quality_factor")[0]
-
             # derived_T2_us — echo preferred; falls back to Ramsey
             derived_T2_us = gf("T2_echo_us")[0] or gf("T2_ramsey_us")[0]
-
             # derived_tan_delta — best available surface loss tangent
             # Priority: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate
             derived_tan_delta = (
@@ -473,17 +443,14 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("loss_tangent_interface")[0] or
                 gf("loss_tangent_substrate")[0]
             )
-            
             # derived_resistivity_uOhm_cm — geometry derivation first, then directly reported value
             _derived_resistivity = get_derived_value(derived, "derived_resistivity_uOhm_cm")
             if _derived_resistivity is None:
                 _derived_resistivity = gf("normal_state_resistivity_uOhm_cm")[0]
-
             # Similarity profile
             profile = similarity_profiles.get(sid, {})
             if profile:
                 profiles_found += 1
-
             cur.execute("""
                 INSERT INTO samples (
                     paper_id, filename, sample_id, display_name,
@@ -504,6 +471,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     measured_structure_length_um,
                     Tc_confidence, RRR_confidence,
                     Qi_confidence, T1_confidence,
+                    tan_delta_confidence, T2_echo_confidence,
+                    surface_oxide_confidence, film_thickness_confidence,
+                    junction_present_confidence, resonator_gap_width_confidence,
                     derived_resistivity_uOhm_cm,
                     derived_BCS_gap_meV,
                     derived_coherence_length_nm,
@@ -539,6 +509,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
@@ -577,10 +548,19 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("room_temperature_resistance_Ohm")[0],
                 gf("measured_structure_width_um")[0],
                 gf("measured_structure_length_um")[0],
+                # Original four confidence columns
                 gf("Tc_K")[1],
                 gf("RRR")[1],
                 gf("Qi_internal_quality_factor")[1],
                 gf("T1_us")[1],
+                # Six new confidence columns (May 2026)
+                gf("tan_delta_effective_surface")[1],
+                gf("T2_echo_us")[1],
+                gf("surface_oxide_thickness_nm")[1],
+                gf("film_thickness_nm")[1],
+                gf("junction_present")[1],
+                gf("resonator_gap_width_um")[1],
+                # Derived quantities
                 _derived_resistivity,
                 get_derived_value(derived, "derived_BCS_gap_meV"),
                 get_derived_value(derived, "derived_coherence_length_nm"),
@@ -616,7 +596,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 json.dumps(sample),
             ))
             samples_inserted += 1
-
             # Insert catchall items
             catchall = sample.get("catchall", {})
             for item in catchall.get("additional_measurements", []):
@@ -634,7 +613,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("suspected_relevance"),
                 ))
                 catchall_inserted += 1
-
             for item in catchall.get("anomalous_observations", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -650,7 +628,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("hypothesis"),
                 ))
                 catchall_inserted += 1
-
             for item in catchall.get("correlations_observed", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -666,7 +643,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("nature"),
                 ))
                 catchall_inserted += 1
-
             for item in catchall.get("schema_promotion_candidates", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -682,7 +658,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("why_important"),
                 ))
                 catchall_inserted += 1
-
     # --- Unrecognized materials report ---
     cur.execute("""
         SELECT film_material, COUNT(*) as n
@@ -694,7 +669,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         ORDER BY n DESC
     """)
     unrecognized = cur.fetchall()
-
     # --- Unrecognized substrates report ---
     cur.execute("""
         SELECT substrate_material, COUNT(*) as n
@@ -706,10 +680,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         ORDER BY n DESC
     """)
     unrecognized_substrates = cur.fetchall()
-
     conn.commit()
     conn.close()
-
     # --- Summary ---
     print(f"Done.")
     print(f"  Papers inserted  : {papers_inserted}")
@@ -717,7 +689,6 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"  Catchall items   : {catchall_inserted}")
     print(f"  Profiles found   : {profiles_found} of {samples_inserted} samples")
     print(f"  Database written : {db_path}")
-
     if unrecognized:
         print(f"\n  ⚠ Unrecognized film materials ({len(unrecognized)} types assigned to 'other'):")
         print(f"    These will NOT be stratified in Phase A mining.")
@@ -727,14 +698,12 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             print(f"    {str(row[0]):<50} : {row[1]} sample(s)")
     else:
         print(f"\n  ✓ All film materials recognized — no 'other' stratification bin")
-
     if unrecognized_substrates:
         print(f"\n  ℹ Substrates mapped to 'Other' ({len(unrecognized_substrates)} types):")
         print(f"    These appear in Explorer as 'Other'. Add to normalize_substrate()")
         print(f"    if any should be broken out as a distinct canonical category.")
         for row in unrecognized_substrates:
             print(f"    {str(row[0]):<60} : {row[1]} sample(s)")
-
     print()
     print("To browse: open records.db in DB Browser for SQLite (sqlitebrowser.org)")
     print()
@@ -748,8 +717,10 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print("  SELECT display_name, sim_material_class, sim_device_type, sim_coherence_tier FROM samples WHERE sim_profile_version IS NOT NULL;")
     print("  SELECT display_name, item_type, description FROM catchall_items LIMIT 20;")
     print("  SELECT outcome, COUNT(*) FROM papers GROUP BY outcome;")
-
-
+    print("  SELECT display_name, Tc_confidence, RRR_confidence, Qi_confidence, T1_confidence,")
+    print("         tan_delta_confidence, T2_echo_confidence, surface_oxide_confidence,")
+    print("         film_thickness_confidence, junction_present_confidence, resonator_gap_width_confidence")
+    print("  FROM samples WHERE Tc_confidence IS NOT NULL ORDER BY display_name;")
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Build SQLite database from ingested records JSONL."

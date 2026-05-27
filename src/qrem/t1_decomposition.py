@@ -192,10 +192,17 @@ def _extract_tan_delta(material_record: dict,
     notes = []
 
     # Priority 1: directly reported effective surface tan_delta
+    # Check both the legacy 'interfaces' path and the newer 'materials.tan_delta'
+    # path written by generate_qubit_profile.py
     td_eff, td_eff_prov = _get(
         material_record, 'interfaces', 'tan_delta_effective_surface',
         default=None, default_provenance=CLASS_DEFAULT
     )
+    if td_eff is None:
+        td_eff, td_eff_prov = _get(
+            material_record, 'materials', 'tan_delta',
+            default=None, default_provenance=CLASS_DEFAULT
+        )
     if td_eff is not None:
         notes.append(
             f"tan_delta_effective_surface = {td_eff:.2e} [{td_eff_prov}] "

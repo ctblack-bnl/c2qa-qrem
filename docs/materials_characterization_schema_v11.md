@@ -1,9 +1,7 @@
 # Materials Characterization Data Schema
-## Five-Center Materials Working Group — Superconducting Systems
-### Version 0.8 — Corpus Stats Update, Substrate/Deposition Normalization, Film Material Prompt Fix
+### Version 0.11 — Resonator Geometry Fields; Q_TLS_0 extraction; Stage B loss model validation (May 16)
 
-**Date:** May 11, 2026
-**Prepared by:** C2QA
+**Date:** May 16, 2026
 **Status:** Active — ingester operational, Explorer live at https://c2qa-materials-explorer.onrender.com
 **Scope:** Superconducting qubit and resonator systems (neutral atom schema to follow)
 
@@ -49,24 +47,11 @@ Note: the former `schema_candidate` type has been merged into `additional_measur
 
 Ingested records carry per-field confidence levels (`high`/`medium`/`low`) and source references, and start with `human_reviewed: false`, `human_approved: false`.
 
-### Current Database State (May 11, 2026)
+### Current Database State (May 16, 2026)
 
-| Metric | Value |
-|---|---|
-| Papers processed | 115 |
-| Papers ingested | ~57 |
-| Papers skipped (not relevant) | ~41 (~44% skip rate) |
-| Samples extracted | 158 |
-| Catchall items | ~1,378 |
-| Similarity profiles | 158 (100%) |
-| Coverage: Tc | 39% |
-| Coverage: RRR | 20% |
-| Coverage: Qi | 17% |
-| Coverage: T1 | 13% |
+226 samples, 100% similarity profile coverage. See Explorer header for live counts — corpus stats are not maintained in this document.
 
-Note: coverage percentages reflect named column population. Additional values for these fields exist in the `additional_measurements` catchall for samples not captured in named columns.
-
-**Material breakdown (derived_material):** Ta (35), other (27), Al (16), unknown (13), NbSe2 (12), Re (12), Ta-Hf (12), PtSi (11), Mo3Al2C (5), NbN (5), TaN (2), Nb (1)
+**Notable recent additions:** Joshi 2026 β-Ta (12 samples, primary loss model validation case); Bland 2025 α-Ta on silicon (57 individual qubit records + resonator, millisecond coherence).
 
 ### Corpus Mining Pipeline
 
@@ -116,6 +101,9 @@ Records with device performance data (T1, T2, gate fidelity) can be projected in
 | `derived_material` | `film_material` | Ta, Nb, Al, Re, TiN, NbN, NbTiN, TaN, NbSe2, PtSi, Ta-Hf, Mo3Al2C, other, unknown | Drives Phase A per-material stratification. Strips parentheticals before matching KNOWN_MATERIALS whitelist. |
 | `derived_substrate` | `substrate_material` | Silicon, Sapphire, Silicon Carbide, Diamond, Other | Explorer sidebar filter. Collapses vendor/grade/orientation variants. |
 | `derived_deposition_method` | `deposition_method` | DC Sputtering, RF Sputtering, Ebeam Evaporation, Thermal Evaporation, MBE, ALD, CVD, PLD, Other | Explorer group-by. Handles capitalization variants; filters patterning methods (EBL) to Other. |
+| `derived_Qi` | `Qi_single_photon`, `Qi_internal_quality_factor` | Single-photon Qi preferred (qubit operating regime, TLS unsaturated); falls back to internal Qi. Explorer default y-axis. |
+| `derived_T2_us` | `T2_echo_us`, `T2_ramsey_us` | Echo preferred (refocuses low-frequency noise); falls back to Ramsey. |
+
 
 ### Material Name Standardization
 
@@ -290,6 +278,12 @@ Defined measurement fields with known or approximate connections to device perfo
 | `Qi_single_photon` | float | dimensionless | `well_known` | Most relevant for qubit operating conditions |
 | `Qc_coupling_quality_factor` | float | dimensionless | `well_known` | Resonator-qubit coupling design |
 | `microwave_loss_mechanism` | string | — | `approximate` | Dominant loss: `TLS`, `quasiparticle`, `vortex_motion`, `radiation` |
+| `Q_TLS_0` | float | dimensionless | `well_known` | Unsaturated TLS quality factor — extracted from power+temperature sweeps of Q_int. Preferred over raw Qi for loss model input: Q_TLS,0 is the single-photon regime value, free of TLS saturation. Often reported as "Q_TLS,0", "inverse linear absorption from TLSs". |
+| `resonator_type` | enum | — | — | One of: `CPW`, `lumped_element`, `other`. Required for p_MS_resonator lookup. |
+| `resonator_gap_width_um` | float | µm | — | CPW gap width s, or LE capacitor gap. Primary determinant of p_MS_resonator. Varies 2-16 µm in typical CPW resonators; p_MS_resonator varies 6x over this range. |
+| `p_MS_resonator` | float | dimensionless | `well_known` | Surface participation ratio of the metal-substrate interface for the resonator. Required to invert Q_TLS,0 → tan_delta: tan_delta = 1/(Q_TLS,0 × p_MS_resonator). From FEM simulation or geometry lookup. Joshi 2026 Table S4: s=2µm → 2.2e-3; s=6µm → 8.6e-4; s=16µm → 3.7e-4. |
+| `p_MS_pad` | float | dimensionless | `well_known` | Surface participation ratio of the qubit capacitor pads. Required to convert tan_delta → T1_pad_TLS: T1_pad_TLS = 1/(p_MS_pad × tan_delta × 2πf). Much smaller than p_MS_resonator by design. Joshi 2026: 1.3e-4. Bland 2025: 1.0-2.6e-4 depending on gap size and trench depth. From HFSS simulation. |
+
 
 ### 3.4 Qubit Performance (device-level measurement)
 
@@ -413,7 +407,12 @@ R vs T measurements:
   R(300K) / R(Tc+) → RRR → quasiparticle loss → T1
 
 Microwave and device performance:
-  Qi → resonator loss → directly sets T1 upper bound; T1_TLS ≈ Qi / (2πf)
+  Q_TLS,0 + p_MS_resonator → tan_delta = 1/(Q_TLS,0 × p_MS_res) → intrinsic surface loss tangent
+  tan_delta + p_MS_pad → T1_pad_TLS = 1/(p_MS_pad × tan_delta × 2πf) → qubit pad TLS lifetime
+  Note: Qi/ω gives resonator photon lifetime only — NOT qubit T1. The two-step inversion above
+  is required. Validated by Bland 2025 Figure S5 (transmon Q lies on same line as resonator
+  Q_TLS,0 vs p_MS). TLS saturation at qubit operating power means measured T1 may exceed
+  single-photon model prediction — expected behavior, not a model failure.
   Loss tangent → dielectric contribution to T1
   T1 → gate fidelity upper bound (decoherence-limited); actual fidelity also depends on control errors
   Two-qubit gate fidelity: 99.5% → ~16 modules; 99.9% → ~2 modules (representative circuit)
@@ -506,8 +505,23 @@ Human scientists review mining findings via the ingestion pipeline UI (Stage 4).
 
 **Schema versioning:** Minor versions add optional fields. Major versions change required fields and require record migration.
 
-**Changes in v0.8 (May 11, 2026):**
-- Updated corpus stats: 115 papers, 158 samples, ~1,378 catchall items
+**Changes in v0.11 (May 16, 2026):**
+- Added four resonator geometry fields to Block 3.3: `Q_TLS_0`, `resonator_type`, `resonator_gap_width_um`, `p_MS_resonator`, `p_MS_pad` — enabling correct tan_delta extraction from resonator measurements
+- Added extraction prompt guidance for these fields explaining the two-step Joshi inversion (Q_TLS,0 + p_MS_resonator → tan_delta → p_MS_pad → T1_pad_TLS)
+- Updated Known Materials-to-Device Connections: replaced simple Qi/ω formula with correct two-step inversion; added TLS saturation note
+- Streamlined corpus stats in Implementation Status — live counts in Explorer header, not maintained here
+- max_tokens bumped to 64000 in pipeline_ingest.py (was 32000) — required for large multi-qubit papers
+- Backfill null-check bug fixed in backfill_similarity_profiles.py line 215
+- Re-ingested Joshi 2026 and Bland 2025 with updated prompt; resonator geometry fields now populated
+- Updated version header
+
+**Changes in v0.10 (May 14, 2026):**
+- Updated corpus stats: 115 papers, 170 samples, ~1,390 catchall items (May 14)
+- Added `derived_Qi` column: `Qi_single_photon` → `Qi_internal_quality_factor` priority. Single-photon Qi preferred for plotting (qubit operating regime).
+- Added `derived_T2_us` column: `T2_echo_us` → `T2_ramsey_us` priority.
+- Established `derived_X` pattern for fields with multiple measurement variants — Explorer plots `derived_X`, detail drawer shows raw values.
+- Multi-device extraction prompt fix: each characterized qubit/resonator with distinct measured values is now explicitly extracted as a separate sample record.
+- Ingested Joshi 2026 β-Ta paper: 12 samples (11 qubits + 1 representative resonator). Notable: β-Ta Tc=0.7K does not degrade qubit performance — QP channel negligible at 20mK, TLS dominates.
 - Updated mining results: 19 sufficient evidence tables, 1 positive finding (Ta-Hf Tc vs deposition temperature, confidence 0.72)
 - Schema promotion status updated: three promoted fields (`kinetic_inductance_sheet_pH_sq`, `mean_free_path_nm`, `vortex_activation_temperature_K`) are now ✅ operational named columns — no longer pending
 - Added `derived_substrate` and `derived_deposition_method` normalization columns to Implementation Status — these are Explorer display/navigation fields, not PUK schema fields
@@ -542,7 +556,7 @@ Human scientists review mining findings via the ingestion pipeline UI (Stage 4).
 
 ---
 
-*End of Schema Document v0.8*
-*Updated May 11, 2026.*
+*End of Schema Document v0.10*
+*Updated May 14, 2026.*
 *Proposed for discussion at Five-Center Materials Working Group*
 *Contact: C2QA QREM Team*

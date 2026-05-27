@@ -1,8 +1,8 @@
 # Materials Characterization Data Schema
 ## Five-Center Materials Working Group — Superconducting Systems
-### Version 0.8 — Corpus Stats Update, Substrate/Deposition Normalization, Film Material Prompt Fix
+### Version 0.10 — Corpus Stats Update, Substrate/Deposition Normalization, Film Material Prompt Fix; derived_Qi/T2 columns, multi-device extraction fix (May 14)
 
-**Date:** May 11, 2026
+**Date:** May 14, 2026
 **Prepared by:** C2QA
 **Status:** Active — ingester operational, Explorer live at https://c2qa-materials-explorer.onrender.com
 **Scope:** Superconducting qubit and resonator systems (neutral atom schema to follow)
@@ -49,20 +49,25 @@ Note: the former `schema_candidate` type has been merged into `additional_measur
 
 Ingested records carry per-field confidence levels (`high`/`medium`/`low`) and source references, and start with `human_reviewed: false`, `human_approved: false`.
 
-### Current Database State (May 11, 2026)
+### Current Database State (May 14, 2026)
 
 | Metric | Value |
 |---|---|
 | Papers processed | 115 |
-| Papers ingested | ~57 |
+| Papers ingested | ~58 |
 | Papers skipped (not relevant) | ~41 (~44% skip rate) |
-| Samples extracted | 158 |
-| Catchall items | ~1,378 |
-| Similarity profiles | 158 (100%) |
+| Samples extracted | 170 |
+| Catchall items | ~1,390 |
+| Similarity profiles | 170 (100%) |
 | Coverage: Tc | 39% |
 | Coverage: RRR | 20% |
 | Coverage: Qi | 17% |
 | Coverage: T1 | 13% |
+
+Note: coverage percentages reflect named column population. Additional values for these fields exist in the `additional_measurements` catchall for samples not captured in named columns.
+
+**Material breakdown (derived_material):** Ta (46 including 11 β-Ta qubits from Joshi 2026), other (27), Al (16), unknown (13), NbSe2 (12), Re (12), Ta-Hf (12), PtSi (11), Mo3Al2C (5), NbN (5), TaN (2), Nb (1)
+
 
 Note: coverage percentages reflect named column population. Additional values for these fields exist in the `additional_measurements` catchall for samples not captured in named columns.
 
@@ -116,6 +121,8 @@ Records with device performance data (T1, T2, gate fidelity) can be projected in
 | `derived_material` | `film_material` | Ta, Nb, Al, Re, TiN, NbN, NbTiN, TaN, NbSe2, PtSi, Ta-Hf, Mo3Al2C, other, unknown | Drives Phase A per-material stratification. Strips parentheticals before matching KNOWN_MATERIALS whitelist. |
 | `derived_substrate` | `substrate_material` | Silicon, Sapphire, Silicon Carbide, Diamond, Other | Explorer sidebar filter. Collapses vendor/grade/orientation variants. |
 | `derived_deposition_method` | `deposition_method` | DC Sputtering, RF Sputtering, Ebeam Evaporation, Thermal Evaporation, MBE, ALD, CVD, PLD, Other | Explorer group-by. Handles capitalization variants; filters patterning methods (EBL) to Other. |
+| `derived_Qi` | `Qi_single_photon`, `Qi_internal_quality_factor` | Single-photon Qi preferred (qubit operating regime, TLS unsaturated); falls back to internal Qi. Explorer default y-axis. |
+| `derived_T2_us` | `T2_echo_us`, `T2_ramsey_us` | Echo preferred (refocuses low-frequency noise); falls back to Ramsey. |
 
 ### Material Name Standardization
 
@@ -506,8 +513,13 @@ Human scientists review mining findings via the ingestion pipeline UI (Stage 4).
 
 **Schema versioning:** Minor versions add optional fields. Major versions change required fields and require record migration.
 
-**Changes in v0.8 (May 11, 2026):**
-- Updated corpus stats: 115 papers, 158 samples, ~1,378 catchall items
+**Changes in v0.10 (May 14, 2026):**
+- Updated corpus stats: 115 papers, 170 samples, ~1,390 catchall items (May 14)
+- Added `derived_Qi` column: `Qi_single_photon` → `Qi_internal_quality_factor` priority. Single-photon Qi preferred for plotting (qubit operating regime).
+- Added `derived_T2_us` column: `T2_echo_us` → `T2_ramsey_us` priority.
+- Established `derived_X` pattern for fields with multiple measurement variants — Explorer plots `derived_X`, detail drawer shows raw values.
+- Multi-device extraction prompt fix: each characterized qubit/resonator with distinct measured values is now explicitly extracted as a separate sample record.
+- Ingested Joshi 2026 β-Ta paper: 12 samples (11 qubits + 1 representative resonator). Notable: β-Ta Tc=0.7K does not degrade qubit performance — QP channel negligible at 20mK, TLS dominates.
 - Updated mining results: 19 sufficient evidence tables, 1 positive finding (Ta-Hf Tc vs deposition temperature, confidence 0.72)
 - Schema promotion status updated: three promoted fields (`kinetic_inductance_sheet_pH_sq`, `mean_free_path_nm`, `vortex_activation_temperature_K`) are now ✅ operational named columns — no longer pending
 - Added `derived_substrate` and `derived_deposition_method` normalization columns to Implementation Status — these are Explorer display/navigation fields, not PUK schema fields
@@ -542,7 +554,7 @@ Human scientists review mining findings via the ingestion pipeline UI (Stage 4).
 
 ---
 
-*End of Schema Document v0.8*
-*Updated May 11, 2026.*
+*End of Schema Document v0.10*
+*Updated May 14, 2026.*
 *Proposed for discussion at Five-Center Materials Working Group*
 *Contact: C2QA QREM Team*
