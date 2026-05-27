@@ -54,7 +54,7 @@ FINDINGS_PATH          = REPO_ROOT / "data" / "ingested" / "mining_findings.json
 APPROVED_FINDINGS_PATH = REPO_ROOT / "data" / "ingested" / "findings.jsonl"
 MINING_SCRIPT          = Path(__file__).resolve().parent / "pipeline_mining.py"
 SERVE_DIR              = Path(__file__).resolve().parent
-PROFILES_DIR           = REPO_ROOT / "src" / "qrem" / "hardware_profiles"
+PROFILES_DIR           = REPO_ROOT / "qrem" / "hardware_profiles"
 
 ALL_NUMERIC_FIELDS = [
     # ── Device performance ────────────────────────────────────────────────
