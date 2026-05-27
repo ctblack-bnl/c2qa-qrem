@@ -25,7 +25,7 @@ import os
 
 # Allow running from project root or from tests/ directory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-QREM_SRC = os.path.join(PROJECT_ROOT, "src", "qrem")
+QREM_SRC = os.path.join(PROJECT_ROOT, "qrem")
 sys.path.insert(0, QREM_SRC)
 
 from estimator import run_estimation

@@ -30,7 +30,7 @@
 # Usage (programmatic — e.g. from serve.py):
 #   from qrem.estimator import run_estimation
 #   result = run_estimation("data/circuits/test_circuit.qasm",
-#                           "src/qrem/hardware_profiles/superconducting.yaml",
+#                           "qrem/hardware_profiles/superconducting.yaml",
 #                           profile_overrides={"gates": {"two_qubit_fidelity_pct": 99.9}})
 #   data = result.to_dict()
 #
@@ -532,14 +532,14 @@ def run_estimation(
     Legacy (single yaml — CLI and backward compatibility):
         result = run_estimation(
             "data/circuits/test_circuit.qasm",
-            "src/qrem/hardware_profiles/superconducting.yaml",
+            "qrem/hardware_profiles/superconducting.yaml",
         )
 
     Modular (component profiles — currently only qubits + error_correction active;
     interconnect and module are accepted for forward compatibility but not used):
         result = run_estimation(
             "data/circuits/test_circuit.qasm",
-            profiles_dir="src/qrem/hardware_profiles",
+            profiles_dir="qrem/hardware_profiles",
             qubits="transmon_baseline_2026",
             error_correction="surface_code_1e6",
         )
