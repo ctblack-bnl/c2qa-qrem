@@ -511,7 +511,7 @@ if __name__ == '__main__':
                         help='Sample display name (e.g. Wang_2026_Transmon_5)')
     parser.add_argument('--db', default='../data/ingested/records.db',
                         help='Path to records.db')
-    parser.add_argument('--profiles-dir', default='../src/qrem/hardware_profiles',
+    parser.add_argument('--profiles-dir', default='../qrem/hardware_profiles',
                         help='Path to hardware_profiles/')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print YAML without saving')

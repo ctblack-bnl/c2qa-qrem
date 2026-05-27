@@ -9,7 +9,7 @@
 #
 #   Modular (new):
 #       profile = load_profile(
-#           profiles_dir="src/qrem/hardware_profiles",
+#           profiles_dir="qrem/hardware_profiles",
 #           qubits="transmon_baseline_2026",
 #           interconnect="microwave_photonic_85pct",
 #           module="module_1000q_nearest_neighbor",
@@ -17,7 +17,7 @@
 #       )
 #
 #   Legacy (backward compatible — single monolithic yaml):
-#       profile = load_profile(legacy_path="src/qrem/hardware_profiles/superconducting.yaml")
+#       profile = load_profile(legacy_path="qrem/hardware_profiles/superconducting.yaml")
 #
 # The merged dict is identical in structure to the old monolithic YAML so
 # estimator.py needs no other changes.
@@ -64,7 +64,7 @@ def load_profile(
 
     Modular mode — pass profiles_dir + four component names:
         profile = load_profile(
-            profiles_dir="src/qrem/hardware_profiles",
+            profiles_dir="qrem/hardware_profiles",
             qubits="transmon_baseline_2026",
             interconnect="microwave_photonic_85pct",
             module="module_1000q_nearest_neighbor",
@@ -72,7 +72,7 @@ def load_profile(
         )
 
     Legacy mode — pass a single YAML path (old behavior, still works):
-        profile = load_profile(legacy_path="src/qrem/hardware_profiles/superconducting.yaml")
+        profile = load_profile(legacy_path="qrem/hardware_profiles/superconducting.yaml")
 
     Optional overrides dict is merged after loading (same as before):
         overrides={"gates": {"two_qubit_fidelity_pct": 99.5}}

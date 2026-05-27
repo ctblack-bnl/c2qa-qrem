@@ -29,7 +29,7 @@ Usage:
     cd ingester
     python3 compute_class_defaults.py
     python3 compute_class_defaults.py --db ../data/ingested/records.db \\
-        --profiles-dir ../src/qrem/hardware_profiles --min-samples 3
+        --profiles-dir ../qrem/hardware_profiles --min-samples 3
 
 Called automatically at end of build_sqlite.py (planned).
 """
@@ -88,7 +88,7 @@ COMPOSITION_SOURCES = {
 
 # Paths relative to the ingester/ directory
 DEFAULT_DB_PATH       = Path('../data/ingested/records.db')
-DEFAULT_PROFILES_DIR  = Path('../src/qrem/hardware_profiles')
+DEFAULT_PROFILES_DIR  = Path('../qrem/hardware_profiles')
 GENERAL_DEFAULTS_NAME = 'transmon_general_defaults.yaml'
 BASELINE_PROFILE_NAME = 'transmon_baseline_2026.yaml'
 

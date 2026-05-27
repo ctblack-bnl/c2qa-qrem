@@ -25,8 +25,8 @@ PORT = 8000
 # ── Resolve repo root (parent of scripts/) ────────────────────────────────────
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# Add src/qrem to path so we can import the pipeline modules
-QREM_SRC = REPO_ROOT / "src" / "qrem"
+# Add qrem to path so we can import the pipeline modules
+QREM_SRC = REPO_ROOT / "qrem"
 sys.path.insert(0, str(QREM_SRC))
 
 # Modular hardware profiles directory
