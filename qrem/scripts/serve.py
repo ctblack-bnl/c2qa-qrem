@@ -63,6 +63,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ── Route POST requests ───────────────────────────────────────────────────
     def do_POST(self):
+        print(f"[DEBUG] POST path: {repr(self.path)}", flush=True)
         if self.path == "/api/estimate":
             self._handle_estimate()
         elif self.path == "/api/circuits":
