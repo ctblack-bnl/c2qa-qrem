@@ -36,9 +36,6 @@ PROFILES_DIR = QREM_SRC / "hardware_profiles"
 LEGACY_PROFILE_PATH = PROFILES_DIR / "superconducting.yaml"
 
 CIRCUITS_DIR = REPO_ROOT / "data" / "circuits"
-print(f"[DEBUG] REPO_ROOT: {REPO_ROOT}", flush=True)
-print(f"[DEBUG] CIRCUITS_DIR: {CIRCUITS_DIR}", flush=True)
-print(f"[DEBUG] CIRCUITS_DIR exists: {CIRCUITS_DIR.exists()}", flush=True)
 
 
 STATIC_DIR = REPO_ROOT / "explorer" / "static"
@@ -63,7 +60,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ── Route POST requests ───────────────────────────────────────────────────
     def do_POST(self):
-        print(f"[DEBUG] POST path: {repr(self.path)}", flush=True)
         if self.path == "/api/estimate":
             self._handle_estimate()
         elif self.path == "/api/circuits":
