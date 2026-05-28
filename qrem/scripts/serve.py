@@ -47,7 +47,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ── Route GET requests ────────────────────────────────────────────────────
     def do_GET(self):
-        if self.path.startswith("/static/"):
+        if self.path == "/" or self.path == "":
+            self.send_response(302)
+            self.send_header("Location", "/scripts/qrem_ui.html")
+            self.end_headers()
+            return
+        elif self.path.startswith("/static/"):
             self._handle_static()
         elif self.path.startswith("/api/profile_values"):
             self._handle_profile_values()
