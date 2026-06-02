@@ -135,6 +135,54 @@
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
       "reason": "Surface code resource estimate. No materials characterization or qubit measurements."
+    },
+    {
+      "doi": "10.1038/s41586-025-09687-4",
+      "arxiv_id": null,
+      "filename": "2025-Nature-Bland.pdf",
+      "excluded_at": "2026-06-02",
+      "excluded_by": "manual",
+      "reason": "Publisher version replaced by arXiv version (2025-arXiv-Bland.pdf) for licensing compliance."
+    },
+    {
+      "doi": "10.1103/4rf7-9tfx",
+      "arxiv_id": null,
+      "filename": "2026-PRXQuantum-Liu.pdf",
+      "excluded_at": "2026-06-02",
+      "excluded_by": "manual",
+      "reason": "Publisher version replaced by arXiv version (2025-arXiv-Liu.pdf) for licensing compliance."
+    },
+    {
+      "doi": "10.1073/pnas.2519940123",
+      "arxiv_id": null,
+      "filename": "2026-PNAS-Yang.pdf",
+      "excluded_at": "2026-06-02",
+      "excluded_by": "manual",
+      "reason": "Publisher version replaced by arXiv version (2025-arXiv-Yang.pdf) for licensing compliance."
+    },
+    {
+      "doi": "10.1103/nbzp-1yn7",
+      "arxiv_id": null,
+      "filename": "2026-PhysRevResearch-Kharzeev.pdf",
+      "excluded_at": "2026-06-02",
+      "excluded_by": "manual",
+      "reason": "Publisher version replaced by arXiv version (2026-arXiv-Kharzeev.pdf) for licensing compliance."
+    },
+    {
+      "doi": "10.1103/hxjq-p67d",
+      "arxiv_id": null,
+      "filename": "2025-PhysRevC-Hirono.pdf",
+      "excluded_at": "2026-06-02",
+      "excluded_by": "manual",
+      "reason": "Publisher version replaced by arXiv version (2025-arXiv-Hirono.pdf) for licensing compliance."
+    },
+    {
+      "doi": "10.1088/1742-5468/ae0690",
+      "arxiv_id": null,
+      "filename": "2025-JStatMech-Sinha.pdf",
+      "excluded_at": "2026-06-02",
+      "excluded_by": "manual",
+      "reason": "Publisher version replaced by arXiv version (2025-arXiv-Sinha.pdf) for licensing compliance."
     }
   ]
 }
