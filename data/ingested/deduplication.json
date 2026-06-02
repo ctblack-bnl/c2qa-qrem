@@ -25,9 +25,9 @@
       "paper_a": "2025-arXiv-Yang.pdf",
       "paper_b": "2026-PNAS-Yang.pdf",
       "decision": "duplicate",
-      "keep": "2026-PNAS-Yang.pdf",
+      "keep": "2025-arXiv-Yang.pdf",
       "decided_at": "2026-05-25",
-      "note": "Title changed significantly between preprint and publication; PNAS is canonical version"
+      "note": "Updated: keeping arXiv version for licensing compliance; PNAS version excluded separately"
     },
     {
       "paper_a": "2025-NatCommun-Xia.pdf",
