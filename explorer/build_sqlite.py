@@ -249,6 +249,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             relevance_reason    TEXT,
             paper_type          TEXT,
             doi                 TEXT,
+            arxiv_id            TEXT,
             title               TEXT,
             authors             TEXT,
             journal             TEXT,
@@ -395,9 +396,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         cur.execute("""
             INSERT INTO papers (
                 filename, processed_at, outcome, relevance, relevance_reason,
-                paper_type, doi, title, authors, journal,
+                paper_type, doi, arxiv_id, title, authors, journal,
                 human_reviewed, human_approved, num_samples, error, extraction_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             rec.get("filename"),
             rec.get("processed_at"),
@@ -406,6 +407,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             rec.get("relevance_reason"),
             rec.get("paper_type") or ext.get("paper_type"),
             rec.get("doi") or ext.get("doi"),
+            rec.get("arxiv_id") or ext.get("arxiv_id"),
             rec.get("title") or ext.get("title"),
             authors,
             rec.get("journal") or ext.get("journal_or_preprint"),

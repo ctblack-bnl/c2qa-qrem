@@ -27,6 +27,7 @@ _RELEVANCE_SCHEMA = {
     "paper_type": "<primary | review | process_comparison | unclear>",
     "paper_type_reason": "<one sentence explaining the type decision>",
     "doi": "<DOI string if found in paper, or null>",
+    "arxiv_id": "<arXiv ID if found e.g. 2301.12345, or null>",
     "title": "<paper title>",
     "authors": "<first author et al., year>",
     "journal_or_preprint": "<journal name or arXiv etc.>",
@@ -42,6 +43,7 @@ Your job is to read this paper and decide:
   1. Is it relevant to our database?
   2. What type of paper is it?
   3. What is the DOI?
+  4. What is the arXiv ID? (look for arXiv:XXXX.XXXXX on the first page header or footer)
 
 ---
 RELEVANCE CRITERIA

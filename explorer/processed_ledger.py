@@ -51,6 +51,7 @@ def record_processed(ledger: dict,
                      filename: str,
                      outcome: str,
                      doi: Optional[str] = None,
+                     arxiv_id: Optional[str] = None,
                      reason: Optional[str] = None,
                      record_ids: Optional[list] = None) -> None:
     """
