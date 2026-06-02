@@ -183,6 +183,14 @@
       "excluded_at": "2026-06-02",
       "excluded_by": "manual",
       "reason": "Publisher version replaced by arXiv version (2025-arXiv-Sinha.pdf) for licensing compliance."
+    },
+    {
+      "doi": null,
+      "arxiv_id": null,
+      "filename": "2025-arXiv-Hays.pdf",
+      "excluded_at": "2026-06-02",
+      "excluded_by": "manual",
+      "reason": "Theory proposal — no experimental materials data. T2=80000µs is a theoretical estimate from noise model, not a measurement. 'Harmonium' qubit has not been fabricated. arXiv version of previously excluded 2025-PRXQuantum-Hays.pdf."
     }
   ]
 }
