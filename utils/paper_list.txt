@@ -1,0 +1,112 @@
+filename	title	source_type
+2025-AIChEJournal-Sorourifar.pdf	Toward efficient quantum computation of molecular ground-state energies	publisher
+2025-InorganicChem-Ni.pdf	Low-Dimensional VS3 Synthesized at Elevated Pressure	publisher
+2025-JStatMech-Sinha.pdf	The Yang–Baxter integrability of the critical Ising chain	publisher
+2025-Nanophotonics-Yang.pdf	[not in DB]	publisher
+2025-NatComm-Ding.pdf	[not in DB]	publisher
+2025-NatCommun-Xia.pdf	Fast superconducting qubit control with subharmonic drives	publisher
+2025-Nature-Bland.pdf	Millisecond lifetimes and coherence times in 2D transmon qubits	publisher
+2025-PRA-Dai.pdf	[not in DB]	publisher
+2025-PRL-Chang.pdf	[not in DB]	publisher
+2025-PRL-Hazra.pdf	[not in DB]	publisher
+2025-PRLApplied-Wu.pdf	[not in DB]	publisher
+2025-PRXQuantum-Hays.pdf	[not in DB]	publisher
+2025-PRXQuantum-Khesin.pdf	Universal Graph Representation of Stabilizer Codes	publisher
+2025-PRXQuantum-Maiti.pdf	[not in DB]	publisher
+2025-PhysRevA-Nghiem.pdf	Estimation of nonlinear physical quantities by measuring ancillas	publisher
+2025-PhysRevApplied-Joshi.pdf	Lumped-element broadband SNAIL parametric amplifier with on-chip pump filter for multiplexed readout	publisher
+2025-PhysRevB-Lambert.pdf	[not in DB]	publisher
+2025-PhysRevC-Hirono.pdf	Optimal observables for the chiral magnetic effect from machine learning	publisher
+2025-PhysRevD-Florio.pdf	Thermalization from quantum entanglement: Jet simulations in the massive Schwinger model	publisher
+2025-PhysRevLett-Delord.pdf	[not in DB]	publisher
+2025-PhysRevResearch-Siddhu.pdf	Basic entanglement distillation with realistic noise	publisher
+2025-Quantum-Meng.pdf	Quantum Communication Networks Enhanced by Distributed Quantum Memories	publisher
+2025-Quantum-Nghiem.pdf	Quantum Algorithm for Estimating Betti Numbers Using Cohomology Approach	publisher
+2025-arXiv-Bettcher.pdf	A transmon qubit realized by exploiting the superconductor-insulator transition	arxiv
+2025-arXiv-Dakkis.pdf	[not in DB]	arxiv
+2025-arXiv-Grieninger.pdf	Thermal nature of confining strings	arxiv
+2025-arXiv-He.pdf	Characterization of Permutation Gates in the Third Level of the Clifford Hierarchy	arxiv
+2025-arXiv-Huang.pdf	A robust phase of continuous transversal gates in quantum stabilizer codes	arxiv
+2025-arXiv-KahanamokuMeyer.pdf	Parallel Spooky Pebbling Makes Regev Factoring More Practical	arxiv
+2025-arXiv-Kobayashi.pdf	Clifford Hierarchy Stabilizer Codes: Transversal Non-Clifford Gates and Magic	arxiv
+2025-arXiv-Ma.pdf	Haar random codes attain the quantum Hamming bound, approximately	arxiv
+2025-arXiv-Padmanabhan.pdf	Clifford Solver for the Tetrahedron Equation and its Variants	arxiv
+2025-arXiv-Potluri.pdf	Fabrication and Structural Analysis of Trilayers for Tantalum Josephson Junctions with Ta2O5 Barriers	arxiv
+2025-arXiv-Shao.pdf	[not in DB]	arxiv
+2025-arXiv-Shirali.pdf	To break, or not to break: Symmetries in adaptive quantum simulations, a case study on the Schwinger model	arxiv
+2025-arXiv-Sinha.pdf	Non-invertible Kramers-Wannier duality-symmetry in the trotterized critical Ising chain	arxiv
+2025-arXiv-Yang.pdf	[not in DB]	arxiv
+2025-arXiv-Yu.pdf	Universal energy-space localization and stable quantum phases against time-dependent perturbations	arxiv
+2025-arXiv-Zaman.pdf	Kinetic Inductance of Few-Layer NbSe2 in the Two-Dimensional Limit	arxiv
+2025-ariv-Dinh.pdf	Quantum Algorithms for Computing Maximal Quantum f-divergence and Kubo-Ando means	arxiv
+2026-AdvQuantumTech-Chattaraj.pdf	Materials Studies of Niobium Thin Films for Quantum Circuit Applications: Progress and Challenges	publisher
+2026-CommPhys-Orban.pdf	The superconducting diode effect in Josephson junctions fabricated from a structurally chiral superconductor	publisher
+2026-JHEP-Rainaldi.pdf	Trigonometric continuous-variable gates and hybrid quantum simulations of the sine-Gordon model	publisher
+2026-JPhysAMathTheor-Banka.pdf	Interpreting multipartite entanglement through topological summaries	publisher
+2026-NanoLett-Nanayakkara.pdf	Current-Phase Relations of Superconducting PtSi Constriction Josephson Junctions	publisher
+2026-NanoLett-SI-Nanayakkara.pdf	Current-Phase Relations of Superconducting PtSi Constriction Josephson Junctions (Supporting Information)	publisher
+2026-NatPhotonics-Zhou.pdf	[not in DB]	publisher
+2026-NatPhys-Yang.pdf	[not in DB]	publisher
+2026-PNAS-Yang.pdf	Tantalum alloy–based resonators for quantum information systems	publisher
+2026-PRB-Luo.pdf	Pairing-based graph neural network for simulating quantum materials	publisher
+2026-PRD-Grieninger.pdf	Tensor network simulations of quasi-GPDs in the massive Schwinger model	publisher
+2026-PRXQuantum-Hardy.pdf	[not in DB]	publisher
+2026-PRXQuantum-Liu.pdf	Hybrid Oscillator-Qubit Quantum Processors: Instruction Set Architectures, Abstract Machine Models, and Applications	publisher
+2026-PhysRevApplied-Chowdhury.pdf	Theory of quasiparticle generation by microwave drives in superconducting qubits	publisher
+2026-PhysRevApplied-Mahdia.pdf	High-efficiency, high-fidelity charge initialization of shallow nitrogen-vacancy centers in diamond	publisher
+2026-PhysRevB-Bahrami.pdf	Vortex motion induced losses in tantalum resonators	publisher
+2026-PhysRevB-López-Morales.pdf	Density functional theory study of the interaction between NV− centers and native defects in diamond	publisher
+2026-PhysRevB-Nangoi.pdf	[not in DB]	publisher
+2026-PhysRevB-Turiansky.pdf	[not in DB]	publisher
+2026-PhysRevLett-Nho.pdf	Recovery Dynamics of a Gap-Engineered Transmon after a Quasiparticle Burst	publisher
+2026-PhysRevResearch-Abdelhadi.pdf	Adaptive channel reshaping for improved entanglement distillation	publisher
+2026-PhysRevResearch-Gant.pdf	Ultrafast spontaneous exciton dissociation via phonon emission in BiVO4	publisher
+2026-PhysRevResearch-Kharzeev.pdf	QuGrav: Bringing gravitational waves to light with qumodes	publisher
+2026-PhysRevX-Dai.pdf	Characterization of Drive-Induced Unwanted State Transitions in Superconducting Circuits	publisher
+2026-PhysRevX-Gopalakrishnan.pdf	Monitored Fluctuating Hydrodynamics	publisher
+2026-Quantum-Meng.pdf	Quantum Communication Networks Enhanced by Distributed Quantum Memories	publisher
+2026-Small-Wehmeier.pdf	[not in DB]	publisher
+2026-SmallMethods-Dai.pdf	Polarization-Engineered Near-Field Generation Using a Hybrid Tip–Antenna System	publisher
+2026-Vacuum-Chattaraj.pdf	[not in DB]	publisher
+2026-arXiv-Amorosso.pdf	Topological structure of the entanglement radius of Yang-Mills flux tubes	arxiv
+2026-arXiv-Bharati.pdf	Batch Entanglement Detection in Parameterized Qubit States using Classical Bandit Algorithms	arxiv
+2026-arXiv-Bhatia.pdf	Temperature-Dependent Dielectric Function of Tantalum Nitride Formed by Atomic Layer Deposition for Tunnel Barriers in Josephson Junctions	arxiv
+2026-arXiv-Goldstein-Gelb.pdf	COMPAS: A Distributed Multi-Party SWAP Test for Parallel Quantum Algorithms	arxiv
+2026-arXiv-Grieninger.pdf	Entanglement in the θ-vacuum	arxiv
+2026-arXiv-Guo.pdf	Measurement-Based Preparation of Higher-Dimensional AKLT States and Their Quantum Computational Power	arxiv
+2026-arXiv-Hedrick.pdf	Quantifying surface losses in superconducting aluminum microwave resonators	arxiv
+2026-arXiv-Hoyt.pdf	QASMTrans: An End-to-End QASM Compilation Framework with Pulse Generation for Near-Term Quantum Devices	arxiv
+2026-arXiv-Jiang.pdf	Exact bounds on quantum partial search algorithm and improving the parallel search	arxiv
+2026-arXiv-Joshi-ebook.pdf	Beta Tantalum Transmon Qubits with Quality Factors Approaching 10 Million	arxiv
+2026-arXiv-Joshi.pdf	[no title]	arxiv
+2026-arXiv-Kharzeev.pdf	The Maximal Entanglement Limit in Statistical and High Energy Physics	arxiv
+2026-arXiv-Kharzeev_b.pdf	Pyramid Interferometers: Direct Access to Cosmological Gravitational Wave Chirality	arxiv
+2026-arXiv-Li.pdf	NWQWorkflow: The Northwest Quantum Workflow	arxiv
+2026-arXiv-Liu.pdf	In-Situ Simultaneous Magic State Injection on Arbitrary CSS qLDPC Codes	arxiv
+2026-arXiv-Liu_b.pdf	Hardware-Efficient Erasure Qubits With Superconducting Transmon Qutrits	arxiv
+2026-arXiv-Liu_c.pdf	Efficient Routing of Quantum LDPC Codes on Programmable 2D Toric Architectures	arxiv
+2026-arXiv-Liu_d.pdf	Assessing System Capabilities and Bottlenecks of an Early Fault-Tolerant Bicycle Architecture	arxiv
+2026-arXiv-Magdalena de la Fuente.pdf	High-threshold decoding of non-Pauli codes for 2D universality	arxiv
+2026-arXiv-Marcenac.pdf	[not in DB]	arxiv
+2026-arXiv-Molinelli.pdf	Chiral and bond-ordered phases in a triangular-ladder superconducting-qubit quantum simulator	arxiv
+2026-arXiv-Mukherjee.pdf	A defect in diamond with millisecond-scale spin relaxation time at room temperature	arxiv
+2026-arXiv-Nghiem.pdf	Toward speedup without quantum coherent access	arxiv
+2026-arXiv-Nghiem_c.pdf	Hybrid Quantum-Classical Algorithm for Hamiltonian Simulation	arxiv
+2026-arXiv-Patel.pdf	Quantum Phaselift	arxiv
+2026-arXiv-Phan.pdf	Quantum Algorithm for Estimating Ollivier-Ricci Curvature	arxiv
+2026-arXiv-Pocrnic.pdf	Efficient Simulation of Pre-Born-Oppenheimer Dynamics on a Quantum Computer	arxiv
+2026-arXiv-Rogerson.pdf	Simulating Lattice Gauge Theories with Virtual Rishons	arxiv
+2026-arXiv-Sambasivam.pdf	TIMES-ADAPT: A Quantum algorithm for real-time evolution in low-energy subspaces using fixed-depth circuits	arxiv
+2026-arXiv-Spagnoli.pdf	Qudit stabilizer codes for ZN lattice gauge theories with matter	arxiv
+2026-arXiv-Than.pdf	Nonlocal Games as Cross-Platform Quantum Benchmarks: Exceeding unconditional classical bounds on trapped-ion processors	arxiv
+2026-arXiv-Viszlai.pdf	PropHunt: Automated Optimization of Quantum Syndrome Measurement Circuits	arxiv
+2026-arXiv-WangX.pdf	[not in DB]	arxiv
+2026-arXiv-WangY-150dpi.pdf	Rhenium as a material platform for long-lived transmon qubits	arxiv
+2026-arXiv-WangY-compressed.pdf	[no title]	arxiv
+2026-arXiv-WangY.pdf	[no title]	arxiv
+2026-arXiv-Wu.pdf	A frequency-agile microwave–optical interface for superconducting qubits	arxiv
+2026-arXiv-Xie.pdf	Observation of Tunable Superradiant Frequency Combs	arxiv
+2026-arXiv-Xu.pdf	Distilling Magic States in the Bicycle Architecture	arxiv
+2026-arXiv-Yama.pdf	[not in DB]	arxiv
+2026-arXiv-Zhong.pdf	Thermodynamics of the Heisenberg XXX chain with negative spin	arxiv
+2026-arXiv.García-Arellano.pdf	Erbium Probes of Magnetic Order in a Layered van der Waals Material	arxiv
