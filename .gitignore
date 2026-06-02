@@ -16,3 +16,4 @@ __pycache__/
 *.sqlite
 *.db
 !data/ingested/records.db
+*.pdf
