@@ -402,6 +402,15 @@ def generate_corpus_average_qubit_yaml(
         f'  min_samples_threshold: {MIN_SAMPLES}',
         f'  defaults_from: {BASELINE_PROFILE_NAME}',
         f'  defaults_path: ../material_defaults/{material}_material_defaults.yaml',
+        f'  measured_fields:',
+    ]
+    # Add fields that actually have corpus averages — these show [CORPUS AVERAGE] in UI
+    for db_col, section, yaml_field, units, comment in DEVICE_AVG_FIELDS:
+        vals = [_to_float(row[db_col]) for row in rows]
+        mean, std, n = _mean_std(vals)
+        if n >= MIN_SAMPLES and mean is not None:
+            lines.append(f'    - {yaml_field}')
+    lines += [
         f'  corpus_composition:',
     ]
 

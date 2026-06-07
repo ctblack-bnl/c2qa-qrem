@@ -58,6 +58,9 @@ provenance:
   min_samples_threshold: 3
   defaults_from: transmon_baseline_2026.yaml
   defaults_path: ../material_defaults/Ta_material_defaults.yaml
+  measured_fields:
+    - T1_us
+    - T2_us
   corpus_composition:
     T2_us: "43 x T2_echo"
     tan_delta_effective_surface: "6 x loss_tangent_interface, 1 x tan_delta_effective_surface"

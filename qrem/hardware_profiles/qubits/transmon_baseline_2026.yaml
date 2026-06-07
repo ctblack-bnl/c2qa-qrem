@@ -44,6 +44,10 @@ gates:
   two_qubit_gate_time_ns: 50         # Time to execute a two-qubit gate, nanoseconds.
                                       # Typical range: 25-200 ns for tunable-coupler architectures.
                                       # 50ns is representative of current state-of-the-art.
+  epsilon_control: 0.000583          # Control error term — pulse errors, leakage, calibration.
+                                      # Directly specified rather than back-calculated from fidelity.
+                                      # Fixed for all profiles — represents control electronics quality,
+                                      # not the material being studied.
   readout_fidelity_pct: 99.5         # Fidelity of qubit measurement.
                                       # Critical for error correction syndrome measurements.
                                       # Current best: 99.0-99.9%.

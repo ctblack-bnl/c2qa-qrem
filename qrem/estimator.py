@@ -234,6 +234,10 @@ def _derive_control_error_baseline(profile: dict) -> float:
     epsilon_total   = 1.0 - (fidelity_pct / 100.0)
     epsilon_T1      = gate_time_us / T1_us
     epsilon_T2      = gate_time_us / T2_us
+    # Use directly specified epsilon_control if present (preferred).
+    # Fall back to back-calculating from fidelity for legacy profiles.
+    if 'epsilon_control' in gates:
+        return gates['epsilon_control']
     epsilon_control = max(0.0, epsilon_total - epsilon_T1 - epsilon_T2)
     return epsilon_control
 

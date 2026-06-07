@@ -496,6 +496,19 @@
       <select id="circuit-select">
         <option value="">Loading circuits…</option>
       </select>
+      <details style="margin-top:6px">
+        <summary style="font-family:var(--mono);font-size:11px;color:var(--text-muted);cursor:pointer;list-style:none;padding:2px 0">
+          ▸ circuit details
+        </summary>
+        <table class="analysis-table" style="margin-top:8px">
+          <tr><td>Circuit depth</td><td id="ca-depth">—</td></tr>
+          <tr><td>Single-qubit gates</td><td id="ca-sq">—</td></tr>
+          <tr><td>Two-qubit gates</td><td id="ca-tq">—</td></tr>
+          <tr><td>Measurements</td><td id="ca-meas">—</td></tr>
+          <tr><td>Locality score</td><td id="ca-locality">—</td></tr>
+          <tr><td>Hub qubits</td><td id="ca-hubs">—</td></tr>
+        </table>
+      </details>
     </div>
 
     <!-- Hardware configuration — collapsible -->
@@ -604,17 +617,6 @@
           <div class="assumption-item" style="opacity:0.5; border-color: #1e3a5f">Loading…</div>
         </div>
       </div>
-      <div style="margin-top:14px">
-        <div class="section-label">Circuit Analysis</div>
-        <table class="analysis-table">
-          <tr><td>Circuit depth</td><td id="ca-depth">—</td></tr>
-          <tr><td>Single-qubit gates</td><td id="ca-sq">—</td></tr>
-          <tr><td>Two-qubit gates</td><td id="ca-tq">—</td></tr>
-          <tr><td>Measurements</td><td id="ca-meas">—</td></tr>
-          <tr><td>Locality score</td><td id="ca-locality">—</td></tr>
-          <tr><td>Hub qubits</td><td id="ca-hubs">—</td></tr>
-        </table>
-      </div>
     </details>
 
   </aside>
@@ -632,11 +634,12 @@
         <div class="metric-value" id="val-fidelity">—</div>
         <div class="metric-sub">from T1, T2, gate time</div>
         <div class="metric-expand-panel" id="expand-fidelity">
-          ε_total = ε_T1 + ε_T2 + ε_ctrl<br>
-          fidelity = 1 − ε_total<br><br>
-          ε_T1 = gate_time / T1<br>
-          ε_T2 = gate_time / T2<br>
-          ε_ctrl = fixed from baseline profile<br><br>
+          How often a single gate succeeds.<br><br>
+          p (error rate) = ε_T1 + ε_T2 + ε_ctrl<br><br>
+          fidelity = 1 − p<br><br>
+          ε_T1 = gate_time / T1 &nbsp;(energy relaxation)<br>
+          ε_T2 = gate_time / T2 &nbsp;(dephasing)<br>
+          ε_ctrl = fixed (control electronics)<br><br>
           <span id="expand-fidelity-detail" style="color:var(--text-label)">—</span>
         </div>
       </div>
@@ -646,14 +649,13 @@
         <div class="metric-label">Code Distance</div>
         <div class="metric-value" id="val-code-dist">—</div>
         <div class="metric-sub">surface code d</div>
-        <div class="metric-expand-panel" id="expand-code-dist">
-          Minimum odd d such that<br>
-          (p/threshold)^((d+1)/2) ≤ target LER<br>
-          <br>
-          Target LER derived from circuit depth:<br>
-          1 − success_rate^(1/depth)<br>
-          <br>
-          <span id="expand-code-dist-detail" style="color:var(--text-label)">—</span>
+       <div class="metric-expand-panel" id="expand-code-dist">
+          Circuit depth and your chosen success rate determine the target LER:<br><br>
+          target LER = 1 − success_rate^(1/depth)<br><br>
+          <span id="expand-code-dist-detail" style="color:var(--text-label)">—</span><br><br>
+          Then find the smallest odd d such that error correction<br>
+          gets p down to that target:<br>
+          (p/threshold)^((d+1)/2) ≤ target LER
         </div>
       </div>
 
@@ -676,8 +678,10 @@
         <div class="metric-value" id="val-logical">—</div>
         <div class="metric-sub">from circuit</div>
         <div class="metric-expand-panel" id="expand-logical">
-          Qubits declared in the<br>OpenQASM circuit file.<br>
-          Each becomes one logical<br>qubit in the error-corrected machine.
+          The number of qubits the algorithm needs.<br>
+          Declared in the QASM circuit file.<br><br>
+          Each one requires its own block of physical<br>
+          qubits for error correction — that's card 3.
         </div>
       </div>
 
@@ -687,11 +691,11 @@
         <div class="metric-value" id="val-total">—</div>
         <div class="metric-sub">qubits</div>
         <div class="metric-expand-panel" id="expand-total">
-          Computation qubits<br>
-          + magic state factory qubits<br>
-          (single-module lower bound)<br>
-          <br>
-          <span id="expand-total-detail" style="color:var(--text-label)">—</span>
+          How many physical qubits are needed<br>
+          to run this circuit fault-tolerantly.<br><br>
+          logical qubits × physical per logical =<br>
+          <span id="expand-total-detail" style="color:var(--text-label)">—</span><br><br>
+          (single-module lower bound — no routing overhead)
         </div>
       </div>
 
@@ -701,8 +705,8 @@
   <!-- ── Bottom right: Staircase chart ── -->
   <div class="panel-chart">
     <div class="chart-header">
-      <div class="chart-title">T1 → Physical Qubit Count</div>
-      <div class="chart-subtitle">steps = code distance thresholds · d= labels where space permits · T2 linked or fixed</div>
+      <div class="chart-title">Physical qubit count needed vs. T1</div>
+      <div class="chart-subtitle">Steps = change in required code distance</div>
     </div>
     <div class="chart-wrap">
       <canvas id="chart"></canvas>
