@@ -816,6 +816,7 @@
       <div class="tab" data-tab="search">Search</div>
       <div class="tab" data-tab="findings">Findings</div>
       <div class="tab" data-tab="catchall">Catchall</div>
+      <div class="tab" data-tab="papers">Papers</div>
     </div>
     <!-- ══ EXPLORE tab ══ -->
     <div class="tab-pane active" id="tab-explore">
@@ -1006,6 +1007,21 @@
       </div>
       <div class="detail-body" id="detailBody">
         <div style="color:var(--muted);font-size:12px;">Loading...</div>
+      </div>
+    </div>
+    <!-- ══ PAPERS tab ══ -->
+    <div class="tab-pane" id="tab-papers">
+      <div class="catchall-area active" id="papers-inner">
+        <div class="catchall-filter" style="margin-bottom:8px;">
+          <span class="control-label" style="line-height:30px;">Sort by:</span>
+          <select id="papersSortField" onchange="renderPapers()">
+            <option value="authors">Author</option>
+            <option value="sample_count">Sample count</option>
+          </select>
+        </div>
+        <div id="papersItems">
+          <div class="loading">Loading...</div>
+        </div>
       </div>
     </div>
     <div class="status-bar">
@@ -1747,9 +1763,57 @@ function formatVal(v) {
   }
   return String(v);
 }
+
+// ── Papers ────────────────────────────────────────────────────────────────
+async function loadPapers() {
+  try {
+    const r = await fetch('/api/papers');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    window._allPapers = d.papers;
+    renderPapers();
+  } catch(e) {
+    document.getElementById('papersItems').innerHTML =
+      '<div class="findings-empty">Could not load papers.</div>';
+  }
+}
+
+function renderPapers() {
+  const container = document.getElementById('papersItems');
+  if (!window._allPapers) return;
+  const sortField = document.getElementById('papersSortField').value;
+  const papers = [...window._allPapers].sort((a, b) => {
+    if (sortField === 'sample_count') return (b.sample_count || 0) - (a.sample_count || 0);
+    return (a.authors || '').localeCompare(b.authors || '');
+  });
+  if (!papers.length) {
+    container.innerHTML = '<div class="findings-empty">No papers in corpus.</div>';
+    return;
+  }
+  container.innerHTML = papers.map(p => `
+    <div class="catchall-item" style="grid-template-columns: 1fr; gap: 4px;">
+      <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--accent);">
+          ${p.authors || '—'}
+        </span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted);">
+          ${p.sample_count || 0} sample${p.sample_count !== 1 ? 's' : ''}
+        </span>
+        ${p.doi ? `<a href="https://doi.org/${p.doi}" target="_blank"
+          style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent2);
+          text-decoration:none; margin-left:auto;"
+          onmouseover="this.style.textDecoration='underline'"
+          onmouseout="this.style.textDecoration='none'">↗ DOI</a>` : ''}
+      </div>
+      ${p.title ? `<div style="font-size:13px; color:var(--text); margin-top:2px;">${p.title}</div>` : ''}
+      ${p.journal ? `<div style="font-size:12px; color:var(--muted);">${p.journal}</div>` : ''}
+    </div>
+  `).join('');
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────
 async function boot() {
-  await Promise.all([loadFields(), loadCatchall(), loadCoverage(), loadFindings()]);
+  await Promise.all([loadFields(), loadCatchall(), loadCoverage(), loadFindings(), loadPapers()]);
 }
 async function loadFields() {
   try {
@@ -1810,24 +1874,21 @@ async function loadCatchall() {
 }
 // ── Filters ───────────────────────────────────────────────────────────────
 function getFilteredSamples() {
-  const allMaterialBoxes = document.querySelectorAll('#materialFilters input[type=checkbox]');
-  const checkedMaterials = Array.from(allMaterialBoxes)
-    .filter(el => el.checked)
-    .map(el => el.value);
-  const totalMaterials = allMaterialBoxes.length;
+  const checkedMaterials = new Set(
+    Array.from(document.querySelectorAll('#materialFilters input[type=checkbox]'))
+      .filter(el => el.checked)
+      .map(el => el.value)
+  );
+
   const substrate  = document.getElementById('substrateFilter').value;
   const confidence = document.getElementById('confidenceFilter').value;
   const nameSearch = document.getElementById('nameFilter').value.toLowerCase();
+
   return allSamples.filter(s => {
-    // Material filter uses sim_material_class (sidebar checkboxes)
-    if (checkedMaterials.length < totalMaterials && !checkedMaterials.includes(s.sim_material_class || '')) return false;
-    // FIX #4: substrate filter now matches against derived_substrate
+    const sampleClass = s.derived_material || 'unknown';
+    if (!checkedMaterials.has(sampleClass)) return false;
     if (substrate && s.derived_substrate !== substrate) return false;
-    // FIX #2: name search works as substring match on display_name
     if (nameSearch && !(s.display_name || '').toLowerCase().includes(nameSearch)) return false;
-    // FIX #3: confidence filter — sample passes if ANY key field meets the threshold
-    // (unchanged logic, but confirmed working: a sample with no confidence fields
-    //  at all is correctly excluded when a filter is active)
     if (confidence === 'high') {
       if (!['high'].includes(s.Tc_confidence) && !['high'].includes(s.RRR_confidence) &&
           !['high'].includes(s.Qi_confidence) && !['high'].includes(s.T1_confidence)) return false;
@@ -1840,10 +1901,13 @@ function getFilteredSamples() {
   });
 }
 function buildMaterialFilters() {
-  const classes = [...new Set(allSamples.map(s => s.sim_material_class).filter(Boolean))].sort();
+  const rawClasses = [...new Set(allSamples.map(s => s.derived_material || 'unknown'))];
+  const classes = rawClasses.filter(Boolean).sort();
+
   classes.forEach((c, i) => {
     colorMap[c] = MATERIAL_COLOR_MAP[c] || PALETTE[i % PALETTE.length];
   });
+
   // Also map derived_material keys to colors for chart grouping
   allSamples.forEach(s => {
     if (s.derived_material && !colorMap[s.derived_material]) {
@@ -1852,6 +1916,7 @@ function buildMaterialFilters() {
         || PALETTE[Object.keys(colorMap).length % PALETTE.length];
     }
   });
+
   const container = document.getElementById('materialFilters');
   container.innerHTML = classes.map(c => `
     <label class="checked">
@@ -1882,6 +1947,8 @@ function buildSubstrateFilter() {
   });
 }
 function onFilterChange() {
+  const allMaterialBoxes = document.querySelectorAll('#materialFilters input[type=checkbox]');
+  const checkedMaterials = Array.from(allMaterialBoxes).filter(el => el.checked).map(el => el.value);
   document.querySelectorAll('#materialFilters label').forEach(label => {
     label.classList.toggle('checked', label.querySelector('input').checked);
   });
@@ -1903,53 +1970,66 @@ function renderStripChart(samples) {
   samples = samples || getFilteredSamples();
   const field   = document.getElementById('stripField').value;
   const groupBy = document.getElementById('stripGroupBy').value;
-  // FIX #6: groupBy values are now derived_material / derived_substrate /
-  // derived_deposition_method — all already normalized, no further mapping needed
+
   const groups  = {};
   samples.forEach(s => {
-    const key = s[groupBy] || 'Unknown';
+    const key = s[groupBy] || 'unknown';
     const val = s[field];
     if (val != null) {
       if (!groups[key]) groups[key] = [];
       groups[key].push({ y: val, label: s.display_name, sample: s });
     }
   });
-  const labels   = Object.keys(groups).sort();
+
+  const labels = Object.keys(groups).sort();
   const isDerived = !!DERIVED_FIELD_SOURCES[field];
-  // Compute y range across all plotted values so jitter is range-relative.
-  // Value-relative jitter (pt.y * 0.02) breaks when values cluster near a
-  // non-zero baseline (e.g. fidelity 99-100%: +-1% of 99 = +-1 point scatter).
+
   const allY = labels.flatMap(lbl => groups[lbl].map(pt => pt.y));
   const yMin = Math.min(...allY), yMax = Math.max(...allY);
   const yRange = (yMax > yMin) ? (yMax - yMin) : Math.abs(yMax) * 0.1 || 1;
-  const yJitter = yRange * 0.01; // +-1% of visible range -- cosmetic only
-  const datasets = labels.map((label, i) => {
-    const color = groupBy === 'derived_material'
-      ? (colorMap[label] || PALETTE[i % PALETTE.length])
-      : PALETTE[i % PALETTE.length];
-    const points = groups[label].map(pt => ({
-      x: i + (Math.random() - 0.5) * 0.4,
-      y: pt.y + (Math.random() - 0.5) * yJitter,
-      originalY: pt.y,
-      displayName: pt.label,
-      sample: pt.sample,
-    }));
+  const yJitter = yRange * 0.01;
+
+  // Build datasets by material (for color) but position by group (for x-axis)
+  const materialKeys = [...new Set(samples
+    .filter(s => s[field] != null)
+    .map(s => s.derived_material || 'unknown'))].sort();
+
+  const datasets = materialKeys.map(material => {
+    const color = colorMap[material] || PALETTE[materialKeys.indexOf(material) % PALETTE.length];
+    const points = [];
+    samples.forEach(s => {
+      if ((s.derived_material || 'unknown') !== material) return;
+      const val = s[field];
+      if (val == null) return;
+      const groupKey = s[groupBy] || 'unknown';
+      const i = labels.indexOf(groupKey);
+      if (i === -1) return;
+      points.push({
+        x: i + (Math.random() - 0.5) * 0.4,
+        y: val + (Math.random() - 0.5) * yJitter,
+        originalY: val,
+        displayName: s.display_name,
+        sample: s,
+      });
+    });
+    if (!points.length) return null;
     const dataset = {
-      label: trunc(label),
+      label: material.replace(/_/g, ' '),
       data: points,
       backgroundColor: color + 'cc',
       borderColor: color,
       pointRadius: 7,
       pointHoverRadius: 10,
     };
-    // Per-point style encoding for derived fields
     if (isDerived) {
       const styles = getDerivedPointStyles(points, field, color);
       if (styles) Object.assign(dataset, styles);
     }
     return dataset;
-  });
+  }).filter(Boolean);
+
   updateVariantLegend('stripVariantLegend', isDerived ? field : null, samples);
+
   if (stripChart) stripChart.destroy();
   const ctx = document.getElementById('stripChart').getContext('2d');
   stripChart = new Chart(ctx, {
@@ -2209,11 +2289,11 @@ function renderCatchall(items) {
   `).join('');
 }
 // ── Control listeners ─────────────────────────────────────────────────────
-document.getElementById('stripField').addEventListener('change',    () => renderStripChart());
-document.getElementById('stripGroupBy').addEventListener('change',  () => renderStripChart());
-document.getElementById('xField').addEventListener('change',        () => renderScatterChart());
-document.getElementById('yField').addEventListener('change',        () => renderScatterChart());
-document.getElementById('colorBy').addEventListener('change',       () => renderScatterChart());
+document.getElementById('stripField').addEventListener('change', () => renderStripChart(getFilteredSamples()));
+document.getElementById('stripGroupBy').addEventListener('change', () => renderStripChart(getFilteredSamples()));
+document.getElementById('xField').addEventListener('change', () => renderScatterChart(getFilteredSamples()));
+document.getElementById('yField').addEventListener('change', () => renderScatterChart(getFilteredSamples()));
+document.getElementById('colorBy').addEventListener('change', () => renderScatterChart(getFilteredSamples()));
 document.getElementById('rankedField').addEventListener('change',   () => renderRankedList());
 document.getElementById('rankedOrder').addEventListener('change',   () => renderRankedList());
 document.getElementById('substrateFilter').addEventListener('change', onFilterChange);
@@ -2283,6 +2363,8 @@ function onFilterChange() {
   document.querySelectorAll('#materialFilters label').forEach(label => {
     label.classList.toggle('checked', label.querySelector('input').checked);
   });
+  const allMaterialBoxes = document.querySelectorAll('#materialFilters input[type=checkbox]');
+  const checkedMaterials = Array.from(allMaterialBoxes).filter(el => el.checked).map(el => el.value);
   const filtered = getFilteredSamples();
   renderStripChart(filtered);
   renderScatterChart(filtered);

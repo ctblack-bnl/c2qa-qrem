@@ -663,6 +663,22 @@ def fetch_coverage():
     conn.close()
     return dict(row)
 
+def fetch_papers():
+    conn = get_db()
+    cur  = conn.cursor()
+    cur.execute("""
+        SELECT p.authors, p.title, p.journal, p.doi,
+               COUNT(s.id) as sample_count
+        FROM papers p
+        LEFT JOIN samples s ON s.paper_id = p.id
+        WHERE p.outcome = 'ingested'
+        GROUP BY p.id
+        ORDER BY p.authors
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+    
 
 def fetch_sample_detail(display_name: str) -> dict:
     conn = get_db()
@@ -752,6 +768,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/coverage":
             self._json(200, {"ok": True, "coverage": fetch_coverage()})
 
+        elif path == "/api/papers":
+            self._json(200, {"ok": True, "papers": fetch_papers()})
+    
         elif path == "/api/ingest/status":
             with _ingest_lock:
                 state = dict(_ingest_state)
