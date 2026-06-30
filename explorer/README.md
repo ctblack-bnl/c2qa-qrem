@@ -35,7 +35,7 @@ Open http://localhost:8001/materials_explorer.html for the Explorer, or http://l
 
 **Dependencies:**
 ```bash
-pip install anthropic
+pip install anthropic pyyaml python-dotenv
 ```
 
 ---
@@ -70,7 +70,7 @@ The catch-all is a first-class output — the 41 author-stated correlations in t
 
 ## Contributing
 
-**Adding papers to the corpus** — drop PDFs in `data/papers/` and run the ingestion pipeline. Papers with C2QA acknowledgments or superconducting materials content (Ta, Nb, Al, TiN, NbTiN, Re, NbN, NbSe2, PtSi) are classified as high or medium relevance and extracted automatically.
+**Adding papers to the corpus** — drop PDFs in `data/papers/` and run the ingestion pipeline. Papers with C2QA acknowledgments or superconducting materials content (Ta, Nb, Al, TiN, NbTiN, Re, NbN, NbSe2, PtSi) are classified as high or medium relevance and extracted automatically.  Human review is essential before using extracted records in quantitative analysis.
 
 **Improving extraction quality** — the extraction prompt is in `prompts.py` (Pass 2). The relevance classifier is also there (Pass 1). Follow the prompt evolution philosophy in the spec: only add guidance general enough to fire on multiple paper types, not one-off fixes for individual papers.
 
@@ -105,4 +105,3 @@ The catch-all is a first-class output — the 41 author-stated correlations in t
 
 ---
 
-*See `docs/publications_ingester_spec_vNN.md` for full design rationale and pipeline architecture.*
