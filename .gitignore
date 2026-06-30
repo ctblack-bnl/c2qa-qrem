@@ -17,3 +17,4 @@ __pycache__/
 *.db
 !data/ingested/records.db
 *.pdf
+docs/*.md
