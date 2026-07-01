@@ -191,6 +191,46 @@
       "excluded_at": "2026-06-02",
       "excluded_by": "manual",
       "reason": "Theory proposal — no experimental materials data. T2=80000µs is a theoretical estimate from noise model, not a measurement. 'Harmonium' qubit has not been fabricated. arXiv version of previously excluded 2025-PRXQuantum-Hays.pdf."
-    }
+    },
+    {
+      "doi": "10.48550/arXiv.2604.26909",
+      "arxiv_id": "arXiv:2604.26909",
+      "filename": "2026-arXiv-Fukumori.pdf",
+      "excluded_at": "2026-06-11",
+      "excluded_by": "manual",
+      "reason": "Rare-earth spin system (171Yb3+:CaWO4) — quantum memory / spin-ensemble, not superconducting materials characterization. No film, Tc, RRR, or Qi data. C2QA acknowledgment caused false high-relevance."
+    },
+    {
+	  "doi": "10.1002/qute.202500763",
+	  "arxiv_id": null,
+	  "filename": "2026-AdvQuantumTech-Chattaraj.pdf",
+	  "excluded_at": "2026-06-13",
+	  "excluded_by": "manual",
+	  "reason": "Review paper — no original experimental measurements. 0 samples extracted. Reviews Niobium thin film literature for quantum circuit applications. Not a primary research paper with materials characterization data."
+	},
+	{
+	  "doi": "10.48550/arXiv.2604.27324",
+	  "arxiv_id": "arXiv:2604.27324",
+	  "filename": "2026-arXiv-Ugale.pdf",
+	  "excluded_at": "2026-06-13",
+	  "excluded_by": "manual",
+	  "reason": "ML/quantum circuits paper — generative model for discovering quantum circuits for the 3-SAT problem. No materials characterization data. C2QA acknowledgment caused false high-relevance."
+	},
+	{
+	  "doi": "10.48550/arXiv.2512.19582",
+	  "arxiv_id": "arXiv:2512.19582",
+	  "filename": "2026-arXiv-Rainaldi.pdf",
+	  "excluded_at": "2026-06-13",
+	  "excluded_by": "manual",
+	  "reason": "Quantum simulation theory paper — trigonometric continuous-variable gates and hybrid quantum simulations of the sine-Gordon model. No materials characterization data. C2QA acknowledgment caused false high-relevance."
+	},
+	{
+	  "doi": "10.1007/JHEP03(2026)125",
+	  "arxiv_id": null,
+	  "filename": "2026-JHEP-Rainaldi.pdf",
+	  "excluded_at": "2026-06-13",
+	  "excluded_by": "manual",
+	  "reason": "Quantum simulation theory paper — trigonometric continuous-variable gates and hybrid quantum simulations of the sine-Gordon model. No materials characterization data. C2QA acknowledgment caused false high-relevance. Publisher version; arXiv version also excluded."
+	}
   ]
 }

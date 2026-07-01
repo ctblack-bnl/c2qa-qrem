@@ -14,6 +14,9 @@
 #   v1 — initial sparse prompt, minimal guidance
 #   v2 — enriched catchall guidance, error prevention, domain knowledge glossary
 #   v3 — added Pass 3 similarity profile generation
+#   v4 — fabrication process chemistry fields and prompt section; new fabrication_details
+#        catchall type; junction_oxidation_conditions → junction_oxidation_protocol;
+#        junction_pre_deposition_clean → junction_pre_deposition_surface_treatment
 
 import json
 
@@ -158,7 +161,24 @@ _SPARSE_SCHEMA = {
             "deposition_temperature_C": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "annealing_temperature_C": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "annealing_duration_s": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            # --- Block 2.5: Base-layer fabrication process chemistry ---
+            "substrate_prep_before_deposition": {"value": "<free text: oxide removal chemistry, cleaning sequence, transfer time constraint, in situ heating context>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "in_situ_substrate_bake_temperature_C": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "film_deposition_conditions": {"value": "<free text: deposition rate, sputtering power, gas pressure, gas flow ratios, any other deposition parameters>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "film_etch_chemistry": {"value": "<free text: etch type, gas chemistry, ICP power, RF bias, chamber pressure, gas flows, chamber conditioning>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "resist_strip_chemistry": {"value": "<free text: solvent identity, temperature, duration, sonication sequence>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "post_fabrication_surface_treatment": {"value": "<free text: chemical identity, concentration, temperature, duration, sequence, or 'none'>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "dicing_protocol": {"value": "<free text: resist used, dicing parameters, strip chemistry after dicing>", "confidence": "<high|medium|low>", "source": "<location>"},
+            # --- Block 2.3: Junction presence and properties ---
             "junction_present": {"value": "<true|false>", "confidence": "<high|medium|low>", "source": "<location>"},
+            # --- Block 2.3 extensions: Junction fabrication process chemistry ---
+            # Only populate these fields if junction_present is true
+            "junction_pre_deposition_surface_treatment": {"value": "<free text: ex-situ treatments (BOE, descum) and/or in-situ treatments (ion mill: bias voltage, duration, angle)>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "junction_developer": {"value": "<free text: developer composition, temperature, duration>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "junction_chamber_vacuum": {"value": "<free text: HV/UHV, base pressure, system name if stated>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "junction_oxidation_protocol": {"value": "<free text: oxidation step(s): pressure, time, gas; multi-step sequences common e.g. '50 mbar O2 15 min + 10 mbar O2 20 min'>", "confidence": "<high|medium|low>", "source": "<location>"},
+            "junction_liftoff_chemistry": {"value": "<free text: solvent, temperature, duration, sonication steps>", "confidence": "<high|medium|low>", "source": "<location>"},
+            # --- Block 3: Structured measurements ---
             "Tc_K": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "RRR": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
             "sheet_resistance_Ohm_sq": {"value": "<number>", "confidence": "<high|medium|low>", "source": "<location>"},
@@ -192,12 +212,16 @@ _SPARSE_SCHEMA = {
                     {"description": "<correlation>", "measurement_a": "<param>",
                      "measurement_b": "<param>", "nature": "<positive/negative correlation, threshold behavior, etc.>"}
                 ],
+                "fabrication_details": [
+                    {"description": "<specific fabrication step or process detail not captured in named fields>",
+                     "source": "<location in paper>"}
+                ],
                 "schema_promotion_candidates": [
                     {"parameter": "<parameter name>", "description": "<what it measures and its units>",
                      "why_important": "<specific scientific reason this should be a structured field>",
                      "source": "<location>"}
                 ],
-                "free_notes": "<fabrication details, processing context, cross-sample observations>"
+                "free_notes": "<cross-sample observations, processing context not captured elsewhere>"
             }
         }
     ],
@@ -370,10 +394,9 @@ These errors have been observed in testing — be especially careful:
   tan_delta_effective_surface is the COLLAPSED effective surface loss tangent extracted
   from fitting Q_TLS,0 vs p_MS across multiple resonators — the slope of that line.
   If a paper reports a single "surface loss tangent" or "tan delta" from a Q_TLS,0 vs SPR
-  fit (like Joshi Figure 3b, Bland Figure 2, or Hedrick Figure 3b), put it in
-  tan_delta_effective_surface, NOT loss_tangent_interface.
+  fit, put it in tan_delta_effective_surface, NOT loss_tangent_interface.
 
-  PARTICIPATION MATRIX PAPERS (like Wang 2026, Ganjam 2024):
+  PARTICIPATION MATRIX PAPERS:
   Some papers extract loss factors Γ_i using participation matrix inversion rather than
   Q_TLS,0 vs p_MS fits. In these papers, Γ_surf (or Γ_surface) IS the effective surface
   loss tangent — extract it as tan_delta_effective_surface.
@@ -388,7 +411,7 @@ These errors have been observed in testing — be especially careful:
     "Γ_surf = 3.6×10⁻⁴ from participation matrix inversion" → tan_delta_effective_surface
     "surface loss factor Γ_surface = 3.4×10⁻⁴" → tan_delta_effective_surface
     "tan δMS = 8e-4 at the metal-substrate interface" → loss_tangent_interface (type: metal_substrate)
-    
+
 ---
 R vs T CURVES — EXTRACT THESE IF PRESENT
 ---
@@ -445,7 +468,7 @@ normal_state_resistivity_uOhm_cm:
   Source: cite the table row, figure, or text location.
   Note: this is the intrinsic film resistivity, NOT junction normal-state resistance (Rn in Ohms).
   Junction Rn values go in the catchall. Film resistivity goes here.
-  
+
 ---
 RESONATOR GEOMETRY — EXTRACT THESE IF PRESENT
 ---
@@ -498,7 +521,7 @@ p_MS_pad:
   Note: in participation tables, p_MS for the transmon column IS p_MS_pad.
   Typical values: 1e-4 to 3e-4 for optimized 2D transmon designs.
   Source: Main text, supplementary simulation section, participation tables.
-  
+
 qubit_frequency_GHz:
   The qubit operating frequency in GHz. Required for pad TLS loss calculation.
   Look for: qubit characterization tables, frequency listed alongside T1/T2,
@@ -514,6 +537,200 @@ WHY THESE MATTER:
   Without p_MS_pad, tan_delta alone cannot give qubit T1.
   A 6x range in p_MS_resonator (from CPW gap width variation) leads to 6x
   uncertainty in tan_delta — so capturing this geometry is high priority.
+
+---
+FABRICATION PROCESS CHEMISTRY — EXTRACT THESE IF PRESENT
+---
+
+Fabrication process details can appear anywhere in the paper — Methods,
+Supplementary Material, Appendix, figure captions, or inline in the results
+discussion. Common section titles include "Device Fabrication", "Sample
+Preparation", "Nanofabrication", and "Experimental Methods", but do not
+limit your search to these. Process flow figures are also useful sources.
+Fabrication process details — from deposition conditions through resist strip
+chemistry, post-fabrication surface treatment, junction deposition vacuum,
+and dicing — have all been shown to directly influence qubit T1 and T2.
+Extract them into the named fields below when reported.
+
+The junction/non-junction boundary matters here. Separate:
+  - Base-layer processing (substrate prep → film deposition → film etch →
+    resist strip → post-fab surface treatment → dicing) → named fields below
+  - Junction-specific processing (pre-deposition surface treatment →
+    developer → deposition → liftoff) → junction extension fields below
+
+substrate_prep_before_deposition:
+  The complete sequence of steps applied to the substrate immediately before
+  loading into the film deposition chamber. Critical because it sets the
+  metal-substrate interface quality — a primary TLS loss driver.
+  Include: oxide removal chemistry (HF, BOE, piranha), cleaning sequence,
+  time constraint on transfer to deposition chamber, getter steps.
+  Note: in situ heating immediately before deposition goes in
+  in_situ_substrate_bake_temperature_C (numeric) AND may also be noted
+  here for context.
+  Examples:
+    "10:1 BOE 60s + DI rinse + N2 dry; transfer to loadlock within 15 min"
+    "Piranha (2:1 H2SO4:H2O2) 20 min + HF 2 min; transfer within 15 min"
+    "Piranha 20 min + 1200C anneal 1hr O2 atmosphere; 400C dehydration bake in chamber"
+
+in_situ_substrate_bake_temperature_C:
+  Temperature of in situ substrate heating inside the deposition chamber
+  immediately before film deposition, in °C. This is a pre-deposition bake
+  for surface desorption — distinct from deposition_temperature_C (the
+  substrate temperature held during film growth).
+  Look for: "in situ heating at X°C before deposition", "substrate heated
+  to X°C in chamber prior to deposition", "pre-deposition anneal at X°C".
+  Note: some papers use substrate-dependent temperatures for different
+  substrate materials in the same study — extract per sample if values differ.
+
+film_deposition_conditions:
+  Detailed conditions for the superconducting film deposition step. Captures
+  parameters not covered by the existing deposition_method and
+  deposition_pressure_torr fields.
+  Include: deposition rate (nm/s or nm/min), sputtering power (W), gas
+  pressure, gas flow ratios, any other reported deposition parameters.
+  Examples:
+    "DC magnetron sputtering; 200W, 3 mTorr Ar, 0.5 nm/s"
+    "RF sputtering; 150W, 5 mTorr Ar/N2 4:1, rate 0.2 nm/s"
+    "Ebeam evaporation; 0.1 nm/s, base pressure 2e-8 Torr"
+
+film_etch_chemistry:
+  The etch process used to pattern the superconducting film into the device
+  geometry. Include: etch type (dry/wet), gas chemistry, ICP power, RF bias
+  voltage, chamber pressure, gas flow ratios, and any chamber conditioning
+  run before the etch. Capture all parameters reported — etch conditions
+  affect surface quality and residue chemistry.
+  Note: halogen-based dry etches (BCl3, Cl2) leave residues on the substrate
+  surface that affect resist strip requirements — capturing etch chemistry in
+  context with what follows it is scientifically valuable.
+  Examples:
+    "Cl2/Ar ICP-RIE (500W ICP, 50W RF, 5.4 mTorr, 20 sccm Cl2 / 5 sccm Ar);
+     1hr chamber conditioning before etch"
+    "BCl3/Cl2/Ar dry etch (300W ICP, 30W RF, 8 mTorr)"
+    "SF6 RIE preceded by O2 plasma 2 min"
+    "Al wet etch type A"
+
+resist_strip_chemistry:
+  The solvent/chemical process used to remove photoresist after patterning
+  the superconducting film. This is resist removal after a subtractive
+  (dry etch) patterning step — distinct from junction_liftoff_chemistry.
+  Include: solvent identity, temperature, duration, sonication steps,
+  O2 plasma descum.
+  Note: different strip chemistries vary substantially in their ability to
+  remove halogen etch residues from the substrate surface — the choice of
+  strip bath has been shown to directly determine Qi in some material systems.
+  Examples:
+    "AZ300T 70C bath + IPA sonication + DI rinse + O2 plasma descum"
+    "MICROPOSIT 1165 + acetone + IPA sonication + O2 plasma descum"
+    "Remover PG 80C 1hr + acetone sonication 2 min + IPA sonication 2 min"
+    "NMP sonication + acetone + IPA + DI rinse"
+
+post_fabrication_surface_treatment:
+  The final surface treatment applied after patterning and resist strip,
+  before measurement or junction fabrication. Often the step authors cite
+  when explaining performance differences. Always extract if stated —
+  "none" is a valid and important value.
+  Include: chemical identity, concentration, temperature, duration,
+  full sequence.
+  Note: this step is material-specific — some superconducting films tolerate
+  aggressive treatments (piranha, BOE) while others do not. Authors sometimes
+  explicitly flag a substitute chemistry when their material cannot survive
+  the standard treatment, and this is scientifically significant. Always
+  extract the actual chemistry used, not what would be standard.
+  Examples:
+    "Piranha (2:1 H2SO4:H2O2) 20 min + 10:1 BOE 20 min"
+    "O2 plasma descum 1 min + vapor HF 1 min"
+    "H2SO4 100C 20 min + 10:1 BOE 5 min"
+    "none"
+
+dicing_protocol:
+  The dicing process and associated wet chemistry. Dicing is the last wet
+  environment the device sees before measurement — resist identity and strip
+  chemistry here are scientifically relevant.
+  Include: resist used for dicing protection, dicing parameters if stated,
+  strip chemistry used after dicing.
+  Examples:
+    "AZ4620 protective coat; diced with diamond blade; AZ300T strip + IPA rinse"
+    "Shipley 1813 coat; diced; acetone + IPA strip"
+    "no dicing — individual chips cleaved"
+
+junction_pre_deposition_surface_treatment:
+  Surface preparation of the patterned chip immediately before junction metal
+  deposition. Two categories — capture both if present:
+  Ex-situ treatments: performed outside the deposition chamber (BOE dip,
+    O2 plasma descum, solvent clean). Include chemistry, concentration,
+    duration.
+  In-situ treatments: performed inside the deposition chamber immediately
+    before evaporation (Ar ion milling). Include bias voltage, duration,
+    angle if stated.
+  Note: explicit absence is scientifically notable — "no ion milling" or
+  "no surface treatment" is a valid and important value, not the same as
+  not reported. If the paper explicitly states no treatment was performed,
+  extract that.
+  Examples:
+    "10:1 BOE 60s + DI rinse (ex-situ)"
+    "Ar ion mill +-45 degrees, 150V bias, 20s each angle (in-situ)"
+    "O2 plasma descum 30s (ex-situ) + Ar ion mill 100V 15s (in-situ)"
+    "no surface treatment"
+
+junction_developer:
+  The resist developer used for EBL patterning of the junction bilayer
+  resist. Two distinct approaches appear in the literature: room-temperature
+  MIBK:IPA (conventional) and cold IPA:DI water (sub-zero to ~6°C), the
+  latter chosen for controlled undercut in the bilayer resist stack.
+  Include: developer composition, temperature, duration.
+  Examples:
+    "MIBK:IPA 1:3, room temperature, 50s"
+    "1:3 DI:IPA at -10C, 150s + IPA rinse 15s"
+    "3:1 IPA:DI at 6C, 90s"
+
+junction_chamber_vacuum:
+  The vacuum quality of the chamber used for junction metal evaporation.
+  Junction deposition vacuum quality (HV vs UHV) has been shown to be a
+  primary determinant of T2E — always extract if stated.
+  Include: vacuum level (HV/UHV), base pressure if stated, system name
+  if stated.
+  Note: "follows [Reference] methods without modification" is a valid
+  extractable value — cite the reference so the reader can look it up.
+  Examples:
+    "UHV, base 3e-10 Torr (Plassys MEB550S)"
+    "HV, base <2e-8 Torr"
+    "UHV (follows methods of [cited paper] without modification)"
+
+junction_oxidation_protocol:
+  The oxidation step(s) used to form the tunnel barrier. Multi-step
+  oxidation sequences are common — capture the full sequence.
+  Include: gas (O2, air), pressure, duration, temperature if stated.
+  Examples:
+    "50 mbar O2 15 min + 10 mbar O2 20 min"
+    "Static O2 200 mTorr 10 min"
+    "Dynamic O2 flow 1 Torr 3 min"
+
+junction_liftoff_chemistry:
+  Resist removal after junction evaporation (liftoff). Physically distinct
+  from resist_strip_chemistry — liftoff dissolves resist under unwanted
+  metal rather than stripping resist from an etched surface.
+  Include: solvent, temperature, duration, sonication steps.
+  Note: temperature and aggressiveness vary widely across labs and may
+  affect junction barrier integrity — both the chemistry and conditions
+  are worth capturing.
+  Examples:
+    "Remover PG 120C 3hr + acetone sonication + IPA"
+    "NMP 80C 1hr + NMP + acetone + IPA + DI rinse"
+    "Acetone room temperature 12hr + acetone sonication 1 min + IPA"
+
+All other fabrication details should go in the fabrication_details catchall
+section. This includes: resist brands and stack compositions (including any
+unusual interlayer materials such as Ge layers), spin parameters, bake
+temperatures, anti-charging agents, HMDS adhesion promoter steps, ion mill
+bias details beyond what fits in the named field, sonication sequences not
+part of the named steps above, and dicing resist identity if not captured
+above.
+
+Also capture here: measurement packaging — the enclosure used when the
+device is measured at millikelvin temperatures. Include commercial package
+name and model (e.g. QCage, SCALINQ SC-3D) or a brief description of
+custom packaging if stated. Package type may correlate with microwave
+environment and IR shielding quality.
 
 ---
 GATE FIDELITY — EXTRACT THESE AS NAMED FIELDS
@@ -548,7 +765,7 @@ IMPORTANT DISTINCTIONS:
   - Readout/state assignment fidelity → catchall (no named schema field)
   - Bell state fidelity → catchall
   - Process fidelity → catchall
-  
+
 --
 T2 COHERENCE TIMES — EXTRACT BOTH VARIANTS AS NAMED FIELDS
 ---
@@ -621,6 +838,19 @@ CORRELATIONS OBSERVED:
     nature: the calculated percentage contribution
     description: include the specific geometry assumed (e.g. "for 70 µm gap Ta-on-Si qubit")
 
+FABRICATION DETAILS:
+  - Capture any fabrication step or process detail not covered by the named fabrication
+    fields above. This is the destination for the long tail of process information.
+  - Include: resist brands and stack compositions (including unusual interlayer materials
+    such as Ge hard mask layers), spin parameters, bake temperatures, anti-charging
+    agents, HMDS adhesion promoter steps, sonication sequences not captured in named
+    fields, ion mill bias details beyond the named field, dicing resist identity.
+  - Also capture: measurement packaging — the enclosure used at millikelvin temperatures.
+    Include commercial package name and model (e.g. QCage, SCALINQ SC-3D) or description
+    of custom packaging. Package type may correlate with microwave environment quality.
+  - Each entry needs a description and source. No suspected_relevance required —
+    relevance of fabrication details will be assessed during corpus mining.
+
 SCHEMA PROMOTION CANDIDATES:
   - Flag parameters that appear scientifically important but have no schema field.
   - The why_important field must be specific: what would be lost if we didn't track this?
@@ -632,10 +862,8 @@ SCHEMA PROMOTION CANDIDATES:
     activation temperature, crystal phase, lattice constant, annealing temperature
 
 FREE NOTES:
-  - Use for fabrication context, cross-sample observations, processing details that
-    don't fit elsewhere. Think of this as the comments section of a lab notebook.
-  - Examples: substrate supplier variation, cleanroom conditions, sample preparation
-    sequence, relationship to companion samples in the same study.
+  - Use for cross-sample observations and processing context not captured elsewhere.
+  - Fabrication details go in the fabrication_details catchall section, not here.
 
 ---
 {_DOMAIN_GLOSSARY}
