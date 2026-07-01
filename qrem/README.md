@@ -162,4 +162,3 @@ Baby QREM is deliberately modular. The current implementation uses analytical ap
 
 ---
 
-*See `docs/quantum_resource_estimator_spec_vNN.md` for full design rationale, validated results, and implementation details.*
