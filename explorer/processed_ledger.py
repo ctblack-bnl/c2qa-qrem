@@ -68,6 +68,7 @@ def record_processed(ledger: dict,
     entry = {
         "filename":       filename,
         "doi":            doi,
+        "arxiv_id":       arxiv_id,
         "date_processed": datetime.now().strftime("%Y-%m-%d"),
         "outcome":        outcome,
     }

@@ -1,0 +1,16 @@
+{
+  "processed": [
+    {
+      "filename": "2026-arXiv-Joshi-ebook.pdf",
+      "doi": null,
+      "date_processed": "2026-06-30",
+      "outcome": "ingested"
+    },
+    {
+      "filename": "2026-APL-Olszewski.pdf",
+      "doi": "10.1063/5.0325435",
+      "date_processed": "2026-07-01",
+      "outcome": "ingested"
+    }
+  ]
+}
