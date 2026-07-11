@@ -17,4 +17,10 @@ __pycache__/
 *.db
 !data/ingested/records.db
 *.pdf
-docs/*.md
+
+# Archived doc versions — not part of active project docs
+docs/archive/
+
+# Isolated test-ingestion output — keep test runs out of version control
+data/ingested/*_test.json
+data/ingested/*_test.jsonl
