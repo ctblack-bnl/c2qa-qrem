@@ -231,6 +231,14 @@
 	  "excluded_at": "2026-06-13",
 	  "excluded_by": "manual",
 	  "reason": "Quantum simulation theory paper — trigonometric continuous-variable gates and hybrid quantum simulations of the sine-Gordon model. No materials characterization data. C2QA acknowledgment caused false high-relevance. Publisher version; arXiv version also excluded."
+	},
+	{
+	  "doi": null,
+	  "arxiv_id": null,
+	  "filename": "2026-arXiv.García-Arellano.pdf",
+	  "excluded_at": "2026-07-10",
+	  "excluded_by": "manual",
+	  "reason": "Er:CrSBr flakes — CrSBr is a van der Waals antiferromagnet, not a superconductor. Extracted Tc_K (132 K) is actually the Néel/AFM transition temperature, a value-confusion error rather than a superconducting critical temperature. No superconducting materials characterization content."
 	}
   ]
 }

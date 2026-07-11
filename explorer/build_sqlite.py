@@ -45,6 +45,38 @@
 #          film_thickness_confidence, junction_present_confidence,
 #          resonator_gap_width_confidence
 #
+# Block 2.5 fabrication process chemistry additions (July 2026 — schema v0.15 / prompts.py v4):
+#   12 new named fields (7 base-layer + 5 junction), each with a confidence column.
+#   junction_present bug fix: column existed but was never populated in the insert — fixed.
+#   New catchall item_type: fabrication_detail.
+#
+#   derived_resist_strip_family field: normalized resist_strip_chemistry to canonical short list.
+#     - AZ 300T / AZ300T          → "AZ300T-family"
+#     - MP 1165 / Remover PG      → "NMP-family"
+#     - acetone-only sequences    → "acetone-only"
+#     - not reported              → "none"
+#     - anything else             → "other"
+#
+#   derived_post_fab_treatment_family field: normalized post_fabrication_surface_treatment.
+#     Bin scheme designed July 10, 2026 against real extracted values from Hedrick 2026
+#     and Olszewski 2026 — see materials_characterization_schema_v16.md for full rationale.
+#     - explicit "none"                                   → "None"
+#     - HF only                                           → "Acid-HF"
+#     - BOE only                                          → "Acid-BOE"
+#     - piranha only                                      → "Acid-Piranha"
+#     - other single-acid chemistry                       → "Acid-other"
+#     - solvent-only sequence (no acid/oxidizer)           → "Solvent"
+#     - oxidizer only (H2O2, O2 plasma/ashing, ozone)       → "Oxidizer"
+#     - two or more of {acid, oxidizer, solvent} chained,
+#       or two or more distinct acid types chained          → "Combination"
+#     - not reported                                       → "Unknown"
+#     - unclassifiable                                     → "Other"
+#
+#   derived_junction_vacuum_class field: normalized junction_chamber_vacuum.
+#     - "UHV" present       → "UHV"
+#     - "HV" present         → "HV"
+#     - not reported/unclear → "unknown"
+#
 # Usage:
 #   cd ingester
 #   python3 build_sqlite.py
@@ -53,8 +85,25 @@ import json
 import re
 import sqlite3
 import argparse
+import unicodedata
 from pathlib import Path
 from derive import derive_all, get_derived_value
+
+
+def _norm(s):
+    """
+    Normalize a string to NFC (composed) Unicode form for reliable comparison.
+    Filenames with accented characters (e.g. "García") can arrive encoded as
+    either a single composed character or a base letter + combining accent
+    mark — visually identical but byte-different, which silently breaks exact
+    string/set matching (e.g. exclusions.json filename lookups). Normalizing
+    both sides to NFC before comparing closes this class of bug for any
+    future paper with accented author names.
+    """
+    if s is None:
+        return None
+    return unicodedata.normalize('NFC', s)
+
 # ── Known superconducting materials for Phase A stratification ─────────────────
 #
 # Maps normalized film_material strings to themselves (identity).
@@ -80,6 +129,8 @@ KNOWN_MATERIALS = {
     "Ta-Hf",    # tantalum hafnium alloy (any stoichiometry)
     "Mo3Al2C",  # molybdenum aluminum carbide
 }
+
+
 def normalize_film_material(film_material: str) -> str:
     """
     Normalize film_material to a canonical material identity for Phase A
@@ -90,6 +141,8 @@ def normalize_film_material(film_material: str) -> str:
         return "unknown"
     base = re.sub(r'\s*\(.*', '', film_material).strip()
     return base if base in KNOWN_MATERIALS else "other"
+
+
 def normalize_substrate(substrate_material: str) -> str:
     """
     Normalize substrate_material to a canonical short list for Explorer filtering.
@@ -107,6 +160,8 @@ def normalize_substrate(substrate_material: str) -> str:
     if 'diamond' in s:
         return "Diamond"
     return "Other"
+
+
 def normalize_deposition_method(deposition_method: str) -> str:
     """
     Normalize deposition_method to a canonical short list for Explorer grouping.
@@ -141,6 +196,121 @@ def normalize_deposition_method(deposition_method: str) -> str:
     if 'sputter' in s:
         return "DC Sputtering"
     return "Other"
+
+
+def normalize_resist_strip(resist_strip_chemistry: str) -> str:
+    """
+    Normalize resist_strip_chemistry to a canonical short list for Explorer
+    grouping. Canonical values: AZ300T-family, NMP-family, acetone-only, none, other
+
+    Validated against real corpus values (Hedrick 2026, Olszewski 2026, July 2026):
+      - Hedrick: "Remover PG at 80°C..." → NMP-family
+      - Olszewski: "MP 1165..." → NMP-family; "IMM AZ 300T..." → AZ300T-family
+    """
+    if not resist_strip_chemistry:
+        return "none"
+    s = resist_strip_chemistry.strip().lower()
+    if 'az 300t' in s or 'az300t' in s or 'az-300t' in s:
+        return "AZ300T-family"
+    if '1165' in s or 'remover pg' in s or 'nmp' in s:
+        return "NMP-family"
+    if 'acetone' in s and not any(x in s for x in ['1165', 'remover pg', 'az 300t', 'az300t', 'nmp']):
+        return "acetone-only"
+    return "other"
+
+
+def normalize_post_fab_treatment(post_fabrication_surface_treatment: str) -> str:
+    """
+    Normalize post_fabrication_surface_treatment to a canonical short list
+    for Explorer grouping.
+
+    Canonical values: None, Acid-HF, Acid-BOE, Acid-Piranha, Acid-other,
+                      Solvent, Oxidizer, Combination, Unknown, Other
+
+    Bin scheme designed July 10, 2026 against real extracted values from
+    Hedrick 2026 (arXiv) and Olszewski 2026 (APL) — see continuity doc and
+    schema doc v0.16 for full rationale. Four scientific categories
+    (Acid / Solvent / Oxidizer / Combination) plus None, with Acid further
+    split by specific chemistry since acid type materially affects surface
+    quality outcomes. Combination catches both cross-category sequences
+    (e.g. oxidizer-then-acid) and multi-acid sequences (e.g. BOE-then-HF).
+    """
+    if not post_fabrication_surface_treatment:
+        return "Unknown"
+    s = post_fabrication_surface_treatment.strip().lower()
+
+    if 'none' in s:
+        return "None"
+
+    has_hf = 'hf' in s or 'hydrofluoric' in s
+    has_boe = 'boe' in s or 'buffered oxide etch' in s
+    has_piranha = 'piranha' in s
+    # peroxide/oxidizer markers — exclude "piranha" mentions of H2O2 (piranha is its own acid bin)
+    has_oxidizer = (('h2o2' in s or 'peroxide' in s or 'ozone' in s
+                     or 'o2 plasma' in s or 'o2 ashing' in s or 'ashing' in s)
+                    and not has_piranha)
+    has_solvent = any(x in s for x in [
+        'solvent series', 'acetone', 'ipa', 'isopropanol', 'methanol',
+        'pentane', 'toluene', 'di water'
+    ]) and not (has_hf or has_boe or has_piranha or has_oxidizer)
+
+    acid_types_present = sum([has_hf, has_boe, has_piranha])
+    category_count = sum([
+        acid_types_present > 0,
+        has_oxidizer,
+        has_solvent and acid_types_present == 0 and not has_oxidizer,
+    ])
+
+    # Multiple distinct acid types together (e.g. BOE then HF) → Combination
+    if acid_types_present >= 2:
+        return "Combination"
+
+    # Cross-category combination (e.g. oxidizer then acid) → Combination
+    if (acid_types_present > 0 and has_oxidizer):
+        return "Combination"
+
+    if acid_types_present == 1 and has_solvent:
+        # Solvent cleaning alongside a single acid step is common prep context,
+        # not a second treatment category — still classify by the acid.
+        pass
+
+    if has_hf:
+        return "Acid-HF"
+    if has_boe:
+        return "Acid-BOE"
+    if has_piranha:
+        return "Acid-Piranha"
+    if has_oxidizer:
+        return "Oxidizer"
+    if has_solvent:
+        return "Solvent"
+    if acid_types_present > 0:
+        return "Acid-other"
+
+    return "Other"
+
+
+def normalize_junction_vacuum(junction_chamber_vacuum: str) -> str:
+    """
+    Normalize junction_chamber_vacuum to a canonical short list for Explorer
+    grouping. Canonical values: UHV, HV, unknown
+
+    Not yet validated against real corpus data — no ingested paper to date
+    reports this field (Hedrick and Olszewski are both non-junction-focused
+    for this measurement). Logic drawn from prompts.py v4 examples
+    ("UHV, base 3e-10 Torr (Plassys MEB550S)", "HV, base <2e-8 Torr").
+    Revisit once a junction-heavy paper (e.g. Joshi 2026) is rebuilt into the DB.
+    """
+    if not junction_chamber_vacuum:
+        return "unknown"
+    s = junction_chamber_vacuum.strip().lower()
+    if 'uhv' in s:
+        return "UHV"
+    if re.search(r'\bhv\b', s):
+        return "HV"
+    return "unknown"
+
+
 def make_display_name(authors: str, sample_id: str) -> str:
     """
     Build a human-readable display name for a sample.
@@ -155,8 +325,11 @@ def make_display_name(authors: str, sample_id: str) -> str:
         year = year_match.group(1) if year_match else "????"
     clean_sid = str(sample_id).strip().replace(" ", "_").replace("/", "-")
     return f"{first_author}_{year}_{clean_sid}"
+
+
 def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"Reading: {jsonl_path}")
+
     # --- Load all records ---
     records = []
     with open(jsonl_path, "r", encoding="utf-8") as f:
@@ -168,7 +341,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 records.append(json.loads(line))
             except json.JSONDecodeError as e:
                 print(f"  Skipping malformed line: {e}")
+
     print(f"Loaded {len(records)} records")
+
     # --- Load deduplication decisions ---
     dedup_path = jsonl_path.parent / "deduplication.json"
     skip_filenames = set()
@@ -188,10 +363,12 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 print(f"Deduplication: skipping {len(skip_filenames)} duplicate(s): {skip_filenames}")
         except Exception as e:
             print(f"  Warning: could not load deduplication.json: {e}")
+
     before = len(records)
     records = [r for r in records if r.get("filename") not in skip_filenames]
     if before != len(records):
         print(f"  Filtered {before - len(records)} duplicate record(s)")
+
     # --- Load manual exclusions ---
     exclusions_path = jsonl_path.parent / "exclusions.json"
     excluded_dois      = set()
@@ -206,40 +383,46 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 if entry.get("arxiv_id"):
                     excluded_arxiv_ids.add(entry["arxiv_id"])
                 if entry.get("filename"):
-                    excluded_filenames_excl.add(entry["filename"])
+                    excluded_filenames_excl.add(_norm(entry["filename"]))
             n_excl = len(excl_data.get("exclusions", []))
             print(f"Exclusions: loaded {n_excl} manual exclusion(s) from exclusions.json")
         except Exception as e:
             print(f"  Warning: could not load exclusions.json: {e}")
+
     def _is_excluded(rec: dict) -> bool:
         if rec.get("doi") and rec["doi"] in excluded_dois:
             return True
         if rec.get("arxiv_id") and rec["arxiv_id"] in excluded_arxiv_ids:
             return True
-        if rec.get("filename") and rec["filename"] in excluded_filenames_excl:
+        if rec.get("filename") and _norm(rec["filename"]) in excluded_filenames_excl:
             return True
         return False
+
     before = len(records)
     records = [r for r in records if not _is_excluded(r)]
     n_excluded = before - len(records)
     if n_excluded:
         print(f"  Excluded {n_excluded} manually excluded record(s)")
+
     seen = {}
     for r in records:
         seen[r.get("filename")] = r
     if len(seen) < len(records):
         print(f"  De-duplicated {len(records) - len(seen)} repeated filename(s) — keeping latest record")
     records = list(seen.values())
+
     # --- Connect to SQLite ---
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
+
     # --- Create tables ---
     cur.executescript("""
         DROP TABLE IF EXISTS papers;
         DROP TABLE IF EXISTS samples;
         DROP TABLE IF EXISTS catchall_items;
+
         CREATE TABLE papers (
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
             filename            TEXT,
@@ -259,12 +442,14 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             error               TEXT,
             extraction_json     TEXT
         );
+
         CREATE TABLE samples (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             paper_id                INTEGER REFERENCES papers(id),
             filename                TEXT,
             sample_id               TEXT,
             display_name            TEXT,
+
             -- Sample description
             substrate_material      TEXT,
             substrate_orientation   TEXT,
@@ -276,6 +461,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             annealing_temperature_C TEXT,
             annealing_duration_s    TEXT,
             junction_present        TEXT,
+
             -- Measurements
             Tc_K                    TEXT,
             RRR                     TEXT,
@@ -292,16 +478,19 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             T2_ramsey_us            TEXT,
             gate_1q_fidelity_pct    TEXT,
             gate_2q_fidelity_pct    TEXT,
+
             -- R vs T derived fields
             normal_state_resistance_Ohm     TEXT,
             room_temperature_resistance_Ohm TEXT,
             measured_structure_width_um     TEXT,
             measured_structure_length_um    TEXT,
+
             -- Confidence flags (original four)
             Tc_confidence           TEXT,
             RRR_confidence          TEXT,
             Qi_confidence           TEXT,
             T1_confidence           TEXT,
+
             -- Confidence flags (added May 2026)
             tan_delta_confidence        TEXT,
             T2_echo_confidence          TEXT,
@@ -309,6 +498,35 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             film_thickness_confidence   TEXT,
             junction_present_confidence TEXT,
             resonator_gap_width_confidence TEXT,
+
+            -- Fabrication process chemistry (Block 2.5, added July 2026 — schema v0.15 / prompts.py v4)
+            substrate_prep_before_deposition TEXT,
+            in_situ_substrate_bake_temperature_C TEXT,
+            film_deposition_conditions TEXT,
+            film_etch_chemistry TEXT,
+            resist_strip_chemistry TEXT,
+            post_fabrication_surface_treatment TEXT,
+            dicing_protocol TEXT,
+            junction_pre_deposition_surface_treatment TEXT,
+            junction_developer TEXT,
+            junction_chamber_vacuum TEXT,
+            junction_oxidation_protocol TEXT,
+            junction_liftoff_chemistry TEXT,
+
+            -- Fabrication process chemistry confidence flags (added July 2026)
+            substrate_prep_before_deposition_confidence TEXT,
+            in_situ_substrate_bake_temperature_C_confidence TEXT,
+            film_deposition_conditions_confidence TEXT,
+            film_etch_chemistry_confidence TEXT,
+            resist_strip_chemistry_confidence TEXT,
+            post_fabrication_surface_treatment_confidence TEXT,
+            dicing_protocol_confidence TEXT,
+            junction_pre_deposition_surface_treatment_confidence TEXT,
+            junction_developer_confidence TEXT,
+            junction_chamber_vacuum_confidence TEXT,
+            junction_oxidation_protocol_confidence TEXT,
+            junction_liftoff_chemistry_confidence TEXT,
+
             -- Derived quantities (computed by build_sqlite.py)
             derived_resistivity_uOhm_cm      REAL,
             derived_BCS_gap_meV              REAL,
@@ -317,6 +535,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             derived_RRR_from_RvT             REAL,
             derived_sheet_resistance_Ohm_sq  REAL,
             derived_json                     TEXT,
+
             -- derived_Qi: best available Qi for plotting. Single-photon preferred.
             derived_Qi                       REAL,
             -- derived_T2_us: best available T2. Echo preferred; falls back to Ramsey.
@@ -324,24 +543,36 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             -- derived_tan_delta: best available surface loss tangent.
             -- Priority: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate
             derived_tan_delta                REAL,
+
             -- derived_material: normalized film_material for Phase A stratification.
             derived_material        TEXT,
             -- derived_substrate: normalized substrate_material for Explorer filtering.
             derived_substrate       TEXT,
             -- derived_deposition_method: normalized deposition_method for Explorer grouping.
             derived_deposition_method TEXT,
+
+            -- derived_resist_strip_family: normalized resist_strip_chemistry for Explorer grouping.
+            derived_resist_strip_family TEXT,
+            -- derived_post_fab_treatment_family: normalized post_fabrication_surface_treatment.
+            derived_post_fab_treatment_family TEXT,
+            -- derived_junction_vacuum_class: normalized junction_chamber_vacuum.
+            derived_junction_vacuum_class TEXT,
+
             -- Resonator geometry fields (Stage 4 — tan_delta extraction)
             resonator_type          TEXT,
             resonator_gap_width_um  TEXT,
             p_MS_resonator          TEXT,
             p_MS_pad                TEXT,
+
             -- Stage 4: device fields for T1 decomposition
             qubit_frequency_GHz     TEXT,
             Q_TLS_0                 TEXT,
+
             -- Promoted May 2026 from catchall (frequency-driven schema evolution)
             mean_free_path_nm               TEXT,
             vortex_activation_temperature_K TEXT,
             kinetic_inductance_sheet_pH_sq  TEXT,
+
             -- Similarity profile (Pass 3, AI-generated)
             sim_material_class      TEXT,
             sim_transport_regime    TEXT,
@@ -353,9 +584,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             sim_key_correlations    TEXT,
             sim_profile_notes       TEXT,
             sim_profile_version     TEXT,
+
             -- Full sample JSON
             sample_json             TEXT
         );
+
         CREATE TABLE catchall_items (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             paper_id        INTEGER REFERENCES papers(id),
@@ -369,6 +602,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             notes           TEXT
         );
     """)
+
     # --- Helper to extract a field value and confidence ---
     def get_field(sample: dict, field: str) -> tuple:
         """Returns (value_str, confidence_str) for a field."""
@@ -380,19 +614,23 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             conf = f.get("confidence")
             return (str(val) if val is not None else None), conf
         return str(f), None
+
     # --- Insert records ---
     papers_inserted = 0
     samples_inserted = 0
     catchall_inserted = 0
     profiles_found = 0
+
     for rec in records:
         ext = rec.get("extraction_json") or {}
         outcome = rec.get("outcome", "unknown")
         error = rec.get("error")
         error_str = json.dumps(error) if error else None
+
         samples = ext.get("samples", [])
         num_samples = len(samples)
         authors = rec.get("authors") or ext.get("authors") or ""
+
         cur.execute("""
             INSERT INTO papers (
                 filename, processed_at, outcome, relevance, relevance_reason,
@@ -419,25 +657,45 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         ))
         paper_id = cur.lastrowid
         papers_inserted += 1
+
         similarity_profiles = rec.get("similarity_profiles") or {}
+
         for sample in samples:
             sid = sample.get("sample_id", "unknown")
             display_name = make_display_name(authors, sid)
+
             def gf(field):
                 return get_field(sample, field)
+
             # Compute derived quantities
             derived = derive_all(sample)
+
             # Normalization columns
             film_mat_raw = gf("film_material")[0]
             derived_material = normalize_film_material(film_mat_raw) if film_mat_raw else "unknown"
+
             substrate_raw = gf("substrate_material")[0]
             derived_substrate = normalize_substrate(substrate_raw) if substrate_raw else "Unknown"
+
             deposition_raw = gf("deposition_method")[0]
             derived_deposition_method = normalize_deposition_method(deposition_raw) if deposition_raw else "Unknown"
+
+            # Fabrication process chemistry normalization (added July 2026)
+            resist_strip_raw = gf("resist_strip_chemistry")[0]
+            derived_resist_strip_family = normalize_resist_strip(resist_strip_raw)
+
+            post_fab_raw = gf("post_fabrication_surface_treatment")[0]
+            derived_post_fab_treatment_family = normalize_post_fab_treatment(post_fab_raw)
+
+            junction_vacuum_raw = gf("junction_chamber_vacuum")[0]
+            derived_junction_vacuum_class = normalize_junction_vacuum(junction_vacuum_raw)
+
             # derived_Qi — single-photon preferred; falls back to internal Qi
             derived_Qi = gf("Qi_single_photon")[0] or gf("Qi_internal_quality_factor")[0]
+
             # derived_T2_us — echo preferred; falls back to Ramsey
             derived_T2_us = gf("T2_echo_us")[0] or gf("T2_ramsey_us")[0]
+
             # derived_tan_delta — best available surface loss tangent
             # Priority: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate
             derived_tan_delta = (
@@ -445,14 +703,17 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("loss_tangent_interface")[0] or
                 gf("loss_tangent_substrate")[0]
             )
+
             # derived_resistivity_uOhm_cm — geometry derivation first, then directly reported value
             _derived_resistivity = get_derived_value(derived, "derived_resistivity_uOhm_cm")
             if _derived_resistivity is None:
                 _derived_resistivity = gf("normal_state_resistivity_uOhm_cm")[0]
+
             # Similarity profile
             profile = similarity_profiles.get(sid, {})
             if profile:
                 profiles_found += 1
+
             cur.execute("""
                 INSERT INTO samples (
                     paper_id, filename, sample_id, display_name,
@@ -476,6 +737,30 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     tan_delta_confidence, T2_echo_confidence,
                     surface_oxide_confidence, film_thickness_confidence,
                     junction_present_confidence, resonator_gap_width_confidence,
+                    substrate_prep_before_deposition,
+                    in_situ_substrate_bake_temperature_C,
+                    film_deposition_conditions,
+                    film_etch_chemistry,
+                    resist_strip_chemistry,
+                    post_fabrication_surface_treatment,
+                    dicing_protocol,
+                    junction_pre_deposition_surface_treatment,
+                    junction_developer,
+                    junction_chamber_vacuum,
+                    junction_oxidation_protocol,
+                    junction_liftoff_chemistry,
+                    substrate_prep_before_deposition_confidence,
+                    in_situ_substrate_bake_temperature_C_confidence,
+                    film_deposition_conditions_confidence,
+                    film_etch_chemistry_confidence,
+                    resist_strip_chemistry_confidence,
+                    post_fabrication_surface_treatment_confidence,
+                    dicing_protocol_confidence,
+                    junction_pre_deposition_surface_treatment_confidence,
+                    junction_developer_confidence,
+                    junction_chamber_vacuum_confidence,
+                    junction_oxidation_protocol_confidence,
+                    junction_liftoff_chemistry_confidence,
                     derived_resistivity_uOhm_cm,
                     derived_BCS_gap_meV,
                     derived_coherence_length_nm,
@@ -486,6 +771,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     derived_material,
                     derived_substrate,
                     derived_deposition_method,
+                    derived_resist_strip_family,
+                    derived_post_fab_treatment_family,
+                    derived_junction_vacuum_class,
                     resonator_type,
                     resonator_gap_width_um,
                     p_MS_resonator,
@@ -512,12 +800,17 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?
+                    ?
                 )
             """, (
                 paper_id, rec.get("filename"), sid, display_name,
@@ -555,13 +848,39 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("RRR")[1],
                 gf("Qi_internal_quality_factor")[1],
                 gf("T1_us")[1],
-                # Six new confidence columns (May 2026)
+                # Six confidence columns (May 2026)
                 gf("tan_delta_effective_surface")[1],
                 gf("T2_echo_us")[1],
                 gf("surface_oxide_thickness_nm")[1],
                 gf("film_thickness_nm")[1],
                 gf("junction_present")[1],
                 gf("resonator_gap_width_um")[1],
+                # Block 2.5 fabrication fields (July 2026)
+                gf("substrate_prep_before_deposition")[0],
+                gf("in_situ_substrate_bake_temperature_C")[0],
+                gf("film_deposition_conditions")[0],
+                gf("film_etch_chemistry")[0],
+                gf("resist_strip_chemistry")[0],
+                gf("post_fabrication_surface_treatment")[0],
+                gf("dicing_protocol")[0],
+                gf("junction_pre_deposition_surface_treatment")[0],
+                gf("junction_developer")[0],
+                gf("junction_chamber_vacuum")[0],
+                gf("junction_oxidation_protocol")[0],
+                gf("junction_liftoff_chemistry")[0],
+                # Block 2.5 fabrication field confidence columns (July 2026)
+                gf("substrate_prep_before_deposition")[1],
+                gf("in_situ_substrate_bake_temperature_C")[1],
+                gf("film_deposition_conditions")[1],
+                gf("film_etch_chemistry")[1],
+                gf("resist_strip_chemistry")[1],
+                gf("post_fabrication_surface_treatment")[1],
+                gf("dicing_protocol")[1],
+                gf("junction_pre_deposition_surface_treatment")[1],
+                gf("junction_developer")[1],
+                gf("junction_chamber_vacuum")[1],
+                gf("junction_oxidation_protocol")[1],
+                gf("junction_liftoff_chemistry")[1],
                 # Derived quantities
                 _derived_resistivity,
                 get_derived_value(derived, "derived_BCS_gap_meV"),
@@ -573,6 +892,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 derived_material,
                 derived_substrate,
                 derived_deposition_method,
+                derived_resist_strip_family,
+                derived_post_fab_treatment_family,
+                derived_junction_vacuum_class,
                 gf("resonator_type")[0],
                 gf("resonator_gap_width_um")[0],
                 gf("p_MS_resonator")[0],
@@ -598,8 +920,10 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 json.dumps(sample),
             ))
             samples_inserted += 1
+
             # Insert catchall items
             catchall = sample.get("catchall", {})
+
             for item in catchall.get("additional_measurements", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -615,6 +939,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("suspected_relevance"),
                 ))
                 catchall_inserted += 1
+
             for item in catchall.get("anomalous_observations", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -630,6 +955,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("hypothesis"),
                 ))
                 catchall_inserted += 1
+
             for item in catchall.get("correlations_observed", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -645,6 +971,26 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("nature"),
                 ))
                 catchall_inserted += 1
+
+            # fabrication_details — new catchall type (July 2026, schema v0.15 / prompts.py v4)
+            # Previously silently dropped: prompts.py extracted this section but
+            # build_sqlite.py had no insert block for it. Fixed here.
+            for item in catchall.get("fabrication_details", []):
+                cur.execute("""
+                    INSERT INTO catchall_items
+                    (paper_id, filename, sample_id, display_name, item_type,
+                     description, value, source, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    paper_id, rec.get("filename"), sid, display_name,
+                    "fabrication_detail",
+                    item.get("description"),
+                    None,
+                    item.get("source"),
+                    None,  # no suspected_relevance for this type — assessed during mining
+                ))
+                catchall_inserted += 1
+
             for item in catchall.get("schema_promotion_candidates", []):
                 cur.execute("""
                     INSERT INTO catchall_items
@@ -660,6 +1006,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     item.get("why_important"),
                 ))
                 catchall_inserted += 1
+
     # --- Unrecognized materials report ---
     cur.execute("""
         SELECT film_material, COUNT(*) as n
@@ -671,6 +1018,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         ORDER BY n DESC
     """)
     unrecognized = cur.fetchall()
+
     # --- Unrecognized substrates report ---
     cur.execute("""
         SELECT substrate_material, COUNT(*) as n
@@ -682,8 +1030,29 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         ORDER BY n DESC
     """)
     unrecognized_substrates = cur.fetchall()
+
+    # --- Fabrication family breakdown report (July 2026) ---
+    cur.execute("""
+        SELECT derived_resist_strip_family, COUNT(*) as n
+        FROM samples
+        WHERE resist_strip_chemistry IS NOT NULL
+        GROUP BY derived_resist_strip_family
+        ORDER BY n DESC
+    """)
+    resist_strip_breakdown = cur.fetchall()
+
+    cur.execute("""
+        SELECT derived_post_fab_treatment_family, COUNT(*) as n
+        FROM samples
+        WHERE post_fabrication_surface_treatment IS NOT NULL
+        GROUP BY derived_post_fab_treatment_family
+        ORDER BY n DESC
+    """)
+    post_fab_breakdown = cur.fetchall()
+
     conn.commit()
     conn.close()
+
     # --- Summary ---
     print(f"Done.")
     print(f"  Papers inserted  : {papers_inserted}")
@@ -691,6 +1060,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"  Catchall items   : {catchall_inserted}")
     print(f"  Profiles found   : {profiles_found} of {samples_inserted} samples")
     print(f"  Database written : {db_path}")
+
     if unrecognized:
         print(f"\n  ⚠ Unrecognized film materials ({len(unrecognized)} types assigned to 'other'):")
         print(f"    These will NOT be stratified in Phase A mining.")
@@ -700,12 +1070,24 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             print(f"    {str(row[0]):<50} : {row[1]} sample(s)")
     else:
         print(f"\n  ✓ All film materials recognized — no 'other' stratification bin")
+
     if unrecognized_substrates:
         print(f"\n  ℹ Substrates mapped to 'Other' ({len(unrecognized_substrates)} types):")
         print(f"    These appear in Explorer as 'Other'. Add to normalize_substrate()")
         print(f"    if any should be broken out as a distinct canonical category.")
         for row in unrecognized_substrates:
             print(f"    {str(row[0]):<60} : {row[1]} sample(s)")
+
+    if resist_strip_breakdown:
+        print(f"\n  ℹ derived_resist_strip_family breakdown ({sum(r[1] for r in resist_strip_breakdown)} samples with data):")
+        for row in resist_strip_breakdown:
+            print(f"    {str(row[0]):<20} : {row[1]} sample(s)")
+
+    if post_fab_breakdown:
+        print(f"\n  ℹ derived_post_fab_treatment_family breakdown ({sum(r[1] for r in post_fab_breakdown)} samples with data):")
+        for row in post_fab_breakdown:
+            print(f"    {str(row[0]):<20} : {row[1]} sample(s)")
+
     print()
     print("To browse: open records.db in DB Browser for SQLite (sqlitebrowser.org)")
     print()
@@ -719,10 +1101,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print("  SELECT display_name, sim_material_class, sim_device_type, sim_coherence_tier FROM samples WHERE sim_profile_version IS NOT NULL;")
     print("  SELECT display_name, item_type, description FROM catchall_items LIMIT 20;")
     print("  SELECT outcome, COUNT(*) FROM papers GROUP BY outcome;")
+    print("  SELECT display_name, resist_strip_chemistry, derived_resist_strip_family FROM samples WHERE resist_strip_chemistry IS NOT NULL;")
+    print("  SELECT display_name, post_fabrication_surface_treatment, derived_post_fab_treatment_family FROM samples WHERE post_fabrication_surface_treatment IS NOT NULL;")
+    print("  SELECT display_name, junction_chamber_vacuum, derived_junction_vacuum_class FROM samples WHERE junction_chamber_vacuum IS NOT NULL;")
+    print("  SELECT item_type, COUNT(*) FROM catchall_items GROUP BY item_type;")
     print("  SELECT display_name, Tc_confidence, RRR_confidence, Qi_confidence, T1_confidence,")
     print("         tan_delta_confidence, T2_echo_confidence, surface_oxide_confidence,")
     print("         film_thickness_confidence, junction_present_confidence, resonator_gap_width_confidence")
     print("  FROM samples WHERE Tc_confidence IS NOT NULL ORDER BY display_name;")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Build SQLite database from ingested records JSONL."
