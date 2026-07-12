@@ -54,7 +54,7 @@
 #     - AZ 300T / AZ300T          → "AZ300T-family"
 #     - MP 1165 / Remover PG      → "NMP-family"
 #     - acetone-only sequences    → "acetone-only"
-#     - not reported              → "none"
+#     - not reported              → "unknown"
 #     - anything else             → "other"
 #
 #   derived_post_fab_treatment_family field: normalized post_fabrication_surface_treatment.
@@ -208,7 +208,7 @@ def normalize_resist_strip(resist_strip_chemistry: str) -> str:
       - Olszewski: "MP 1165..." → NMP-family; "IMM AZ 300T..." → AZ300T-family
     """
     if not resist_strip_chemistry:
-        return "none"
+        return "unknown"
     s = resist_strip_chemistry.strip().lower()
     if 'az 300t' in s or 'az300t' in s or 'az-300t' in s:
         return "AZ300T-family"
