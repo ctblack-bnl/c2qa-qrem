@@ -592,10 +592,17 @@
           <div class="control-group">
             <span class="control-label">Group by</span>
             <!-- FIX #6: group by options now use derived (normalized) fields -->
-            <select id="stripGroupBy">
-              <option value="derived_material">Film material</option>
-              <option value="derived_substrate">Substrate</option>
-              <option value="derived_deposition_method">Deposition method</option>
+            <<select id="stripGroupBy">
+              <optgroup label="Material / Sample">
+                <option value="derived_material">Film material</option>
+                <option value="derived_substrate">Substrate</option>
+                <option value="derived_deposition_method">Deposition method</option>
+              </optgroup>
+              <optgroup label="Fabrication Process">
+                <option value="derived_resist_strip_family">Resist strip chemistry</option>
+                <option value="derived_post_fab_treatment_family">Post-fab treatment</option>
+                <option value="derived_junction_vacuum_class">Junction chamber vacuum</option>
+              </optgroup>
             </select>
           </div>
           <button class="csv-export-btn" onclick="exportStripCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
@@ -620,9 +627,16 @@
             <span class="control-label">Color by</span>
             <!-- FIX #6: color by options also use derived fields -->
             <select id="colorBy">
-              <option value="derived_material">Film material</option>
-              <option value="derived_substrate">Substrate</option>
-              <option value="derived_deposition_method">Deposition method</option>
+              <optgroup label="Material / Sample">
+                <option value="derived_material">Film material</option>
+                <option value="derived_substrate">Substrate</option>
+                <option value="derived_deposition_method">Deposition method</option>
+              </optgroup>
+              <optgroup label="Fabrication Process">
+                <option value="derived_resist_strip_family">Resist strip chemistry</option>
+                <option value="derived_post_fab_treatment_family">Post-fab treatment</option>
+                <option value="derived_junction_vacuum_class">Junction chamber vacuum</option>
+              </optgroup>
             </select>
           </div>
           <button class="csv-export-btn" onclick="exportScatterCSV()" title="Download currently plotted data as CSV">↓ CSV</button>

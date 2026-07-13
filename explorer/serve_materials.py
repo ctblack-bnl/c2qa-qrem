@@ -30,7 +30,6 @@
 #   POST /api/mining/reject            — reject a finding
 #   POST /api/mining/revise            — mark finding for revision with notes
 #   POST /api/mining/reset             — reset finding to pending
-
 import http.server
 import json
 import math
@@ -44,7 +43,6 @@ from difflib import SequenceMatcher
 from typing import Optional, List
 from generate_qubit_profile import generate_profile, save_profile, fetch_sample_from_db
 import os
-
 PORT = int(os.environ.get('PORT', 8001))
 REPO_ROOT              = Path(__file__).resolve().parent.parent
 DB_PATH                = REPO_ROOT / "data" / "ingested" / "records.db"
@@ -55,7 +53,6 @@ APPROVED_FINDINGS_PATH = REPO_ROOT / "data" / "ingested" / "findings.jsonl"
 MINING_SCRIPT          = Path(__file__).resolve().parent / "pipeline_mining.py"
 SERVE_DIR              = Path(__file__).resolve().parent
 PROFILES_DIR           = REPO_ROOT / "qrem" / "hardware_profiles"
-
 ALL_NUMERIC_FIELDS = [
     # ── Device performance ────────────────────────────────────────────────
     ('T1_us',                 'T1 (µs)'),
@@ -83,7 +80,6 @@ ALL_NUMERIC_FIELDS = [
     ('annealing_duration_s',  'Anneal duration (s)'),
     ('surface_oxide_nm',      'Surface oxide (nm)'),
 ]
-
 PROFILE_SINGLE_FIELDS = [
     ('sim_material_class',   'Material class'),
     ('sim_transport_regime', 'Transport regime'),
@@ -91,28 +87,34 @@ PROFILE_SINGLE_FIELDS = [
     ('sim_coherence_tier',   'Coherence tier'),
     ('sim_growth_method',    'Growth method'),
 ]
-
 PROFILE_LIST_FIELDS = [
     ('sim_loss_mechanisms',  'Loss mechanisms'),
     ('sim_science_focus',    'Science focus'),
     ('sim_key_correlations', 'Key correlations'),
 ]
-
+# Derived fabrication categoricals — not plottable as numeric measurements,
+# but needed as group-by / color-by axes in the Explore tab (Track B, July 2026).
+# Added to fetch_samples()'s SELECT so the Explore tab can offer them as
+# stripGroupBy / colorBy options alongside derived_material / derived_substrate /
+# derived_deposition_method. Sparse until Priority 2 re-ingestion completes —
+# samples without fabrication data simply carry None for these fields, which
+# the existing frontend group-by logic already buckets as "unknown".
+DERIVED_CATEGORICAL_FIELDS = [
+    'derived_resist_strip_family',
+    'derived_post_fab_treatment_family',
+    'derived_junction_vacuum_class',
+]
 VALID_CATCHALL_TYPES = {
     "correlation",
     "additional_measurement",
     "anomalous_observation",
     "schema_candidate",
 }
-
 FIELD_LABEL_MAP   = {f: label for f, label in ALL_NUMERIC_FIELDS}
 SIMILARITY_FIELDS = [f for f, _ in ALL_NUMERIC_FIELDS]
 PROFILE_WEIGHT    = 0.75
 NUMERIC_WEIGHT    = 0.25
-
-
 # ── Similarity helpers ────────────────────────────────────────────────────────
-
 def _jaccard(a: list, b: list) -> float:
     set_a, set_b = set(a or []), set(b or [])
     if not set_a and not set_b:
@@ -120,8 +122,6 @@ def _jaccard(a: list, b: list) -> float:
     if not set_a or not set_b:
         return 0.0
     return len(set_a & set_b) / len(set_a | set_b)
-
-
 def _parse_json_list(val) -> list:
     if val is None:
         return []
@@ -132,8 +132,6 @@ def _parse_json_list(val) -> list:
         return parsed if isinstance(parsed, list) else []
     except (json.JSONDecodeError, TypeError):
         return []
-
-
 def compute_profile_score(query: dict, candidate: dict):
     if not query.get('sim_profile_version') or not candidate.get('sim_profile_version'):
         return None, []
@@ -160,8 +158,6 @@ def compute_profile_score(query: dict, candidate: dict):
                               'shared': list(set(q_list) & set(c_list)),
                               'jaccard_similarity': round(jsim, 3), 'type': 'list'})
     return total_score / num_dims, matched_tags
-
-
 def compute_numeric_score(query: dict, candidate: dict, field_stats: dict):
     overlap = [f for f in SIMILARITY_FIELDS
                if query.get(f) is not None and candidate.get(f) is not None
@@ -180,8 +176,6 @@ def compute_numeric_score(query: dict, candidate: dict, field_stats: dict):
                         'normalized_distance': round(dist, 3)})
     matched.sort(key=lambda x: x['normalized_distance'])
     return (total / len(overlap)) / math.sqrt(len(overlap)), matched
-
-
 def compute_similarity(samples: list, query_name: str,
                         n: int = 10, same_pub: bool = False) -> list:
     query = next((s for s in samples if s.get('display_name') == query_name), None)
@@ -228,18 +222,13 @@ def compute_similarity(samples: list, query_name: str,
         })
     results.sort(key=lambda x: x['score'])
     return results[:n]
-
-
 # ── Ingestion state ───────────────────────────────────────────────────────────
-
 _ingest_state = {
     "running": False, "done": False, "progress": [],
     "total": 0, "processed": 0, "success": 0,
     "failed": 0, "skipped": 0, "current": None,
 }
 _ingest_lock = threading.Lock()
-
-
 def _run_ingestion(papers_dir: str):
     with _ingest_lock:
         _ingest_state.update({
@@ -271,17 +260,12 @@ def _run_ingestion(papers_dir: str):
     with _ingest_lock:
         _ingest_state["running"] = False
         _ingest_state["done"]    = True
-
-
 # ── Mining state ──────────────────────────────────────────────────────────────
-
 _mining_state = {
     "running": False, "done": False,
     "progress": [], "error": None,
 }
 _mining_lock = threading.Lock()
-
-
 def _run_mining():
     """Run pipeline_mining.py phase-a -> phase-b -> phase-c in sequence."""
     with _mining_lock:
@@ -322,10 +306,7 @@ def _run_mining():
     with _mining_lock:
         _mining_state["running"] = False
         _mining_state["done"]    = True
-
-
 # ── Mining findings helpers ───────────────────────────────────────────────────
-
 def load_mining_findings() -> list:
     if not FINDINGS_PATH.exists():
         return []
@@ -339,37 +320,29 @@ def load_mining_findings() -> list:
                 findings.append(json.loads(line))
             except json.JSONDecodeError:
                 pass
-
     TYPE_ORDER = {
         "positive":              0,
         "negative":              1,
         "inconclusive":          2,
         "derived_field_artifact": 3,
     }
-
     findings.sort(key=lambda f: (
         TYPE_ORDER.get(
             (f.get("writeup") or {}).get("finding_type"), 99
         ),
         -(f.get("writeup") or {}).get("confidence", 0),
     ))
-
     return findings
-
-
 def save_mining_findings(findings: list):
     FINDINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(FINDINGS_PATH, "w", encoding="utf-8") as f:
         for finding in findings:
             f.write(json.dumps(finding, ensure_ascii=False, default=str) + "\n")
-
-
 def append_approved_finding(finding: dict):
     """Append to the canonical append-only findings.jsonl ledger."""
     APPROVED_FINDINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(APPROVED_FINDINGS_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(finding, ensure_ascii=False, default=str) + "\n")
-
 def load_approved_findings() -> dict:
     """Read findings.jsonl and return latest approved entry per hypothesis_key."""
     if not APPROVED_FINDINGS_PATH.exists():
@@ -388,15 +361,11 @@ def load_approved_findings() -> dict:
             except json.JSONDecodeError:
                 pass
     return by_key
-
 # ── Duplicate detection ───────────────────────────────────────────────────────
-
 def title_similarity(a: str, b: str) -> float:
     if not a or not b:
         return 0.0
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
-
-
 def find_duplicate_pairs(threshold: float = 0.85) -> list:
     if not JSONL_PATH.exists():
         return []
@@ -439,8 +408,6 @@ def find_duplicate_pairs(threshold: float = 0.85) -> list:
                 pairs.append({"paper_a": a, "paper_b": b, "similarity": round(sim, 3)})
     pairs.sort(key=lambda x: -x["similarity"])
     return pairs
-
-
 def load_dedup() -> dict:
     if DEDUP_PATH.exists():
         try:
@@ -448,21 +415,14 @@ def load_dedup() -> dict:
         except Exception:
             pass
     return {"decisions": []}
-
-
 def save_dedup(dedup: dict):
     DEDUP_PATH.parent.mkdir(parents=True, exist_ok=True)
     DEDUP_PATH.write_text(json.dumps(dedup, indent=2))
-
-
 # ── Database functions ────────────────────────────────────────────────────────
-
 def get_db():
     conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn
-
-
 def fetch_available_fields():
     conn = get_db()
     cur  = conn.cursor()
@@ -480,14 +440,16 @@ def fetch_available_fields():
             pass
     conn.close()
     return available
-
-
 def fetch_samples():
     conn = get_db()
     cur  = conn.cursor()
     numeric_cols        = ', '.join(f's.{f}' for f, _ in ALL_NUMERIC_FIELDS)
     profile_single_cols = ', '.join(f's.{f}' for f, _ in PROFILE_SINGLE_FIELDS)
     profile_list_cols   = ', '.join(f's.{f}' for f, _ in PROFILE_LIST_FIELDS)
+    # Derived fabrication categoricals (Track B, July 2026) — group-by / color-by
+    # axes for the Explore tab, alongside derived_material / derived_substrate /
+    # derived_deposition_method which are already selected explicitly below.
+    derived_cat_cols    = ', '.join(f's.{f}' for f in DERIVED_CATEGORICAL_FIELDS)
     # Raw variant fields needed for derived-field source tracking.
     # Not in ALL_NUMERIC_FIELDS (removed from dropdown) but needed to know
     # which variant populated derived_Qi / derived_T2_us / derived_tan_delta.
@@ -507,6 +469,7 @@ def fetch_samples():
                p.authors, p.title, p.doi, p.journal,
                s.sim_profile_version,
                {profile_single_cols}, {profile_list_cols}, {numeric_cols},
+               {derived_cat_cols},
                {RAW_SOURCE_COLS}
         FROM samples s
         JOIN papers p ON s.paper_id = p.id
@@ -544,8 +507,6 @@ def fetch_samples():
                                                'loss_tangent_substrate')
         samples.append(d)
     return samples
-
-
 def fetch_catchall(item_type=None):
     conn = get_db()
     cur  = conn.cursor()
@@ -566,21 +527,17 @@ def fetch_catchall(item_type=None):
     rows = cur.fetchall()
     conn.close()
     return [dict(r) for r in rows]
-
-
 def fetch_corpus(types: Optional[List[str]] = None) -> List[dict]:
     """All ingested samples as self-contained records with nested catchall."""
     if types:
         requested_types = [t for t in types if t in VALID_CATCHALL_TYPES]
     else:
         requested_types = list(VALID_CATCHALL_TYPES)
-
     conn = get_db()
     cur  = conn.cursor()
     numeric_cols        = ', '.join(f's.{f}' for f, _ in ALL_NUMERIC_FIELDS)
     profile_single_cols = ', '.join(f's.{f}' for f, _ in PROFILE_SINGLE_FIELDS)
     profile_list_cols   = ', '.join(f's.{f}' for f, _ in PROFILE_LIST_FIELDS)
-
     cur.execute(f"""
         SELECT s.display_name, s.sample_id, s.filename,
                s.film_material, s.film_crystal_phase,
@@ -601,7 +558,6 @@ def fetch_corpus(types: Optional[List[str]] = None) -> List[dict]:
     """)
     rows = cur.fetchall()
     numeric_field_names = [f for f, _ in ALL_NUMERIC_FIELDS]
-
     samples_by_name = {}
     for row in rows:
         d = dict(row)
@@ -619,7 +575,6 @@ def fetch_corpus(types: Optional[List[str]] = None) -> List[dict]:
             d[field] = _parse_json_list(d.get(field))
         d['catchall'] = []
         samples_by_name[d['display_name']] = d
-
     placeholders = ','.join('?' * len(requested_types))
     cur.execute(f"""
         SELECT c.display_name, c.item_type, c.description,
@@ -630,7 +585,6 @@ def fetch_corpus(types: Optional[List[str]] = None) -> List[dict]:
     """, requested_types)
     catchall_rows = cur.fetchall()
     conn.close()
-
     orphaned = 0
     for crow in catchall_rows:
         c    = dict(crow)
@@ -641,10 +595,7 @@ def fetch_corpus(types: Optional[List[str]] = None) -> List[dict]:
             orphaned += 1
     if orphaned:
         print(f"  fetch_corpus: {orphaned} orphaned catchall item(s)")
-
     return list(samples_by_name.values())
-
-
 def fetch_coverage():
     conn = get_db()
     cur  = conn.cursor()
@@ -662,7 +613,6 @@ def fetch_coverage():
     row = cur.fetchone()
     conn.close()
     return dict(row)
-
 def fetch_papers():
     conn = get_db()
     cur  = conn.cursor()
@@ -679,7 +629,6 @@ def fetch_papers():
     conn.close()
     return [dict(r) for r in rows]
     
-
 def fetch_sample_detail(display_name: str) -> dict:
     conn = get_db()
     cur  = conn.cursor()
@@ -703,52 +652,40 @@ def fetch_sample_detail(display_name: str) -> dict:
     catchall = [dict(r) for r in cur.fetchall()]
     conn.close()
     return {"sample": sample, "catchall": catchall}
-
-
 # ── HTTP Handler ──────────────────────────────────────────────────────────────
-
 class Handler(http.server.SimpleHTTPRequestHandler):
     _samples_cache      = None
     _samples_cache_lock = threading.Lock()
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(SERVE_DIR), **kwargs)
-
     @classmethod
     def get_cached_samples(cls):
         with cls._samples_cache_lock:
             if cls._samples_cache is None:
                 cls._samples_cache = fetch_samples()
             return cls._samples_cache
-
     @classmethod
     def invalidate_cache(cls):
         with cls._samples_cache_lock:
             cls._samples_cache = None
-
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         path   = parsed.path
         params = dict(urllib.parse.parse_qsl(parsed.query))
-
         if path == '/':
             self.send_response(302)
             self.send_header('Location', '/materials_explorer.html')
             self.end_headers()
             return
-
         if path == "/api/samples":
             samples = fetch_samples()
             Handler._samples_cache = samples
             self._json(200, {"ok": True, "samples": samples})
-
         elif path == "/api/fields":
             self._json(200, {"ok": True, "fields": fetch_available_fields()})
-
         elif path == "/api/catchall":
             self._json(200, {"ok": True,
                              "items": fetch_catchall(params.get("type"))})
-
         elif path == "/api/corpus":
             raw_types = params.get("types", "")
             types  = [t.strip() for t in raw_types.split(",") if t.strip()] or None
@@ -764,10 +701,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "types_included":   list(VALID_CATCHALL_TYPES) if not types else types,
                 "samples":          corpus,
             })
-
         elif path == "/api/coverage":
             self._json(200, {"ok": True, "coverage": fetch_coverage()})
-
         elif path == "/api/papers":
             self._json(200, {"ok": True, "papers": fetch_papers()})
     
@@ -775,11 +710,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             with _ingest_lock:
                 state = dict(_ingest_state)
             self._json(200, {"ok": True, "state": state})
-
         elif path == "/api/mining/findings":
             findings = load_mining_findings()
             self._json(200, {"ok": True, "count": len(findings), "findings": findings})
-
         elif path == "/api/approved_findings":
             by_key = load_approved_findings()
             # sort: positive first, then negative, inconclusive, derived; highest conf first
@@ -823,11 +756,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             with _mining_lock:
                 state = dict(_mining_state)
             self._json(200, {"ok": True, "state": state})
-
         elif path == "/api/duplicates":
             pairs = find_duplicate_pairs()
             self._json(200, {"ok": True, "pairs": pairs, "count": len(pairs)})
-
         elif path.startswith("/api/sample/"):
             display_name = urllib.parse.unquote(
                 path[len("/api/sample/"):], encoding='utf-8')
@@ -836,7 +767,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._json(200, {"ok": True, **detail})
             else:
                 self._json(404, {"ok": False, "error": f"Not found: {display_name}"})
-
         elif path == "/api/similar":
             display_name = urllib.parse.unquote(
                 params.get("display_name", "")).strip()
@@ -855,7 +785,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 import traceback; traceback.print_exc()
                 self._json(500, {"ok": False, "error": str(e)})
-
         elif path == "/api/generate_profile":
             display_name = params.get("display_name", "")
             do_save      = params.get("save", "false").lower() == "true"
@@ -876,14 +805,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 import traceback; traceback.print_exc()
                 self._json(500, {"ok": False, "error": str(e)})
-
         else:
             super().do_GET()
-
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         body   = json.loads(self.rfile.read(length)) if length else {}
-
         if self.path == "/api/ingest/start":
             with _ingest_lock:
                 if _ingest_state["running"]:
@@ -893,7 +819,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             threading.Thread(target=_run_ingestion,
                              args=(papers_dir,), daemon=True).start()
             self._json(200, {"ok": True, "message": "Ingestion started"})
-
         elif self.path == "/api/duplicates/decide":
             try:
                 dedup = load_dedup()
@@ -908,7 +833,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._json(200, {"ok": True})
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
-
         elif self.path == "/api/build":
             try:
                 result = subprocess.run(
@@ -920,7 +844,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                  "output": result.stdout + result.stderr})
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
-
         elif self.path == "/api/mining/run":
             with _mining_lock:
                 if _mining_state["running"]:
@@ -928,7 +851,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return
             threading.Thread(target=_run_mining, daemon=True).start()
             self._json(200, {"ok": True, "message": "Mining pipeline started"})
-
         elif self.path == "/api/mining/approve":
             hyp_key = body.get("hypothesis_key")
             force   = body.get("force", False)
@@ -962,7 +884,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                      "error": f"Finding not found: {hyp_key}"})
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
-
         elif self.path == "/api/schema/promote":
             field = body.get("field")
             if not field:
@@ -1013,7 +934,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                      "error": f"Finding not found: {hyp_key}"})
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
-
         elif self.path == "/api/mining/revise":
             hyp_key = body.get("hypothesis_key")
             notes   = body.get("notes", "")
@@ -1041,7 +961,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                      "error": f"Finding not found: {hyp_key}"})
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
-
         elif self.path == "/api/mining/reset":
             hyp_key = body.get("hypothesis_key")
             if not hyp_key:
@@ -1064,18 +983,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                      "error": f"Finding not found: {hyp_key}"})
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
-
         else:
             self.send_response(404)
             self.end_headers()
-
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
-
     def _json(self, code, payload):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
@@ -1084,13 +1000,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
-
     def log_message(self, format, *args):
         if args and (str(args[0]).startswith(("POST", "GET /api")) or
                      str(args[1]) not in ("200", "304")):
             super().log_message(format, *args)
-
-
 if __name__ == "__main__":
     print(f"C2QA Materials Pipeline — Local Server")
     print(f"")
