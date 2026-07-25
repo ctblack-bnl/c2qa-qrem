@@ -12,6 +12,8 @@ The Explorer has two parts that work together:
 
 **Ingestion pipeline** — reads scientific papers (PDFs) and automatically extracts structured materials characterization data: superconducting properties (Tc, RRR, sheet resistance), microwave performance (Qi, Q_TLS,0, loss tangent), qubit coherence (T1, T2), fabrication parameters, and more. Three passes per paper: relevance classification, full structured extraction, and semantic similarity profile generation.
 
+Extraction currently uses Claude Sonnet 4.6 (via Azure). The model, deployment name, and provider are configurable via environment variables — see `config.py`.
+
 **Browser UI** — four tabs:
 - **Explore** — strip and scatter plots across the full corpus, filterable by material, substrate, deposition method
 - **Search** — ranked and similarity search across records
@@ -55,7 +57,7 @@ The canonical data store is `data/ingested/records.jsonl` — append-only, never
 
 ## Data schema
 
-Records follow a six-block schema defined in `docs/materials_characterization_schema_vNN.md`:
+Records follow a six-block schema (see the accompanying paper for full field definitions):
 
 - Block 1 — record metadata (provenance, DOI, review status)
 - Block 2 — sample description (substrate, film, junction, R vs T geometry)
@@ -70,11 +72,11 @@ The catch-all is a first-class output — the 41 author-stated correlations in t
 
 ## Contributing
 
-**Adding papers to the corpus** — drop PDFs in `data/papers/` and run the ingestion pipeline. Papers with C2QA acknowledgments or superconducting materials content (Ta, Nb, Al, TiN, NbTiN, Re, NbN, NbSe2, PtSi) are classified as high or medium relevance and extracted automatically.  Human review is essential before using extracted records in quantitative analysis.
+**Adding papers to the corpus** — drop PDFs in `data/papers/` and run the ingestion pipeline. Papers with C2QA acknowledgments or superconducting materials content (Ta, Nb, Al, TiN, NbTiN, Re, NbN, NbSe2, PtSi) are classified as high or medium relevance and extracted automatically. Human review is essential before using extracted records in quantitative analysis.
 
-**Improving extraction quality** — the extraction prompt is in `prompts.py` (Pass 2). The relevance classifier is also there (Pass 1). Follow the prompt evolution philosophy in the spec: only add guidance general enough to fire on multiple paper types, not one-off fixes for individual papers.
+**Improving extraction quality** — the extraction prompt is in `prompts.py` (Pass 2). The relevance classifier is also there (Pass 1). Only add guidance general enough to fire on multiple paper types, not one-off fixes for individual papers.
 
-**Schema evolution** — fields are promoted from the catch-all to named database columns based on measurement frequency across the corpus. Add new fields in `build_sqlite.py` and update the FIELD_MAP in `pipeline_mining.py`. See `docs/materials_characterization_schema_vNN.md` for the full field list and promotion rules.
+**Schema evolution** — fields are promoted from the catch-all to named database columns based on measurement frequency across the corpus. Add new fields in `build_sqlite.py` and update the FIELD_MAP in `pipeline_mining.py`. See the accompanying paper for the full field list and promotion rules.
 
 **Corpus mining** — Phase A is mechanical (no AI); improvements there are straightforward Python. Phase B and C use Claude — prompt changes go in `pipeline_mining.py`.
 
@@ -104,4 +106,3 @@ The catch-all is a first-class output — the 41 author-stated correlations in t
 - `sim_material_class` (AI-generated) can be unreliable for uncommon materials (NbSe2, PtSi) — cosmetic Explorer issue only; mining uses `derived_material` (deterministic) instead.
 
 ---
-
