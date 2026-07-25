@@ -1,9 +1,10 @@
 # API keys and secrets
 .env
 
-# Data files — too large for GitHub
+# Data files — PDFs and processed ledger are excluded (large / not meaningful to share).
+# records.jsonl IS tracked — it is the corpus source of truth (per the paper) and is
+# currently small enough to check into git directly.
 data/papers/
-data/ingested/records.jsonl
 data/ingested/processed_ledger.json
 
 # Python
