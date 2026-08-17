@@ -217,6 +217,13 @@
       "decision": "duplicate",
       "keep": "2025-arXiv-Nangoi.pdf",
       "decided_at": "2026-06-02"
+    },
+    {
+      "decision": "duplicate",
+      "paper_a": "2026-arXiv-Bhatia-DielectricFunction.pdf",
+      "paper_b": "2026-JVacSciTechnolB-Bhatia.pdf",
+      "keep": "2026-JVacSciTechnolB-Bhatia.pdf",
+      "reason": "Same paper (arXiv preprint vs J. Vac. Sci. Technol. B published version) \u2014 identical title (case difference only), same authors (Bhatia et al.), identical sample structure (2 samples: 13nm and 25nm ALD TaN). Found during Aug 17 new-batch ingestion. Kept published version per standing convention."
     }
   ]
 }
