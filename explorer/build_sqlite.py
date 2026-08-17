@@ -50,6 +50,20 @@
 #   junction_present bug fix: column existed but was never populated in the insert — fixed.
 #   New catchall item_type: fabrication_detail.
 #
+# Junction identity fields wired (August 2026 — schema v0.18 / prompts.py v5-fields
+# Pass B): junction_material, junction_fabrication_method, junction_area_um2,
+# junction_resistance_normal_Ohm, each with a confidence column. Confirmed genuinely
+# absent from both this file and prompts.py before this change — not a rarity, a
+# real missing slot (the other five junction process-chemistry fields, added July
+# 2026, were already wired; these four core identity fields were apparently never
+# carried through to either side). Column/placeholder/gf() alignment verified by
+# direct positional cross-check and a live SQL execution smoke test before shipping,
+# given how easy an off-by-one is to introduce silently in an INSERT this wide (118
+# columns) — an early edit did in fact introduce one (the confidence-column section
+# had new fields in a different order in the column list than in the values tuple,
+# silently shifting resonator_gap_width_confidence and beyond by one), caught by
+# that check before it reached real data.
+#
 #   derived_resist_strip_family field: normalized resist_strip_chemistry to canonical short list.
 #     - AZ 300T / AZ300T          → "AZ300T-family"
 #     - MP 1165 / Remover PG      → "NMP-family"
@@ -290,6 +304,73 @@ def normalize_post_fab_treatment(post_fabrication_surface_treatment: str) -> str
     return "Other"
 
 
+def normalize_bool_field(value) -> int:
+    """
+    Normalize a boolean-shaped extraction value to a clean integer: 1 (yes),
+    0 (no), or None (not reported / unrecognized value).
+
+    Handles the same raw-value inconsistency regardless of which field it's
+    called on: raw extraction values show up as Python booleans (True/False)
+    and as strings ("true"/"false"), which str()-ify to four distinct text
+    values (True, False, true, false) if stored unnormalized — meaning a
+    query like WHERE field = 'true' silently misses rows stored as 'True'.
+
+    Uses 0/1 (not "true"/"false" text) to match the existing convention for
+    boolean-like columns in this schema (human_reviewed, human_approved in
+    the papers table are both INTEGER).
+    """
+    if value is None:
+        return None
+    s = str(value).strip().lower()
+    if s in ('true', '1', 'yes'):
+        return 1
+    if s in ('false', '0', 'no'):
+        return 0
+    return None
+
+
+def normalize_junction_present(junction_present) -> int:
+    """
+    Normalize junction_present to a clean integer: 1 (yes), 0 (no), or None
+    (not reported / unrecognized value).
+
+    Fixes a real inconsistency: raw extraction values have shown up as
+    Python booleans (True/False) and as strings ("true"/"false"), which
+    str()-ify to four distinct text values (True, False, true, false) in
+    the raw column — meaning a query like WHERE junction_present = 'true'
+    silently misses rows stored as 'True'. Normalized here the same way
+    junction_present's own bug (column declared but never populated) was
+    fixed in build_sqlite.py on July 10 — this closes the follow-on
+    consistency gap in the same field.
+
+    Thin wrapper around normalize_bool_field() (added Aug 12, 2026, when
+    individual_assignment_disclosed needed the identical normalization) —
+    kept as a separate name since existing call sites and docs reference it.
+    """
+    return normalize_bool_field(junction_present)
+
+
+def derive_arxiv_id_from_doi(doi: str) -> str:
+    """
+    Extract the arXiv identifier from an arXiv DOI, e.g.
+    '10.48550/arXiv.2306.12345' -> '2306.12345'.
+
+    Deterministic string transform, not a physical derivation — no
+    provenance/confidence needed, just a fallback when extraction left
+    arxiv_id null but the DOI itself is an arXiv DOI. Added July 2026:
+    found 26 ingested papers with a 10.48550/arXiv.* DOI and a null
+    arxiv_id, which should never depend on AI extraction to fill in.
+
+    Only matches the DOI path deliberately — does not scan other free-text
+    fields (e.g. notes) for arXiv-ID-shaped strings, to avoid picking up
+    a cited reference's arXiv number instead of the paper's own.
+    """
+    if not doi:
+        return None
+    m = re.match(r'10\.48550/arxiv\.(.+)$', doi.strip(), re.IGNORECASE)
+    return m.group(1) if m else None
+
+
 def normalize_junction_vacuum(junction_chamber_vacuum: str) -> str:
     """
     Normalize junction_chamber_vacuum to a canonical short list for Explorer
@@ -325,6 +406,200 @@ def make_display_name(authors: str, sample_id: str) -> str:
         year = year_match.group(1) if year_match else "????"
     clean_sid = str(sample_id).strip().replace(" ", "_").replace("/", "-")
     return f"{first_author}_{year}_{clean_sid}"
+
+
+def _parse_clean_numeric(value) -> float:
+    """
+    Try to parse a clean float out of a catchall item's value field.
+    Returns None if it doesn't parse unambiguously — absence over
+    guessing, matching the project's sparse-extraction principle.
+
+    Handles, in order:
+      - a trailing explanatory parenthetical, e.g.
+        "133 +/- 53.3 nm (calculated from Wiedemann-Franz law)"
+      - a leading short variable-name prefix, e.g. "le = 0.5 nm",
+        "lambda_N = 133 +/- 53.3 nm"
+      - "value +/- uncertainty unit" — keeps the central value, drops the
+        uncertainty (there's no dedicated uncertainty column for these
+        fields)
+      - a plain number with optional leading '~' and trailing unit text
+
+    Deliberately rejects ranges ("0.03 - 0.5 nm") and inequalities
+    ("< 1 nm", "> 5 nm") rather than picking a midpoint or bound — these
+    are not single point measurements, and inventing a central value would
+    fabricate precision the source didn't report.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip()
+
+    # Drop a trailing explanatory parenthetical.
+    s = re.sub(r'\s*\([^)]*\)\s*$', '', s).strip()
+
+    # Strip a leading "variable = " prefix — only a short identifier
+    # directly followed by '=', so a bare number is never touched.
+    s = re.sub(r'^[\w\u0370-\u03FF]{1,6}\s*=\s*', '', s).strip()
+
+    # Reject ranges and inequalities outright.
+    if re.search(r'[<>]', s) or re.search(r'\d\s*-\s*\d', s):
+        return None
+
+    # value ± uncertainty unit
+    m = re.match(r'^~?\s*(-?\d+\.?\d*)\s*\u00b1\s*\d+\.?\d*\s*[a-zA-Z\u00b5/\u00b2\-]*\s*$', s)
+    if m:
+        try:
+            return float(m.group(1))
+        except ValueError:
+            return None
+
+    # plain number, optional leading '~', optional trailing unit text
+    m = re.match(r'^~?\s*(-?\d+\.?\d*)\s*[a-zA-Z\u00b5/\u00b2\-]*\s*$', s)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except ValueError:
+        return None
+
+
+def promote_from_catchall(catchall: dict, keywords: list, require_any: list = None,
+                           field_name: str = None, sample_label: str = None,
+                           ambiguous_log: list = None) -> float:
+    """
+    Fallback promotion path for fields whose values live in the free-text
+    additional_measurements catchall rather than a named extraction field.
+
+    Added July 2026 after mean_free_path_nm, vortex_activation_temperature_K,
+    and kinetic_inductance_sheet_pH_sq were found (via
+    report_zero_populated_columns()) to always read None: gf() only checks
+    the sample object directly, but these three were never added to
+    prompts.py's AVAILABLE_FIELDS, so the real values were sitting in the
+    catchall the whole time. This is a stopgap promotion, not a substitute
+    for fixing AVAILABLE_FIELDS (see Phase 4 / prompts.py v5 in the
+    continuity doc) — it can only find what happens to be phrased in a
+    matchable way, so a real zero here after re-ingestion still means
+    "check AVAILABLE_FIELDS," not "the measurement is absent."
+
+    `keywords`: all must appear (case-insensitive substring) in the item's
+    description for a match.
+    `require_any`: if given, at least one must also appear in the
+    description or units — used for kinetic_inductance_sheet_pH_sq, where
+    a bare "kinetic inductance" match would also catch non-promotable total
+    Lk values. Per schema domain rule, only the sheet (per-square) value is
+    geometry-independent and promotable; total Lk is not.
+
+    If MORE THAN ONE catchall item matches for the same sample and they
+    disagree (e.g. a device with separate mean-free-path entries for its
+    Au encapsulation layer and its Ta film), this returns None rather than
+    silently taking whichever happened to be inserted first — first-match
+    would have no principled reason to be scientifically correct, and a
+    Ta sample carrying an Au mean-free-path value would poison Phase A
+    per-material stratification. Pass `ambiguous_log` (a list) with
+    `field_name`/`sample_label` to record the conflict for human review
+    instead of just dropping it silently.
+
+    Returns the single distinct parsed value if all matches agree, or None
+    if there are zero matches, no matches parse cleanly, or matches
+    disagree.
+    """
+    matches = []
+    for item in (catchall.get("additional_measurements") or []):
+        desc = (item.get("description") or "").lower()
+        units = (item.get("units") or "").lower()
+        if not all(k in desc for k in keywords):
+            continue
+        if require_any and not any(r in desc or r in units for r in require_any):
+            continue
+        val = _parse_clean_numeric(item.get("value"))
+        if val is not None:
+            matches.append((val, item.get("description")))
+
+    if not matches:
+        return None
+
+    distinct_values = {v for v, _ in matches}
+    if len(distinct_values) == 1:
+        return matches[0][0]
+
+    # Ambiguous — more than one matching item, disagreeing values.
+    if ambiguous_log is not None:
+        ambiguous_log.append({
+            "sample": sample_label,
+            "field": field_name,
+            "matches": matches,
+        })
+    return None
+
+
+def report_review_candidates(records: list) -> list:
+    """
+    Scan the raw JSONL records (before any filtering) for papers that were
+    skipped by the relevance gate (Phase 1 skip logic in pipeline_ingest.py)
+    but flagged by the classifier as reporting real device performance data
+    with no material/fabrication context — e.g. Dai 2026 (T1/T2 on a real
+    transmon, paper focused on drive-induced state transitions, no
+    fabrication reported) and Siddhu 2025 (T1/T2 on IBM public cloud
+    backend qubits, no fabrication documentation exists to report).
+
+    Added July 2026. Motivation: an over-eager relevance gate is easy to
+    notice (a wrongly-included paper shows up as a visible outlier in the
+    Explorer); an over-strict one is not (a wrongly-excluded paper simply
+    never appears anywhere, and nothing prompts a human to go looking for
+    it). This surfaces that class of loss automatically on every rebuild,
+    the same way report_zero_populated_columns() surfaces silently-broken
+    columns, rather than relying on someone remembering to check.
+
+    These are not necessarily mistakes — many are correctly excluded from
+    materials-correlation evidence (that's the point of the relevance
+    gate). This is a review list, not an error list: worth a human glance
+    to decide case by case whether any belong in a manual "include anyway"
+    allowlist (the mirror image of exclusions.json).
+
+    Returns the list of matching records for the caller to print/report.
+    """
+    candidates = []
+    for rec in records:
+        if rec.get("outcome") != "skipped":
+            continue
+        relevance_json = rec.get("relevance_json") or {}
+        if relevance_json.get("device_performance_without_material_context"):
+            candidates.append(rec)
+    return candidates
+
+
+def report_zero_populated_columns(cur, table: str, exclude: set = None) -> list:
+    """
+    For every column declared in `table`, count how many rows have a
+    non-null value. Returns the list of columns where that count is zero —
+    i.e. columns that exist in the schema but are not actually receiving
+    data anywhere in the current build.
+
+    Added July 2026 after three separate instances of the same failure
+    shape, each found independently and well after the column had shipped:
+    junction_present (column existed, insert never populated it),
+    fabrication_detail catchall items (extracted correctly, no insert
+    block to store them), and mean_free_path_nm / vortex_activation_
+    temperature_K / kinetic_inductance_sheet_pH_sq (columns read directly
+    off the sample object via gf(), but the values actually live in the
+    additional_measurements catchall — so gf() always found nothing).
+
+    This is a detector, not a fix — a zero-populated column here means
+    "check why," not "the measurement is simply rare." A rare-but-real
+    field will show a small nonzero count; only a genuinely disconnected
+    column shows zero across the whole corpus.
+    """
+    cur.execute(f"PRAGMA table_info({table})")
+    columns = [row[1] for row in cur.fetchall()]
+    zero_populated = []
+    for col in columns:
+        if exclude and col in exclude:
+            continue
+        cur.execute(f'SELECT COUNT(*) FROM "{table}" WHERE "{col}" IS NOT NULL')
+        if cur.fetchone()[0] == 0:
+            zero_populated.append(col)
+    return zero_populated
 
 
 def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
@@ -422,6 +697,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         DROP TABLE IF EXISTS papers;
         DROP TABLE IF EXISTS samples;
         DROP TABLE IF EXISTS catchall_items;
+        DROP TABLE IF EXISTS fabrication_groups;
 
         CREATE TABLE papers (
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -440,7 +716,15 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             human_approved      INTEGER DEFAULT 0,
             num_samples         INTEGER DEFAULT 0,
             error               TEXT,
-            extraction_json     TEXT
+            extraction_json     TEXT,
+
+            -- Version lineage stamps (Phase 4 item #5, Aug 2026). NULL for
+            -- any record ingested before this feature existed.
+            schema_version            TEXT,
+            extraction_prompt_version TEXT,
+            model_identifier          TEXT,
+            ingestion_batch_id        TEXT,
+            source_pdf_sha256         TEXT
         );
 
         CREATE TABLE samples (
@@ -449,6 +733,13 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             filename                TEXT,
             sample_id               TEXT,
             display_name            TEXT,
+
+            -- Fabrication linkage (Aug 12 2026) — plain reference, no
+            -- confidence/source wrapper. References group_id in the
+            -- fabrication_groups table for the same paper_id. Absent means
+            -- no fabrication-origin evidence exists for this sample; mining
+            -- treats an absent group as a singleton (independent).
+            fabrication_group_id    TEXT,
 
             -- Sample description
             substrate_material      TEXT,
@@ -460,7 +751,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             deposition_temperature_C TEXT,
             annealing_temperature_C TEXT,
             annealing_duration_s    TEXT,
-            junction_present        TEXT,
+            junction_present        INTEGER,
+            junction_material               TEXT,
+            junction_fabrication_method     TEXT,
+            junction_area_um2               TEXT,
+            junction_resistance_normal_Ohm  TEXT,
 
             -- Measurements
             Tc_K                    TEXT,
@@ -476,8 +771,22 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             T1_us                   TEXT,
             T2_echo_us              TEXT,
             T2_ramsey_us            TEXT,
+            T2_unspecified_us       TEXT,
             gate_1q_fidelity_pct    TEXT,
             gate_2q_fidelity_pct    TEXT,
+
+            -- Measurement context (added July 2026) — these already exist
+            -- correctly in sample_json per schema Blocks 3.2-3.4, but had
+            -- no named column, so a SQL-only query couldn't tell qubit-state
+            -- T1 from resonator-photon-lifetime T1, or see what frequency/
+            -- temperature/power a Qi or loss tangent value was measured at.
+            T1_measurement_context             TEXT,
+            Qi_measurement_frequency_GHz        TEXT,
+            Qi_measurement_temperature_mK       TEXT,
+            Qi_measurement_power_dBm            TEXT,
+            loss_tangent_substrate_frequency_GHz    TEXT,
+            loss_tangent_substrate_temperature_mK   TEXT,
+            loss_tangent_interface_type             TEXT,
 
             -- R vs T derived fields
             normal_state_resistance_Ohm     TEXT,
@@ -491,12 +800,23 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             Qi_confidence           TEXT,
             T1_confidence           TEXT,
 
+            -- Qi_single_photon had no confidence column at all until now,
+            -- despite Qi_confidence existing since the original four (that
+            -- one tracks Qi_internal, not Qi_single_photon) — added Aug 12 2026.
+            Qi_single_photon_confidence TEXT,
+
             -- Confidence flags (added May 2026)
             tan_delta_confidence        TEXT,
             T2_echo_confidence          TEXT,
+            T2_ramsey_confidence        TEXT,
+            T2_unspecified_confidence   TEXT,
             surface_oxide_confidence    TEXT,
             film_thickness_confidence   TEXT,
             junction_present_confidence TEXT,
+            junction_material_confidence              TEXT,
+            junction_fabrication_method_confidence     TEXT,
+            junction_area_um2_confidence               TEXT,
+            junction_resistance_normal_Ohm_confidence  TEXT,
             resonator_gap_width_confidence TEXT,
 
             -- Fabrication process chemistry (Block 2.5, added July 2026 — schema v0.15 / prompts.py v4)
@@ -538,7 +858,10 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
 
             -- derived_Qi: best available Qi for plotting. Single-photon preferred.
             derived_Qi                       REAL,
-            -- derived_T2_us: best available T2. Echo preferred; falls back to Ramsey.
+            -- derived_T2_us: best available T2. Echo preferred; falls back to
+            -- Ramsey, then unspecified (per explicit user preference — these
+            -- values stay visible in the Explorer visualizer rather than
+            -- silently dropping out of "best available T2", added Aug 12 2026).
             derived_T2_us                    REAL,
             -- derived_tan_delta: best available surface loss tangent.
             -- Priority: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate
@@ -601,6 +924,21 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             source          TEXT,
             notes           TEXT
         );
+
+        CREATE TABLE fabrication_groups (
+            id                               INTEGER PRIMARY KEY AUTOINCREMENT,
+            paper_id                         INTEGER REFERENCES papers(id),
+            filename                         TEXT,
+            group_id                         TEXT,   -- paper-local id, e.g. "fab1"
+            raw_label                        TEXT,
+            member_sample_ids                TEXT,   -- JSON array of sample_id strings
+            excluded_candidates              TEXT,   -- JSON array of {sample_id, reason}
+            individual_assignment_disclosed  INTEGER, -- 0/1/NULL, normalize_bool_field()
+            basis                            TEXT,   -- explicit | implicit_inferred
+            evidence                         TEXT,
+            confidence                       TEXT,   -- high | medium | low
+            source                           TEXT
+        );
     """)
 
     # --- Helper to extract a field value and confidence ---
@@ -619,6 +957,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     papers_inserted = 0
     samples_inserted = 0
     catchall_inserted = 0
+    fabrication_groups_inserted = 0
+    ambiguous_catchall_promotions = []
     profiles_found = 0
 
     for rec in records:
@@ -635,8 +975,10 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             INSERT INTO papers (
                 filename, processed_at, outcome, relevance, relevance_reason,
                 paper_type, doi, arxiv_id, title, authors, journal,
-                human_reviewed, human_approved, num_samples, error, extraction_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                human_reviewed, human_approved, num_samples, error, extraction_json,
+                schema_version, extraction_prompt_version, model_identifier,
+                ingestion_batch_id, source_pdf_sha256
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             rec.get("filename"),
             rec.get("processed_at"),
@@ -645,7 +987,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             rec.get("relevance_reason"),
             rec.get("paper_type") or ext.get("paper_type"),
             rec.get("doi") or ext.get("doi"),
-            rec.get("arxiv_id") or ext.get("arxiv_id"),
+            rec.get("arxiv_id") or ext.get("arxiv_id")
+                or derive_arxiv_id_from_doi(rec.get("doi") or ext.get("doi")),
             rec.get("title") or ext.get("title"),
             authors,
             rec.get("journal") or ext.get("journal_or_preprint"),
@@ -654,9 +997,38 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             num_samples,
             error_str,
             json.dumps(ext) if ext else None,
+            rec.get("schema_version"),
+            rec.get("extraction_prompt_version"),
+            rec.get("model_identifier"),
+            rec.get("ingestion_batch_id"),
+            rec.get("source_pdf_sha256"),
         ))
         paper_id = cur.lastrowid
         papers_inserted += 1
+
+        # Fabrication groups — paper-level, inserted once per paper (Aug 12 2026)
+        for grp in ext.get("fabrication_groups", []) or []:
+            cur.execute("""
+                INSERT INTO fabrication_groups (
+                    paper_id, filename, group_id, raw_label,
+                    member_sample_ids, excluded_candidates,
+                    individual_assignment_disclosed, basis, evidence,
+                    confidence, source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                paper_id,
+                rec.get("filename"),
+                grp.get("group_id"),
+                grp.get("raw_label"),
+                json.dumps(grp.get("member_sample_ids") or []),
+                json.dumps(grp.get("excluded_candidates") or []),
+                normalize_bool_field(grp.get("individual_assignment_disclosed")),
+                grp.get("basis"),
+                grp.get("evidence"),
+                grp.get("confidence"),
+                grp.get("source"),
+            ))
+            fabrication_groups_inserted += 1
 
         similarity_profiles = rec.get("similarity_profiles") or {}
 
@@ -693,8 +1065,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             # derived_Qi — single-photon preferred; falls back to internal Qi
             derived_Qi = gf("Qi_single_photon")[0] or gf("Qi_internal_quality_factor")[0]
 
-            # derived_T2_us — echo preferred; falls back to Ramsey
-            derived_T2_us = gf("T2_echo_us")[0] or gf("T2_ramsey_us")[0]
+            # derived_T2_us — echo preferred; falls back to Ramsey, then unspecified
+            derived_T2_us = gf("T2_echo_us")[0] or gf("T2_ramsey_us")[0] or gf("T2_unspecified_us")[0]
 
             # derived_tan_delta — best available surface loss tangent
             # Priority: tan_delta_effective_surface → loss_tangent_interface → loss_tangent_substrate
@@ -709,6 +1081,28 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             if _derived_resistivity is None:
                 _derived_resistivity = gf("normal_state_resistivity_uOhm_cm")[0]
 
+            # Catchall-promoted fields (added July 2026 — see promote_from_catchall
+            # docstring). Extraction-first: if these ever become real named
+            # AVAILABLE_FIELDS in prompts.py, that value wins automatically;
+            # until then, fall back to a keyword match against the catchall.
+            _catchall_for_promotion = sample.get("catchall", {}) or {}
+            mean_free_path_promoted = gf("mean_free_path_nm")[0] or promote_from_catchall(
+                _catchall_for_promotion, ["mean free path"],
+                field_name="mean_free_path_nm", sample_label=display_name,
+                ambiguous_log=ambiguous_catchall_promotions,
+            )
+            vortex_activation_promoted = gf("vortex_activation_temperature_K")[0] or promote_from_catchall(
+                _catchall_for_promotion, ["vortex activation"],
+                field_name="vortex_activation_temperature_K", sample_label=display_name,
+                ambiguous_log=ambiguous_catchall_promotions,
+            )
+            kinetic_inductance_promoted = gf("kinetic_inductance_sheet_pH_sq")[0] or promote_from_catchall(
+                _catchall_for_promotion, ["kinetic inductance"],
+                require_any=["sheet", "per square", "per-square", "ph/sq"],
+                field_name="kinetic_inductance_sheet_pH_sq", sample_label=display_name,
+                ambiguous_log=ambiguous_catchall_promotions,
+            )
+
             # Similarity profile
             profile = similarity_profiles.get(sid, {})
             if profile:
@@ -717,26 +1111,45 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             cur.execute("""
                 INSERT INTO samples (
                     paper_id, filename, sample_id, display_name,
+                    fabrication_group_id,
                     substrate_material, substrate_orientation,
                     film_material, film_crystal_phase, film_thickness_nm,
                     deposition_method, deposition_temperature_C,
                     annealing_temperature_C, annealing_duration_s,
                     junction_present,
+                    junction_material,
+                    junction_fabrication_method,
+                    junction_area_um2,
+                    junction_resistance_normal_Ohm,
                     Tc_K, RRR, sheet_resistance_Ohm_sq,
                     loss_tangent_substrate, loss_tangent_interface,
                     tan_delta_effective_surface,
                     TLS_density, Qi_internal, Qi_single_photon,
-                    surface_oxide_nm, T1_us, T2_echo_us, T2_ramsey_us,
+                    surface_oxide_nm, T1_us, T2_echo_us, T2_ramsey_us, T2_unspecified_us,
                     gate_1q_fidelity_pct, gate_2q_fidelity_pct,
+                    T1_measurement_context,
+                    Qi_measurement_frequency_GHz,
+                    Qi_measurement_temperature_mK,
+                    Qi_measurement_power_dBm,
+                    loss_tangent_substrate_frequency_GHz,
+                    loss_tangent_substrate_temperature_mK,
+                    loss_tangent_interface_type,
                     normal_state_resistance_Ohm,
                     room_temperature_resistance_Ohm,
                     measured_structure_width_um,
                     measured_structure_length_um,
                     Tc_confidence, RRR_confidence,
                     Qi_confidence, T1_confidence,
+                    Qi_single_photon_confidence,
                     tan_delta_confidence, T2_echo_confidence,
+                    T2_ramsey_confidence, T2_unspecified_confidence,
                     surface_oxide_confidence, film_thickness_confidence,
-                    junction_present_confidence, resonator_gap_width_confidence,
+                    junction_present_confidence,
+                    junction_material_confidence,
+                    junction_fabrication_method_confidence,
+                    junction_area_um2_confidence,
+                    junction_resistance_normal_Ohm_confidence,
+                    resonator_gap_width_confidence,
                     substrate_prep_before_deposition,
                     in_situ_substrate_bake_temperature_C,
                     film_deposition_conditions,
@@ -793,27 +1206,23 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     sim_profile_notes, sim_profile_version,
                     sample_json
                 ) VALUES (
-                    ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?,
-                    ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?,
-                    ?, ?, ?,
-                    ?, ?, ?, ?,
-                    ?, ?,
-                    ?, ?, ?,
-                    ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?
                 )
             """, (
                 paper_id, rec.get("filename"), sid, display_name,
+                gf("fabrication_group_id")[0],
                 gf("substrate_material")[0],
                 gf("substrate_orientation")[0],
                 gf("film_material")[0],
@@ -823,7 +1232,11 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("deposition_temperature_C")[0],
                 gf("annealing_temperature_C")[0],
                 gf("annealing_duration_s")[0],
-                gf("junction_present")[0],
+                normalize_junction_present(gf("junction_present")[0]),
+                gf("junction_material")[0],
+                gf("junction_fabrication_method")[0],
+                gf("junction_area_um2")[0],
+                gf("junction_resistance_normal_Ohm")[0],
                 gf("Tc_K")[0],
                 gf("RRR")[0],
                 gf("sheet_resistance_Ohm_sq")[0],
@@ -837,8 +1250,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("T1_us")[0],
                 gf("T2_echo_us")[0],
                 gf("T2_ramsey_us")[0],
+                gf("T2_unspecified_us")[0],
                 gf("single_qubit_gate_fidelity_pct")[0],
                 gf("two_qubit_gate_fidelity_pct")[0],
+                gf("T1_measurement_context")[0],
+                gf("Qi_measurement_frequency_GHz")[0],
+                gf("Qi_measurement_temperature_mK")[0],
+                gf("Qi_measurement_power_dBm")[0],
+                gf("loss_tangent_substrate_frequency_GHz")[0],
+                gf("loss_tangent_substrate_temperature_mK")[0],
+                gf("loss_tangent_interface_type")[0],
                 gf("normal_state_resistance_Ohm")[0],
                 gf("room_temperature_resistance_Ohm")[0],
                 gf("measured_structure_width_um")[0],
@@ -848,12 +1269,19 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("RRR")[1],
                 gf("Qi_internal_quality_factor")[1],
                 gf("T1_us")[1],
-                # Six confidence columns (May 2026)
+                gf("Qi_single_photon")[1],
+                # Six confidence columns (May 2026) + T2_ramsey/T2_unspecified (Aug 12 2026)
                 gf("tan_delta_effective_surface")[1],
                 gf("T2_echo_us")[1],
+                gf("T2_ramsey_us")[1],
+                gf("T2_unspecified_us")[1],
                 gf("surface_oxide_thickness_nm")[1],
                 gf("film_thickness_nm")[1],
                 gf("junction_present")[1],
+                gf("junction_material")[1],
+                gf("junction_fabrication_method")[1],
+                gf("junction_area_um2")[1],
+                gf("junction_resistance_normal_Ohm")[1],
                 gf("resonator_gap_width_um")[1],
                 # Block 2.5 fabrication fields (July 2026)
                 gf("substrate_prep_before_deposition")[0],
@@ -901,9 +1329,9 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                 gf("p_MS_pad")[0],
                 gf("qubit_frequency_GHz")[0],
                 gf("Q_TLS_0")[0],
-                gf("mean_free_path_nm")[0],
-                gf("vortex_activation_temperature_K")[0],
-                gf("kinetic_inductance_sheet_pH_sq")[0],
+                mean_free_path_promoted,
+                vortex_activation_promoted,
+                kinetic_inductance_promoted,
                 derived_Qi,
                 derived_T2_us,
                 derived_tan_delta,
@@ -1050,6 +1478,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     """)
     post_fab_breakdown = cur.fetchall()
 
+    # --- Zero-populated column report (catches "declared but never wired up" bugs) ---
+    zero_populated_samples = report_zero_populated_columns(
+        cur, "samples",
+        exclude={"id", "sample_json"},  # always present by construction, not informative
+    )
+    zero_populated_papers = report_zero_populated_columns(
+        cur, "papers",
+        exclude={"id"},
+    )
+
     conn.commit()
     conn.close()
 
@@ -1058,6 +1496,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"  Papers inserted  : {papers_inserted}")
     print(f"  Samples inserted : {samples_inserted}")
     print(f"  Catchall items   : {catchall_inserted}")
+    print(f"  Fabrication groups: {fabrication_groups_inserted}")
     print(f"  Profiles found   : {profiles_found} of {samples_inserted} samples")
     print(f"  Database written : {db_path}")
 
@@ -1087,6 +1526,47 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         print(f"\n  ℹ derived_post_fab_treatment_family breakdown ({sum(r[1] for r in post_fab_breakdown)} samples with data):")
         for row in post_fab_breakdown:
             print(f"    {str(row[0]):<20} : {row[1]} sample(s)")
+
+    if zero_populated_samples or zero_populated_papers:
+        print(f"\n  ⚠ Zero-populated columns (declared in schema, no data in any row):")
+        print(f"    This usually means the column is reading from the wrong source")
+        print(f"    or was never wired into an insert — not that the measurement")
+        print(f"    is simply rare. Worth checking each one individually.")
+        if zero_populated_samples:
+            print(f"    samples table ({len(zero_populated_samples)}): {', '.join(zero_populated_samples)}")
+        if zero_populated_papers:
+            print(f"    papers table  ({len(zero_populated_papers)}): {', '.join(zero_populated_papers)}")
+    else:
+        print(f"\n  ✓ No zero-populated columns in samples or papers")
+
+    if ambiguous_catchall_promotions:
+        print(f"\n  ⚠ Ambiguous catchall promotions ({len(ambiguous_catchall_promotions)}) — left NULL, needs review:")
+        print(f"    More than one matching catchall item with disagreeing values.")
+        print(f"    Usually means the sample has this measurement for more than")
+        print(f"    one material/component (e.g. an encapsulation layer and the")
+        print(f"    film beneath it) — check which value is the physically")
+        print(f"    relevant one for this sample before trusting either.")
+        for case in ambiguous_catchall_promotions:
+            print(f"    {case['sample']} — {case['field']}:")
+            for val, desc in case["matches"]:
+                print(f"      {val:<10} <- \"{desc}\"")
+    else:
+        print(f"\n  ✓ No ambiguous catchall promotions")
+
+    review_candidates = report_review_candidates(records)
+    if review_candidates:
+        print(f"\n  ℹ Skipped papers flagged for review ({len(review_candidates)}) — "
+              f"real device data, no material context, not automatically included:")
+        print(f"    These were correctly excluded by the relevance gate (no material or")
+        print(f"    fabrication story to attach the device data to) but may be worth a")
+        print(f"    manual look — e.g. as candidates for an 'include anyway' allowlist.")
+        for rec in review_candidates:
+            title = (rec.get("title") or rec.get("relevance_json", {}).get("title") or "")
+            reason = (rec.get("relevance_reason") or "")
+            print(f"    {rec.get('filename')} — {title[:60]}")
+            print(f"      {reason[:150]}")
+    else:
+        print(f"\n  ✓ No skipped papers flagged for review")
 
     print()
     print("To browse: open records.db in DB Browser for SQLite (sqlitebrowser.org)")
