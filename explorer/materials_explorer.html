@@ -233,6 +233,7 @@
   }
   .variant-swatch.solid { background: var(--accent); }
   .variant-swatch.open  { background: transparent; }
+  .variant-swatch.tertiary { background: transparent; border-style: dashed; }
   .chart-wrapper { position: relative; height: 380px; flex: none; background: #F1F3F7; border-radius: 4px; border: 1px solid #1B2030; }
   .table-area { flex: 1; overflow: auto; display: none; }
   .table-area.active { display: block; }
@@ -823,6 +824,22 @@ const MATERIAL_COLOR_MAP = {
   'molybdenum_aluminum_carbide':'#f0a0c0', // magenta
   'other':                      '#8b949e', // muted grey
   'unknown':                    '#8b949e', // muted grey
+  // Short-code aliases — the "Film material" field in the DB stores these,
+  // not the full names above, so every lookup was silently missing and
+  // falling back to PALETTE (indexed by alphabetical position — the actual
+  // cause of the Re/Ta color collision, confirmed Aug 16 2026).
+  'Al':      '#3fb950',
+  'Nb':      '#2dd4bf',
+  'Re':      '#e3b341',
+  'Ta':      '#58a6ff',
+  'Ta-Hf':   '#ffa657',
+  'NbN':     '#f78166',
+  'TiN':     '#ff7b72',
+  'NbTiN':   '#ffb86c',
+  'TaN':     '#89d4a0',
+  'NbSe2':   '#d2a8ff',
+  'PtSi':    '#79c0ff',
+  'Mo3Al2C': '#f0a0c0',
 };
 const PALETTE = [
   '#58a6ff','#2dd4bf','#3fb950','#e3b341',
@@ -832,43 +849,74 @@ const PALETTE = [
 // ── Derived-field variant encoding ────────────────────────────────────────
 // Maps each "best available" derived field to the source key returned by
 // the server (_source suffix) and human-readable labels for each variant.
+// Priority 2 tier 1 (Aug 16): generalized from a hardcoded {solid, open} pair to an
+// ordered `variants` array so a field can have more than two source variants — needed
+// for T2, which now has three (echo / Ramsey / unspecified). Each variant has a `style`
+// ('solid' | 'open' | 'tertiary') used both for the CSS swatch class and the chart point
+// style. A variant with `field: null` is a catch-all: it matches any point whose source
+// isn't explicitly claimed by an earlier variant in the array (used by tan_delta's second
+// variant, which covers both loss_tangent_interface and loss_tangent_substrate without
+// needing to name either).
 const DERIVED_FIELD_SOURCES = {
   derived_Qi: {
-    sourceKey:   'derived_Qi_source',
-    solid:       { field: 'Qi_single_photon', label: 'Qi single-photon' },
-    open:        { field: 'Qi_internal',      label: 'Qi internal' },
+    sourceKey: 'derived_Qi_source',
+    variants: [
+      { field: 'Qi_single_photon', label: 'Qi single-photon', style: 'solid' },
+      { field: 'Qi_internal',      label: 'Qi internal',      style: 'open'  },
+    ],
   },
   derived_T2_us: {
-    sourceKey:   'derived_T2_us_source',
-    solid:       { field: 'T2_echo_us',   label: 'T2 echo' },
-    open:        { field: 'T2_ramsey_us', label: 'T2 Ramsey' },
+    sourceKey: 'derived_T2_us_source',
+    variants: [
+      { field: 'T2_echo_us',        label: 'T2 echo',        style: 'solid'    },
+      { field: 'T2_ramsey_us',      label: 'T2 Ramsey',      style: 'open'     },
+      { field: 'T2_unspecified_us', label: 'T2 unspecified', style: 'tertiary' },
+    ],
   },
   derived_tan_delta: {
-    sourceKey:   'derived_tan_delta_source',
-    solid:       { field: 'tan_delta_effective_surface', label: 'tan δ effective surface' },
-    open:        { field: null,                          label: 'loss tangent interface/substrate' },
+    sourceKey: 'derived_tan_delta_source',
+    variants: [
+      { field: 'tan_delta_effective_surface', label: 'tan δ effective surface',         style: 'solid' },
+      { field: null,                          label: 'loss tangent interface/substrate', style: 'open'  },
+    ],
   },
 };
 /**
- * Return per-point Chart.js style arrays for a dataset of points,
- * based on whether each point's source field matches the "solid" variant.
- * Solid → filled circle; Open → transparent fill, visible border.
+ * Return the matching variant object for a sample, given a field def from
+ * DERIVED_FIELD_SOURCES. Matches by exact field equality first; falls back
+ * to a variant with field: null (a catch-all) if no exact match is found.
+ */
+function matchVariant(def, sample) {
+  if (!def || !sample) return null;
+  const src = sample[def.sourceKey];
+  const exact = def.variants.find(v => v.field !== null && v.field === src);
+  if (exact) return exact;
+  return def.variants.find(v => v.field === null) || null;
+}
+/**
+ * Return per-point Chart.js style arrays for a dataset of points, based on
+ * which variant each point's source field matches. 'solid' → filled circle;
+ * 'open' → transparent fill, visible border; 'tertiary' → semi-transparent
+ * triangle (distinct shape, not just a third fill level, so it reads clearly
+ * next to the other two even in dense strip-chart clusters).
  */
 function getDerivedPointStyles(points, derivedField, baseColor) {
   const def = DERIVED_FIELD_SOURCES[derivedField];
   if (!def) return null; // not a derived field — no encoding
-  const solidField = def.solid.field;
   const bgArr     = [];
   const styleArr  = [];
   const radiusArr = [];
   const bwArr     = [];
   points.forEach(pt => {
-    const src = pt.sample ? pt.sample[def.sourceKey] : null;
-    const isSolid = (src === solidField);
-    bgArr.push(isSolid ? baseColor + 'cc' : 'transparent');
-    styleArr.push('circle');
-    radiusArr.push(7);
-    bwArr.push(isSolid ? 1 : 2);
+    const variant = matchVariant(def, pt.sample);
+    const style = variant ? variant.style : 'open';
+    if (style === 'solid') {
+      bgArr.push(baseColor + 'cc'); styleArr.push('circle'); radiusArr.push(7); bwArr.push(1);
+    } else if (style === 'tertiary') {
+      bgArr.push(baseColor + '66'); styleArr.push('triangle'); radiusArr.push(7); bwArr.push(2);
+    } else {
+      bgArr.push('transparent'); styleArr.push('circle'); radiusArr.push(7); bwArr.push(2);
+    }
   });
   return { backgroundColor: bgArr, pointStyle: styleArr, pointRadius: radiusArr, borderWidth: bwArr };
 }
@@ -876,7 +924,10 @@ function getDerivedPointStyles(points, derivedField, baseColor) {
  * Show or hide the variant legend for a given chart.
  * legendId: 'stripVariantLegend' or 'scatterVariantLegend'
  * derivedField: e.g. 'derived_Qi', or null to hide
- * samples: the array of samples being plotted (used to check both variants present)
+ * samples: the array of samples being plotted
+ * Shows only the variants that actually appear (with data) among the plotted
+ * samples — for a 2-variant field both must be present (unchanged behavior);
+ * for a 3-variant field like T2, any subset of ≥2 present variants shows.
  */
 function updateVariantLegend(legendId, derivedField, samples) {
   const el = document.getElementById(legendId);
@@ -887,11 +938,10 @@ function updateVariantLegend(legendId, derivedField, samples) {
     el.innerHTML = '';
     return;
   }
-  // Only show legend if both variants actually appear in the plotted data
-  const solidField = def.solid.field;
-  const hasSolid = samples.some(s => s[def.sourceKey] === solidField && s[derivedField] != null);
-  const hasOpen  = samples.some(s => s[def.sourceKey] !== solidField && s[derivedField] != null);
-  if (!hasSolid || !hasOpen) {
+  const present = def.variants.filter(v =>
+    samples.some(s => s[derivedField] != null && matchVariant(def, s) === v)
+  );
+  if (present.length < 2) {
     el.classList.remove('visible');
     el.innerHTML = '';
     return;
@@ -899,14 +949,12 @@ function updateVariantLegend(legendId, derivedField, samples) {
   el.classList.add('visible');
   el.innerHTML = `
     <span style="color:var(--muted);margin-right:2px;">Variant:</span>
-    <div class="variant-legend-item">
-      <div class="variant-swatch solid"></div>
-      <span>${def.solid.label}</span>
-    </div>
-    <div class="variant-legend-item">
-      <div class="variant-swatch open"></div>
-      <span>${def.open.label}</span>
-    </div>
+    ${present.map(v => `
+      <div class="variant-legend-item">
+        <div class="variant-swatch ${v.style}"></div>
+        <span>${v.label}</span>
+      </div>
+    `).join('')}
   `;
 }
 const FIELD_LABELS = {
@@ -1173,10 +1221,12 @@ const MEASUREMENT_FIELDS = [
   ['T1_us', 'T1 (µs)', 'T1_confidence'],
   ['T2_echo_us',            'T2 echo (µs)',   null],
   ['T2_ramsey_us',          'T2 Ramsey (µs)', null],
+  ['T2_unspecified_us',     'T2 unspecified (µs)', 'T2_unspecified_confidence'],  // Priority 2 tier 1 (Aug 16)
   ['gate_1q_fidelity_pct', '1Q fidelity (%)', null],
   ['gate_2q_fidelity_pct', '2Q fidelity (%)', null],
   ['surface_oxide_nm', 'Surface oxide (nm)', null],
   ['loss_tangent_substrate', 'Loss tangent substrate', null],
+  ['tan_delta_effective_surface', 'tan δ effective surface', null],  // Priority 2 tier 1 (Aug 16)
   ['annealing_temperature_C', 'Anneal temp (°C)', null],
   ['film_thickness_nm', 'Film thickness (nm)', null],
   ['normal_state_resistance_Ohm', 'Normal state R (Ω)', null],
@@ -1184,6 +1234,13 @@ const MEASUREMENT_FIELDS = [
   ['derived_resistivity_uOhm_cm', 'Resistivity (µΩ·cm) ⚙', null],
   ['derived_BCS_gap_meV', 'BCS gap (meV) ⚙', null],
   ['derived_RRR_from_RvT', 'RRR from R vs T ⚙', null],
+  // Junction identity (Aug 11 AVAILABLE_FIELDS reconciliation) — Priority 2 tier 1 (Aug 16).
+  // junction_material/junction_fabrication_method are categorical strings, not numeric,
+  // so they live here (detail panel) rather than in ALL_NUMERIC_FIELDS on the server side.
+  ['junction_material', 'Junction material', null],
+  ['junction_fabrication_method', 'Junction fabrication method', null],
+  ['junction_area_um2', 'Junction area (µm²)', null],
+  ['junction_resistance_normal_Ohm', 'Junction resistance normal (Ω)', null],
 ];
 // FIX #2 (today): Sidecar Fabrication Process section.
 // Mirrors MEASUREMENT_FIELDS shape: [field, label, confidence_field].
@@ -1625,8 +1682,26 @@ function renderPapers() {
       </div>
       ${p.title ? `<div style="font-size:13px; color:var(--text); margin-top:2px;">${p.title}</div>` : ''}
       ${p.journal ? `<div style="font-size:12px; color:var(--muted);">${p.journal}</div>` : ''}
+      ${renderLineageFooter(p)}
     </div>
   `).join('');
+}
+// Priority 2 tier 1 (Aug 16): version lineage stamps (schema_version,
+// extraction_prompt_version, model_identifier, ingestion_batch_id,
+// source_pdf_sha256) — provenance facts, not measurements, so they render as
+// a small dim footer line rather than alongside the main paper metadata.
+// Renders nothing if a paper predates these fields (all five null/undefined).
+function renderLineageFooter(p) {
+  const parts = [];
+  if (p.schema_version)           parts.push(`schema v${p.schema_version}`);
+  if (p.extraction_prompt_version) parts.push(p.extraction_prompt_version);
+  if (p.model_identifier)         parts.push(p.model_identifier);
+  if (p.ingestion_batch_id)       parts.push(`batch ${p.ingestion_batch_id}`);
+  if (p.source_pdf_sha256)        parts.push(`sha256 ${p.source_pdf_sha256.slice(0, 12)}…`);
+  if (!parts.length) return '';
+  return `<div style="font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); opacity:0.75; margin-top:2px;">
+    ${parts.join(' · ')}
+  </div>`;
 }
 // ── Boot ──────────────────────────────────────────────────────────────────
 async function boot() {
@@ -1868,9 +1943,8 @@ function renderStripChart(samples) {
               ];
               const def = DERIVED_FIELD_SOURCES[field];
               if (def && s) {
-                const src = s[def.sourceKey];
-                const variant = src === def.solid.field ? def.solid.label : def.open.label;
-                lines.push(`Variant: ${variant}`);
+                const v = matchVariant(def, s);
+                if (v) lines.push(`Variant: ${v.label}`);
               }
               return lines;
             }
@@ -1972,9 +2046,8 @@ function renderScatterChart(samples) {
               ];
               if (derivedAxis && s) {
                 const def = DERIVED_FIELD_SOURCES[derivedAxis];
-                const src = s[def.sourceKey];
-                const variant = src === def.solid.field ? def.solid.label : def.open.label;
-                lines.push(`Variant: ${variant}`);
+                const v = matchVariant(def, s);
+                if (v) lines.push(`Variant: ${v.label}`);
               }
               return lines;
             }

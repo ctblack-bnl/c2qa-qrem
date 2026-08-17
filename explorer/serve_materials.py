@@ -58,6 +58,7 @@ ALL_NUMERIC_FIELDS = [
     ('T1_us',                 'T1 (µs)'),
     ('T2_echo_us',            'T2 echo (µs)'),
     ('T2_ramsey_us',          'T2 Ramsey (µs)'),
+    ('T2_unspecified_us',     'T2 unspecified (µs)'),  # Priority 2 tier 1 (Aug 16)
     ('derived_T2_us',         'T2 (best available, µs)'),
     ('gate_1q_fidelity_pct',  '1Q fidelity (%)'),
     ('gate_2q_fidelity_pct',  '2Q fidelity (%)'),
@@ -73,7 +74,13 @@ ALL_NUMERIC_FIELDS = [
     ('derived_Qi',            'Qi (best available)'),
     ('Q_TLS_0',               'Q_TLS,0 (unsaturated TLS Q)'),
     ('derived_tan_delta',     'Loss tangent (best available)'),
+    ('tan_delta_effective_surface', 'tan δ effective surface'),  # Priority 2 tier 1 (Aug 16)
     ('TLS_density',           'TLS density (GHz⁻¹·μm⁻²)'),
+    # ── Junction (numeric only — junction_material/junction_fabrication_method
+    #    are categorical strings, not chartable; they go in MEASUREMENT_FIELDS
+    #    on the frontend instead, not here) ───────────────────────────────
+    ('junction_area_um2',                'Junction area (µm²)'),               # Priority 2 tier 1 (Aug 16)
+    ('junction_resistance_normal_Ohm',   'Junction resistance normal (Ω)'),    # Priority 2 tier 1 (Aug 16)
     # ── Fabrication ───────────────────────────────────────────────────────
     ('film_thickness_nm',     'Film thickness (nm)'),
     ('annealing_temperature_C','Anneal temp (°C)'),
@@ -501,7 +508,12 @@ def fetch_samples():
                     pass
             return None
         d['derived_Qi_source']        = _src(d, 'Qi_single_photon', 'Qi_internal')
-        d['derived_T2_us_source']     = _src(d, 'T2_echo_us', 'T2_ramsey_us')
+        # Priority 2 tier 1 (Aug 16): was _src(d, 'T2_echo_us', 'T2_ramsey_us') — a
+        # point sourced from T2_unspecified_us matched neither candidate, came back
+        # None, and the frontend's binary solid/open check then silently bucketed
+        # None into "open" (labeled "T2 Ramsey"). Now correctly reported as its own
+        # source so the frontend can give it its own label instead of a wrong one.
+        d['derived_T2_us_source']     = _src(d, 'T2_echo_us', 'T2_ramsey_us', 'T2_unspecified_us')
         d['derived_tan_delta_source'] = _src(d, 'tan_delta_effective_surface',
                                                'loss_tangent_interface',
                                                'loss_tangent_substrate')
@@ -616,8 +628,14 @@ def fetch_coverage():
 def fetch_papers():
     conn = get_db()
     cur  = conn.cursor()
+    # Version lineage stamps (schema_version, extraction_prompt_version, model_identifier,
+    # ingestion_batch_id, source_pdf_sha256) added to the Papers tab query — Priority 2
+    # tier 1 (Aug 16). Previously only reachable via direct SQL; these are paper-level
+    # provenance facts computed in Python at ingestion time, never Claude-extracted.
     cur.execute("""
         SELECT p.authors, p.title, p.journal, p.doi,
+               p.schema_version, p.extraction_prompt_version, p.model_identifier,
+               p.ingestion_batch_id, p.source_pdf_sha256,
                COUNT(s.id) as sample_count
         FROM papers p
         LEFT JOIN samples s ON s.paper_id = p.id
