@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>C2QA QIS Materials Explorer</title>
+<title>NQISRC | QIS Superconducting Qubit Materials Explorer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap');
@@ -58,7 +58,9 @@
     color: var(--muted);
     font-family: 'Inter', sans-serif;
   }
-  .coverage-pills { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .paper-link { margin-left: auto; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--accent); text-decoration: none; padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px; white-space: nowrap; }
+  .paper-link:hover { text-decoration: underline; border-color: var(--accent); }
+  .coverage-pills { margin-left: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
   .pill {
     font-family: 'DM Mono', monospace;
     font-size: 11px;
@@ -553,8 +555,9 @@
   <div style="width:1px;height:28px;background:var(--border);flex-shrink:0;"></div>
   <div>
     <!-- FIX #5: renamed title and subtitle -->
-    <h1>C2QA | QIS Materials Explorer</h1>
+    <h1>NQISRC | QIS Superconducting Qubit Materials Explorer</h1>
   </div>
+  <a class="paper-link" href="https://arxiv.org/abs/2606.27384" target="_blank" rel="noopener" title="The paper that describes this explorer">Paper (arXiv:2606.27384) ↗</a>
   <div class="coverage-pills" id="coveragePills">
     <div class="pill">Loading...</div>
   </div>
