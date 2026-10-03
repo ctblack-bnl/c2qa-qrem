@@ -25,3 +25,4 @@ docs/archive/
 # Isolated test-ingestion output — keep test runs out of version control
 data/ingested/*_test.json
 data/ingested/*_test.jsonl
+explorer/scratch/
