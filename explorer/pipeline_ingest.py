@@ -248,10 +248,49 @@ def call_profile_generation(client: Any, deployment: str, samples: list,
 # JSON parsing helper
 # ---------------------------------------------------------------------------
 
+def _strip_trailing_commas(text: str) -> str:
+    """Remove commas that directly precede a closing } or ] (ignoring
+    whitespace), but only outside quoted strings so paper text is never
+    altered. Models occasionally emit these; strict JSON rejects them."""
+    out = []
+    in_str = False
+    esc = False
+    n = len(text)
+    i = 0
+    while i < n:
+        c = text[i]
+        if in_str:
+            out.append(c)
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+        else:
+            if c == '"':
+                in_str = True
+                out.append(c)
+            elif c == ",":
+                j = i + 1
+                while j < n and text[j] in " \t\r\n":
+                    j += 1
+                if j < n and text[j] in "}]":
+                    pass  # drop the trailing comma
+                else:
+                    out.append(c)
+            else:
+                out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def extract_json(raw: str) -> Optional[dict]:
     """
     Extract and parse a JSON object from Claude's response.
-    Handles cases where Claude wraps JSON in markdown code fences.
+    Handles markdown code fences, and (as a last resort) trailing commas
+    before a closing brace/bracket -- a known occasional model slip that
+    otherwise fails an entire paper's extraction.
     """
     if not raw:
         return None
@@ -278,9 +317,18 @@ def extract_json(raw: str) -> Optional[dict]:
     # Fallback: find the first { and last } and parse between them
     start = text.find("{")
     end   = text.rfind("}") + 1
-    if start >= 0 and end > start:
+    candidate = text[start:end] if (start >= 0 and end > start) else None
+    if candidate is not None:
         try:
-            return json.loads(text[start:end])
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+        # Last resort: repair trailing commas (outside strings) and retry
+        try:
+            result = json.loads(_strip_trailing_commas(candidate))
+            print("  (note: repaired trailing comma(s) in model JSON)", flush=True)
+            return result
         except json.JSONDecodeError:
             pass
 
