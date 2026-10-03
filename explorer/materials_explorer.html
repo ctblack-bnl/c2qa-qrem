@@ -118,6 +118,26 @@
   .checkbox-group input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; flex-shrink: 0; }
   .checkbox-group label.checked { color: var(--text); border-left-color: var(--accent); background: var(--accent-light); }
   .color-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── Collapsible filter sections + center filter (five-center explorer) ── */
+  .fsec .section-label:first-child { margin-top: 20px; }
+  .fsec:first-child .section-label:first-child { margin-top: 0; }
+  .fsec-head { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+  .fsec-head:hover { color: var(--text); }
+  .fsec-caret { display: inline-block; width: 10px; transition: transform 0.15s; }
+  .fsec.collapsed .fsec-caret { transform: rotate(-90deg); }
+  .fsec.collapsed .fsec-body { display: none; }
+  .fsec-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: 6px; vertical-align: middle; }
+  .fsec.collapsed.active .fsec-dot { display: inline-block; }
+  .fsec-actions { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: normal; letter-spacing: 0; text-transform: none; }
+  .fsec-actions a { color: var(--muted); text-decoration: none; }
+  .fsec-actions a:hover { color: var(--text); }
+  .fsec-actions .sep { color: var(--border); margin: 0 3px; }
+  .center-glyph { width: 12px; height: 12px; flex-shrink: 0; }
+  .center-count { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .center-legend { display: none; flex-wrap: wrap; align-items: center; gap: 14px; margin: 0 0 6px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .center-legend.visible { display: flex; }
+  .center-legend-item { display: flex; align-items: center; gap: 5px; }
   main { display: flex; flex-direction: column; overflow: hidden; }
   .tabs {
     display: flex;
@@ -233,7 +253,7 @@
   }
   .variant-swatch.solid { background: var(--accent); }
   .variant-swatch.open  { background: transparent; }
-  .variant-swatch.tertiary { background: transparent; border-style: dashed; }
+  .variant-swatch.tertiary { background: var(--accent); opacity: 0.4; }
   .chart-wrapper { position: relative; height: 380px; flex: none; background: #F1F3F7; border-radius: 4px; border: 1px solid #1B2030; }
   .table-area { flex: 1; overflow: auto; display: none; }
   .table-area.active { display: block; }
@@ -543,31 +563,59 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 <div class="layout">
   <sidebar id="mainSidebar">
-    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;">
-      Filter by material
-      <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:normal;letter-spacing:0;">
-        <a href="#" onclick="selectAllMaterials(true);return false;" style="color:var(--muted);text-decoration:none;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">All</a>
-        <span style="color:var(--border);margin:0 3px;">·</span>
-        <a href="#" onclick="selectAllMaterials(false);return false;" style="color:var(--muted);text-decoration:none;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">None</a>
-      </span>
+  <div class="fsec" id="sec-center">
+    <div class="section-label fsec-head" onclick="toggleSection('center')">
+      <span><span class="fsec-caret">▾</span> Filter by center<span class="fsec-dot" title="A filter is active in this section"></span></span>
+      <span class="fsec-actions"><a href="#" onclick="event.stopPropagation();selectAllCenters(true);return false;">All</a><span class="sep">·</span><a href="#" onclick="event.stopPropagation();selectAllCenters(false);return false;">None</a></span>
     </div>
-    <div class="checkbox-group" id="materialFilters">
-      <div style="color:var(--muted);font-size:12px;">Loading...</div>
+    <div class="fsec-body">
+      <div class="checkbox-group" id="centerFilters">
+        <div style="color:var(--muted);font-size:12px;padding:0 16px;">Loading...</div>
+      </div>
     </div>
-    <!-- FIX #4: substrate filter now uses derived_substrate canonical values -->
-    <div class="section-label">Filter by substrate</div>
-    <select id="substrateFilter">
-      <option value="">All substrates</option>
-    </select>
-    <div class="section-label">Filter by confidence</div>
-    <select id="confidenceFilter">
-      <option value="">All confidence levels</option>
-      <option value="high">High only</option>
-      <option value="high,medium">High + Medium</option>
-    </select>
-    <!-- FIX #2: renamed label to be more descriptive -->
-    <div class="section-label">Filter by author / paper</div>
-    <input type="text" class="filter-input" id="nameFilter" placeholder="e.g. Bahrami, Yang...">
+  </div>
+  <div class="fsec" id="sec-material">
+    <div class="section-label fsec-head" onclick="toggleSection('material')">
+      <span><span class="fsec-caret">▾</span> Filter by material<span class="fsec-dot" title="A filter is active in this section"></span></span>
+      <span class="fsec-actions"><a href="#" onclick="event.stopPropagation();selectAllMaterials(true);return false;">All</a><span class="sep">·</span><a href="#" onclick="event.stopPropagation();selectAllMaterials(false);return false;">None</a></span>
+    </div>
+    <div class="fsec-body">
+      <div class="checkbox-group" id="materialFilters">
+        <div style="color:var(--muted);font-size:12px;">Loading...</div>
+      </div>
+    </div>
+  </div>
+  <div class="fsec" id="sec-substrate">
+    <div class="section-label fsec-head" onclick="toggleSection('substrate')">
+      <span><span class="fsec-caret">▾</span> Filter by substrate<span class="fsec-dot" title="A filter is active in this section"></span></span>
+    </div>
+    <div class="fsec-body">
+      <!-- FIX #4: substrate filter now uses derived_substrate canonical values -->
+      <select id="substrateFilter">
+        <option value="">All substrates</option>
+      </select>
+    </div>
+  </div>
+  <div class="fsec" id="sec-confidence">
+    <div class="section-label fsec-head" onclick="toggleSection('confidence')">
+      <span><span class="fsec-caret">▾</span> Filter by confidence<span class="fsec-dot" title="A filter is active in this section"></span></span>
+    </div>
+    <div class="fsec-body">
+      <select id="confidenceFilter">
+        <option value="">All confidence levels</option>
+        <option value="high">High only</option>
+        <option value="high,medium">High + Medium</option>
+      </select>
+    </div>
+  </div>
+  <div class="fsec" id="sec-name">
+    <div class="section-label fsec-head" onclick="toggleSection('name')">
+      <span><span class="fsec-caret">▾</span> Filter by author / paper<span class="fsec-dot" title="A filter is active in this section"></span></span>
+    </div>
+    <div class="fsec-body">
+      <input type="text" class="filter-input" id="nameFilter" placeholder="e.g. Bahrami, Yang...">
+    </div>
+  </div>
   </sidebar>
   <main>
     <div class="tabs">
@@ -594,11 +642,12 @@
           <div class="control-group">
             <span class="control-label">Group by</span>
             <!-- FIX #6: group by options now use derived (normalized) fields -->
-            <<select id="stripGroupBy">
+            <select id="stripGroupBy">
               <optgroup label="Material / Sample">
                 <option value="derived_material">Film material</option>
                 <option value="derived_substrate">Substrate</option>
                 <option value="derived_deposition_method">Deposition method</option>
+                <option value="center_label">Center</option>
               </optgroup>
               <optgroup label="Fabrication Process">
                 <option value="derived_resist_strip_family">Resist strip chemistry</option>
@@ -609,6 +658,7 @@
           </div>
           <button class="csv-export-btn" onclick="exportStripCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
         </div>
+        <div class="center-legend" id="stripCenterLegend"></div>
         <div class="chart-wrapper">
           <div class="chart-click-hint">Click any data point for full info</div>
           <div class="variant-legend" id="stripVariantLegend"></div>
@@ -643,6 +693,7 @@
           </div>
           <button class="csv-export-btn" onclick="exportScatterCSV()" title="Download currently plotted data as CSV">↓ CSV</button>
         </div>
+        <div class="center-legend" id="scatterCenterLegend"></div>
         <div class="chart-wrapper">
           <div class="chart-click-hint">Click a data point for full info</div>
           <div class="variant-legend" id="scatterVariantLegend"></div>
@@ -663,13 +714,13 @@
         <table style="margin-top:0;">
           <thead>
             <tr>
-              <th>Sample</th><th>Material</th><th>Substrate</th>
+              <th>Sample</th><th>Center</th><th>Material</th><th>Substrate</th>
               <th>Tc (K)</th><th>RRR</th><th>Qi internal</th>
               <th>T1 (µs)</th><th>2Q fidelity (%)</th>
             </tr>
           </thead>
           <tbody id="tableBody">
-            <tr><td colspan="8" class="loading">Loading...</td></tr>
+            <tr><td colspan="9" class="loading">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -847,6 +898,98 @@ const PALETTE = [
   '#ffa657','#f78166','#ff7b72','#ffb86c',
   '#89d4a0','#d2a8ff','#79c0ff','#f0a0c0'
 ];
+
+// ── Center encoding (five-center explorer) ────────────────────────────────
+// Each sample inherits the acknowledged DOE center(s) of its paper
+// (papers.acknowledged_centers: "C2QA" | "C2QA, QSC" | "none" | "unknown").
+// "unknown" (failed ingestion) is displayed as "none". Shape encodes center;
+// fill (solid / open / faded) encodes the derived-field variant, so the two
+// never compete.
+const CENTER_ORDER = ['C2QA', 'Q-NEXT', 'QSA', 'QSC', 'SQMS'];
+const CENTER_SHAPES = {
+  'C2QA': 'circle', 'Q-NEXT': 'rectRot', 'QSA': 'triangle', 'QSC': 'rect',
+  'SQMS': 'star5', 'none': 'crossRot', 'multi': 'star',
+};
+const CENTER_LEGEND_LABELS = {
+  'C2QA': 'C2QA', 'Q-NEXT': 'Q-NEXT', 'QSA': 'QSA', 'QSC': 'QSC', 'SQMS': 'SQMS',
+  'none': 'no center', 'multi': 'multiple centers',
+};
+const CENTER_LEGEND_ORDER = [...CENTER_ORDER, 'multi', 'none'];
+function getSampleCenters(s) {
+  if (s._centers) return s._centers;
+  const raw = (s.acknowledged_centers || '').trim();
+  let codes = [];
+  if (raw && raw !== 'none' && raw !== 'unknown') {
+    codes = raw.split(',').map(x => x.trim()).filter(x => CENTER_ORDER.includes(x));
+  }
+  s._centers = codes.length ? CENTER_ORDER.filter(c => codes.includes(c)) : ['none'];
+  return s._centers;
+}
+function sampleShapeKey(s) {
+  const c = getSampleCenters(s);
+  return c.length > 1 ? 'multi' : c[0];
+}
+function starPoints(cx, cy, R, r) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    const rad = i % 2 === 0 ? R : r;
+    pts.push([cx + rad * Math.cos(a), cy + rad * Math.sin(a)]);
+  }
+  return pts;
+}
+// Small inline SVG glyph used in the sidebar and the plot's center legend.
+function centerGlyphSVG(key, color) {
+  color = color || 'currentColor';
+  const f = `fill="${color}"`, st = `stroke="${color}" stroke-width="1.8" stroke-linecap="round" fill="none"`;
+  let body;
+  switch (CENTER_SHAPES[key]) {
+    case 'circle':   body = `<circle cx="6" cy="6" r="4.6" ${f}/>`; break;
+    case 'rectRot':  body = `<polygon points="6,0.6 11.4,6 6,11.4 0.6,6" ${f}/>`; break;
+    case 'triangle': body = `<polygon points="6,1 11.2,10.6 0.8,10.6" ${f}/>`; break;
+    case 'rect':     body = `<rect x="1.4" y="1.4" width="9.2" height="9.2" ${f}/>`; break;
+    case 'star5':    body = `<polygon points="${starPoints(6, 6.4, 5.8, 2.4).map(p => p.map(v => v.toFixed(2)).join(',')).join(' ')}" ${f}/>`; break;
+    case 'crossRot': body = `<path d="M2.2 2.2L9.8 9.8M9.8 2.2L2.2 9.8" ${st}/>`; break;
+    case 'star':     body = `<path d="M6 0.8V11.2M0.8 6H11.2M2.3 2.3L9.7 9.7M9.7 2.3L2.3 9.7" ${st} stroke-width="1.4"/>`; break;
+    default:         body = `<circle cx="6" cy="6" r="4.6" ${f}/>`;
+  }
+  return `<svg class="center-glyph" viewBox="0 0 12 12" aria-hidden="true">${body}</svg>`;
+}
+// Chart.js has no 5-point star, so draw one on a canvas (Chart.js accepts a
+// canvas as a pointStyle). Cached per colour / fill mode / highlight state.
+const _starCache = {};
+function starCanvas(color, mode, highlighted) {
+  const key = color + '|' + mode + '|' + (highlighted ? 1 : 0);
+  if (_starCache[key]) return _starCache[key];
+  const size = 24;
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const g = c.getContext('2d');
+  const pts = starPoints(size / 2, size / 2 + 0.8, 10, 4.4);
+  g.beginPath();
+  pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]));
+  g.closePath();
+  if (mode === 'solid')      { g.fillStyle = color + 'cc'; g.fill(); }
+  else if (mode === 'faded') { g.fillStyle = color + '55'; g.fill(); }
+  g.lineJoin = 'round';
+  g.lineWidth = highlighted ? 3.5 : (mode === 'solid' ? 1.2 : 2);
+  g.strokeStyle = highlighted ? '#1B2030' : color;
+  g.stroke();
+  _starCache[key] = c;
+  return c;
+}
+const SHAPE_RADIUS = { circle: 7, rectRot: 8.5, triangle: 8, rect: 6.5, star5: 11, crossRot: 7, star: 8 };
+/** Show only the center symbols that actually appear among the plotted samples. */
+function updateCenterLegend(legendId, plottedSamples) {
+  const el = document.getElementById(legendId);
+  if (!el) return;
+  const present = new Set((plottedSamples || []).map(sampleShapeKey));
+  if (!present.size) { el.classList.remove('visible'); el.innerHTML = ''; return; }
+  el.classList.add('visible');
+  el.innerHTML = '<span>Center:</span>' + CENTER_LEGEND_ORDER.filter(k => present.has(k)).map(k =>
+    `<div class="center-legend-item">${centerGlyphSVG(k, '#1B2030')}<span>${CENTER_LEGEND_LABELS[k]}</span></div>`
+  ).join('');
+}
 // ── Derived-field variant encoding ────────────────────────────────────────
 // Maps each "best available" derived field to the source key returned by
 // the server (_source suffix) and human-readable labels for each variant.
@@ -895,31 +1038,39 @@ function matchVariant(def, sample) {
   return def.variants.find(v => v.field === null) || null;
 }
 /**
- * Return per-point Chart.js style arrays for a dataset of points, based on
- * which variant each point's source field matches. 'solid' → filled circle;
- * 'open' → transparent fill, visible border; 'tertiary' → semi-transparent
- * triangle (distinct shape, not just a third fill level, so it reads clearly
- * next to the other two even in dense strip-chart clusters).
+ * Return per-point Chart.js style arrays for a dataset of points.
+ * SHAPE comes from the sample's center (see CENTER_SHAPES); FILL comes from the
+ * derived-field variant: 'solid' -> filled, 'open' -> transparent fill with a
+ * visible border, 'tertiary' -> faded (semi-transparent) fill. For line-only
+ * glyphs (x, asterisk) there is no fill, so solid = thick stroke, open = thin
+ * stroke, faded = thick but translucent stroke. derivedField may be null (the
+ * plotted field is not a derived one): every point is then 'solid'.
  */
-function getDerivedPointStyles(points, derivedField, baseColor) {
-  const def = DERIVED_FIELD_SOURCES[derivedField];
-  if (!def) return null; // not a derived field — no encoding
-  const bgArr     = [];
-  const styleArr  = [];
-  const radiusArr = [];
-  const bwArr     = [];
+function getPointStyles(points, derivedField, baseColor) {
+  const def = derivedField ? DERIVED_FIELD_SOURCES[derivedField] : null;
+  const out = { backgroundColor: [], borderColor: [], pointStyle: [], pointRadius: [], borderWidth: [] };
   points.forEach(pt => {
-    const variant = matchVariant(def, pt.sample);
-    const style = variant ? variant.style : 'open';
-    if (style === 'solid') {
-      bgArr.push(baseColor + 'cc'); styleArr.push('circle'); radiusArr.push(7); bwArr.push(1);
-    } else if (style === 'tertiary') {
-      bgArr.push(baseColor + '66'); styleArr.push('triangle'); radiusArr.push(7); bwArr.push(2);
-    } else {
-      bgArr.push('transparent'); styleArr.push('circle'); radiusArr.push(7); bwArr.push(2);
-    }
+    const shape = CENTER_SHAPES[sampleShapeKey(pt.sample)];
+    const variant = def ? matchVariant(def, pt.sample) : null;
+    const vs = variant ? variant.style : (def ? 'open' : 'solid');
+    const mode = vs === 'tertiary' ? 'faded' : vs;   // solid | open | faded
+    const lineOnly = (shape === 'crossRot' || shape === 'star');
+    let bg, bc = baseColor, bw;
+    if (lineOnly) {
+      bg = 'transparent';
+      if (mode === 'solid') bw = 3;
+      else if (mode === 'open') bw = 1.5;
+      else { bw = 3; bc = baseColor + '88'; }
+    } else if (mode === 'solid') { bg = baseColor + 'cc'; bw = 1; }
+    else if (mode === 'open')    { bg = 'transparent';    bw = 2; }
+    else                         { bg = baseColor + '55'; bw = 2; }
+    out.backgroundColor.push(bg);
+    out.borderColor.push(bc);
+    out.borderWidth.push(bw);
+    out.pointRadius.push(SHAPE_RADIUS[shape] || 7);
+    out.pointStyle.push(shape === 'star5' ? starCanvas(baseColor, mode, isHighlighted(pt.sample)) : shape);
   });
-  return { backgroundColor: bgArr, pointStyle: styleArr, pointRadius: radiusArr, borderWidth: bwArr };
+  return out;
 }
 /**
  * Show or hide the variant legend for a given chart.
@@ -1071,6 +1222,7 @@ function exportStripCSV() {
       display_name:       s.display_name || '',
       [fieldLabel]:       s[field],
       [groupBy]:          s[groupBy] || '',
+      center:             s.center_label || '',
       film_material:      s.film_material || '',
       substrate_material: s.substrate_material || '',
       authors:            s.authors || '',
@@ -1092,6 +1244,7 @@ function exportScatterCSV() {
       [xLabel]:           s[xField],
       [yLabel]:           s[yField],
       [colorBy]:          s[colorBy] || '',
+      center:             s.center_label || '',
       film_material:      s.film_material || '',
       substrate_material: s.substrate_material || '',
       authors:            s.authors || '',
@@ -1817,6 +1970,9 @@ function renderPapers() {
         <span style="font-family:'DM Mono',monospace; font-size:11px; color:var(--muted);">
           ${p.sample_count || 0} sample${p.sample_count !== 1 ? 's' : ''}
         </span>
+        <span style="font-family:'DM Mono',monospace; font-size:11px; color:var(--muted);">
+          ${p.acknowledged_centers || 'unknown'}
+        </span>
         ${p.doi ? `<a href="https://doi.org/${p.doi}" target="_blank"
           style="font-family:'DM Mono',monospace; font-size:11px; color:var(--accent2);
           text-decoration:none; margin-left:auto;"
@@ -1891,6 +2047,8 @@ async function loadSamples() {
     const d = await r.json();
     if (!d.ok) throw new Error(d.error);
     allSamples = d.samples;
+    allSamples.forEach(s => { s.center_label = getSampleCenters(s).join(', '); });
+    buildCenterFilters();
     buildMaterialFilters();
     buildSubstrateFilter();
     renderTable(allSamples);
@@ -1914,12 +2072,16 @@ function getFilteredSamples() {
       .filter(el => el.checked)
       .map(el => el.value)
   );
+  const centerBoxes = Array.from(document.querySelectorAll('#centerFilters input[type=checkbox]'));
+  const checkedCenters = new Set(centerBoxes.filter(el => el.checked).map(el => el.value));
   const substrate  = document.getElementById('substrateFilter').value;
   const confidence = document.getElementById('confidenceFilter').value;
   const nameSearch = document.getElementById('nameFilter').value.toLowerCase();
   return allSamples.filter(s => {
     const sampleClass = s.derived_material || 'unknown';
     if (!checkedMaterials.has(sampleClass)) return false;
+    // A sample shows if ANY of its paper's centers is checked.
+    if (centerBoxes.length && !getSampleCenters(s).some(c => checkedCenters.has(c))) return false;
     if (substrate && s.derived_substrate !== substrate) return false;
     if (nameSearch && !(s.display_name || '').toLowerCase().includes(nameSearch)) return false;
     if (confidence === 'high') {
@@ -1931,6 +2093,67 @@ function getFilteredSamples() {
           !['high','medium'].includes(s.Qi_confidence) && !['high','medium'].includes(s.T1_confidence)) return false;
     }
     return true;
+  });
+}
+// ── Center filter + collapsible sections ──────────────────────────────────
+const CENTER_FILTER_ROWS = [...CENTER_ORDER, 'none'];
+function buildCenterFilters() {
+  const counts = {};
+  CENTER_FILTER_ROWS.forEach(c => counts[c] = 0);
+  allSamples.forEach(s => getSampleCenters(s).forEach(c => { counts[c] = (counts[c] || 0) + 1; }));
+  const names = {
+    'C2QA': 'C2QA', 'Q-NEXT': 'Q-NEXT', 'QSA': 'QSA', 'QSC': 'QSC', 'SQMS': 'SQMS', 'none': 'None',
+  };
+  document.getElementById('centerFilters').innerHTML = CENTER_FILTER_ROWS.map(c => `
+    <label class="checked" title="Samples from papers acknowledging this center (a paper naming several counts under each)">
+      <input type="checkbox" value="${c}" checked onchange="onFilterChange()">
+      ${centerGlyphSVG(c, '#1B2030')}
+      ${names[c]}
+      <span class="center-count">${counts[c]}</span>
+    </label>
+  `).join('');
+}
+function selectAllCenters(checked) {
+  document.querySelectorAll('#centerFilters input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+  onFilterChange();
+}
+const FILTER_SECTIONS = ['center', 'material', 'substrate', 'confidence', 'name'];
+function loadSectionState() {
+  try { return JSON.parse(localStorage.getItem('explorerSections') || '{}'); } catch (e) { return {}; }
+}
+function saveSectionState(state) {
+  try { localStorage.setItem('explorerSections', JSON.stringify(state)); } catch (e) { /* storage unavailable: fine */ }
+}
+function toggleSection(name) {
+  const el = document.getElementById('sec-' + name);
+  if (!el) return;
+  el.classList.toggle('collapsed');
+  const state = loadSectionState();
+  state[name] = el.classList.contains('collapsed');
+  saveSectionState(state);
+  updateSectionDots();
+}
+function applySectionState() {
+  const state = loadSectionState();
+  FILTER_SECTIONS.forEach(n => {
+    const el = document.getElementById('sec-' + n);
+    if (el) el.classList.toggle('collapsed', !!state[n]);   // default: all open
+  });
+}
+// A collapsed section whose filter is active shows a small dot, so a hidden
+// filter can never silently change what is plotted.
+function updateSectionDots() {
+  const anyUnchecked = sel => Array.from(document.querySelectorAll(sel)).some(el => !el.checked);
+  const active = {
+    center:     anyUnchecked('#centerFilters input[type=checkbox]'),
+    material:   anyUnchecked('#materialFilters input[type=checkbox]'),
+    substrate:  !!document.getElementById('substrateFilter').value,
+    confidence: !!document.getElementById('confidenceFilter').value,
+    name:       !!document.getElementById('nameFilter').value,
+  };
+  FILTER_SECTIONS.forEach(n => {
+    const el = document.getElementById('sec-' + n);
+    if (el) el.classList.toggle('active', !!active[n]);
   });
 }
 function buildMaterialFilters() {
@@ -1978,9 +2201,10 @@ function buildSubstrateFilter() {
 function onFilterChange() {
   const allMaterialBoxes = document.querySelectorAll('#materialFilters input[type=checkbox]');
   const checkedMaterials = Array.from(allMaterialBoxes).filter(el => el.checked).map(el => el.value);
-  document.querySelectorAll('#materialFilters label').forEach(label => {
+  document.querySelectorAll('#materialFilters label, #centerFilters label').forEach(label => {
     label.classList.toggle('checked', label.querySelector('input').checked);
   });
+  updateSectionDots();
   const filtered = getFilteredSamples();
   renderStripChart(filtered);
   renderScatterChart(filtered);
@@ -2045,14 +2269,12 @@ function renderStripChart(samples) {
       pointRadius: 7,
       pointHoverRadius: 10,
     };
-    if (isDerived) {
-      const styles = getDerivedPointStyles(points, field, color);
-      if (styles) Object.assign(dataset, styles);
-    }
+    Object.assign(dataset, getPointStyles(points, isDerived ? field : null, color));
     return dataset;
   }).filter(Boolean);
   applyGroupHighlight(datasets);
   updateVariantLegend('stripVariantLegend', isDerived ? field : null, samples);
+  updateCenterLegend('stripCenterLegend', datasets.flatMap(d => d.data.map(p => p.sample)));
   if (stripChart) stripChart.destroy();
   const ctx = document.getElementById('stripChart').getContext('2d');
   stripChart = new Chart(ctx, {
@@ -2086,6 +2308,7 @@ function renderStripChart(samples) {
               const lines = [
                 `${FIELD_LABELS[field] || field}: ${item.raw.originalY ?? item.raw.y}`,
                 `Material: ${s.film_material || '—'}`,
+                `Center: ${s.center_label || '—'}`,
                 `Paper: ${s.authors || '—'}`,
               ];
               const def = DERIVED_FIELD_SOURCES[field];
@@ -2152,14 +2375,12 @@ function renderScatterChart(samples) {
       pointRadius: 7,
       pointHoverRadius: 10,
     };
-    if (derivedAxis) {
-      const styles = getDerivedPointStyles(points, derivedAxis, color);
-      if (styles) Object.assign(dataset, styles);
-    }
+    Object.assign(dataset, getPointStyles(points, derivedAxis, color));
     return dataset;
   });
   applyGroupHighlight(datasets);
   updateVariantLegend('scatterVariantLegend', derivedAxis, samples);
+  updateCenterLegend('scatterCenterLegend', datasets.flatMap(d => d.data.map(p => p.sample)));
   if (scatterChart) scatterChart.destroy();
   const ctx = document.getElementById('scatterChart').getContext('2d');
   scatterChart = new Chart(ctx, {
@@ -2193,6 +2414,7 @@ function renderScatterChart(samples) {
                 `${FIELD_LABELS[xField] || xField}: ${item.raw.x}`,
                 `${FIELD_LABELS[yField] || yField}: ${item.raw.y}`,
                 `Material: ${s.film_material || '—'}`,
+                `Center: ${s.center_label || '—'}`,
                 `Paper: ${s.authors || '—'}`,
               ];
               if (derivedAxis && s) {
@@ -2224,7 +2446,7 @@ function renderScatterChart(samples) {
 function renderTable(samples) {
   const tbody = document.getElementById('tableBody');
   if (!samples.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--muted);padding:20px;text-align:center;">No samples match current filters</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--muted);padding:20px;text-align:center;">No samples match current filters</td></tr>';
     return;
   }
   const fmt = (val, conf) => {
@@ -2235,6 +2457,7 @@ function renderTable(samples) {
   tbody.innerHTML = samples.map(s => `
     <tr style="cursor:pointer;" onclick="openDetail('${(s.display_name || s.sample_id).replace(/'/g,"\\'")}')">
       <td style="color:var(--accent)">${s.display_name || s.sample_id}</td>
+      <td>${s.center_label || '<span class="null-val">—</span>'}</td>
       <td>${s.film_material || '<span class="null-val">—</span>'}</td>
       <td>${s.substrate_material || '<span class="null-val">—</span>'}</td>
       <td>${fmt(s.Tc_K, s.Tc_confidence)}</td>
@@ -2319,6 +2542,7 @@ function renderCatchall(items) {
   `).join('');
 }
 // ── Control listeners ─────────────────────────────────────────────────────
+applySectionState();
 document.getElementById('stripField').addEventListener('change', () => renderStripChart(getFilteredSamples()));
 document.getElementById('stripGroupBy').addEventListener('change', () => renderStripChart(getFilteredSamples()));
 document.getElementById('xField').addEventListener('change', () => renderScatterChart(getFilteredSamples()));
@@ -2390,9 +2614,10 @@ function closeMobileSidebar() {
   document.getElementById('sidebarOverlay').classList.remove('open');
 }
 function onFilterChange() {
-  document.querySelectorAll('#materialFilters label').forEach(label => {
+  document.querySelectorAll('#materialFilters label, #centerFilters label').forEach(label => {
     label.classList.toggle('checked', label.querySelector('input').checked);
   });
+  updateSectionDots();
   const allMaterialBoxes = document.querySelectorAll('#materialFilters input[type=checkbox]');
   const checkedMaterials = Array.from(allMaterialBoxes).filter(el => el.checked).map(el => el.value);
   const filtered = getFilteredSamples();

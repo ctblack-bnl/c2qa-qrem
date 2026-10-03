@@ -474,6 +474,7 @@ def fetch_samples():
                s.Tc_confidence, s.RRR_confidence,
                s.Qi_confidence, s.T1_confidence,
                p.authors, p.title, p.doi, p.journal,
+               p.acknowledged_centers,
                s.sim_profile_version,
                -- Priority 2 tier 2 (Aug 18): fabrication_group_id + paper_id, so a
                -- clicked chart point can find its group-mates. fabrication_group_id
@@ -643,6 +644,7 @@ def fetch_papers():
         SELECT p.authors, p.title, p.journal, p.doi,
                p.schema_version, p.extraction_prompt_version, p.model_identifier,
                p.ingestion_batch_id, p.source_pdf_sha256,
+               p.acknowledged_centers,
                COUNT(s.id) as sample_count
         FROM papers p
         LEFT JOIN samples s ON s.paper_id = p.id
