@@ -5,7 +5,9 @@
       "paper_b": "2026-Vacuum-Chattaraj.pdf",
       "decision": "duplicate",
       "keep": "2026-Vacuum-Chattaraj.pdf",
-      "decided_at": "2026-04-24"
+      "decided_at": "2026-04-24",
+      "paper_a_sha256": "ef1de1913a214b6e0a905a5c606c0010970c5e02197e0713a502db347859581a",
+      "paper_b_sha256": "ef1de1913a214b6e0a905a5c606c0010970c5e02197e0713a502db347859581a"
     },
     {
       "paper_a": "2026-NanoLett-Nanayakkara.pdf",
@@ -27,28 +29,32 @@
       "decision": "duplicate",
       "keep": "2025-arXiv-Yang.pdf",
       "decided_at": "2026-05-25",
-      "note": "Updated: keeping arXiv version for licensing compliance; PNAS version excluded separately"
+      "note": "Updated: keeping arXiv version for licensing compliance; PNAS version excluded separately",
+      "paper_b_sha256": "4f4888481963377d7e28d177ff4cd0e8f610805238f340ff9961222b3f9b4c9d"
     },
     {
       "paper_a": "2025-NatCommun-Xia.pdf",
       "paper_b": "2025-arXiv-Xia.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Xia.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "4336c9bcc249142131f2ab38927225fda8e1d4896a10ec4c0a4b306eb8e8fe51"
     },
     {
       "paper_a": "2025-PhysRevApplied-Joshi.pdf",
       "paper_b": "2025-arXiv-Joshi.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Joshi.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "55216be0051a3426776baeb2cfce9b46a073812ab47f1920c786f083d3bfa5a3"
     },
     {
       "paper_a": "2025-PhysRevResearch-Siddhu.pdf",
       "paper_b": "2025-arXiv-Siddhu.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Siddhu.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "a1168f79fb0bc6bba184a27da08fc6376ff50efe2e175e9b19739d13b060e305"
     },
     {
       "paper_a": "2025-arXiv-Yang.pdf",
@@ -62,28 +68,32 @@
       "paper_b": "2026-arXiv-Rainaldi.pdf",
       "decision": "duplicate",
       "keep": "2026-arXiv-Rainaldi.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "6b59a0feda6aa33d51ac2a3223ceddcb4ea3bab408e3a61d0ffdabe4afba9c16"
     },
     {
       "paper_a": "2026-PhysRevLett-Nho.pdf",
       "paper_b": "2026-arXiv-Nho.pdf",
       "decision": "duplicate",
       "keep": "2026-arXiv-Nho.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "b8969745096cfa2bb8962abec3f9329c8912c0d068f2d973de0d93c67fd22526"
     },
     {
       "paper_a": "2026-PhysRevB-Bahrami.pdf",
       "paper_b": "2025-arXiv-Bahrami.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Bahrami.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "adbe3860bebde29b22d6d78bfca5ce80bb3679061499a5ecafa6c66438de79da"
     },
     {
       "paper_a": "2025-PhysRevLett-Delord.pdf",
       "paper_b": "2024-arXiv-Delord.pdf",
       "decision": "duplicate",
       "keep": "2024-arXiv-Delord.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "a75e3bd4f142f05f59ee54eab380747e2e10c14a34373c24eab8ce987e93775b"
     },
     {
       "paper_a": "2026-PhysRevApplied-Chowdhury.pdf",
@@ -97,7 +107,8 @@
       "paper_b": "2026-arXiv-Turiansky.pdf",
       "decision": "duplicate",
       "keep": "2026-arXiv-Turiansky.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "329add0674e9e9e8d115b3a517ee8577d4342248ff56a968e46f215a75eb6878"
     },
     {
       "paper_a": "2025-arXiv-Yang.pdf",
@@ -111,42 +122,48 @@
       "paper_b": "2025-arXiv-Dai_b.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Dai_b.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "9f8407512ed550077d38508cfbf03bbefb8f641f9365808775ac6b963f449e44"
     },
     {
       "paper_a": "PhysRevLett.134.097001.pdf",
       "paper_b": "2024-arXiv-Chang.pdf",
       "decision": "duplicate",
       "keep": "2024-arXiv-Chang.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "f3e95fdb1d25fd947ad0143f2e54ed36200e06bcb195a03dd75d71337fa02619"
     },
     {
       "paper_a": "PhysRevLett.134.100601.pdf",
       "paper_b": "2025-arXiv-Hazra.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Hazra.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "d499bbca55404603d592033bfa75968a912fb7773c921b183da71e29bcc64815"
     },
     {
       "paper_a": "2026-PhysRevB-Bahrami.pdf",
       "paper_b": "2025-arXiv-Bahrami.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Bahrami.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "adbe3860bebde29b22d6d78bfca5ce80bb3679061499a5ecafa6c66438de79da"
     },
     {
       "paper_a": "2025-PhysRevLett-Hazra.pdf",
       "paper_b": "2025-arXiv-Hazra.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Hazra.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "d499bbca55404603d592033bfa75968a912fb7773c921b183da71e29bcc64815"
     },
     {
       "paper_a": "s41467-025-60352-w.pdf",
       "paper_b": "2024-arXiv-Ding.pdf",
       "decision": "duplicate",
       "keep": "2024-arXiv-Ding.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "c58567a9a3093860a8be260b26340b3d39511ea559e18398580b23424021587e"
     },
     {
       "paper_a": "s41467-025-60352-w.pdf",
@@ -160,7 +177,8 @@
       "paper_b": "2025-arXiv-Xia.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Xia.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "4336c9bcc249142131f2ab38927225fda8e1d4896a10ec4c0a4b306eb8e8fe51"
     },
     {
       "paper_a": "2025-arXiv-Yang.pdf",
@@ -174,56 +192,65 @@
       "paper_b": "2024-arXiv-Ding_b.pdf",
       "decision": "duplicate",
       "keep": "2024-arXiv-Ding.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_a_sha256": "c58567a9a3093860a8be260b26340b3d39511ea559e18398580b23424021587e"
     },
     {
       "paper_a": "2025-PRXQuantum-Hays.pdf",
       "paper_b": "2025-arXiv-Hays.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Hays.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "525cab01f67b8aaca4f3f0727e4d8fc18d9f524ed6e34598248ed22c90f73f51"
     },
     {
       "paper_a": "PhysRevApplied.23.054069.pdf",
       "paper_b": "2025-arXiv-Dai.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Dai.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "ede9bb416bd9e3e814666e19ecdd864c8c896845165afef78691d476c6596f85"
     },
     {
       "paper_a": "1dsw-rpb5.pdf",
       "paper_b": "2025-arXiv-Wu.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Wu.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "9c60ce3fc418ed737be7d5562c91e29d695070a1f39ae95e37f69e5ceee11356"
     },
     {
       "paper_a": "2026-NatPhotonics-Zhou.pdf",
       "paper_b": "2025-arXiv-Zhou.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Zhou.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "2c499238ea78a18dc8bbc3ac1803644e8f501abef94c457f5d31c720cc35ef81"
     },
     {
       "paper_a": "2026-CommPhys-Orban.pdf",
       "paper_b": "2025-arXiv-Orban.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Orban.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "db36e19e459bebfd0132a6329fa69f7f47343b16b4a473df1bbf211396e3d8b5"
     },
     {
       "paper_a": "2026-PhysRevB-Nangoi.pdf",
       "paper_b": "2025-arXiv-Nangoi.pdf",
       "decision": "duplicate",
       "keep": "2025-arXiv-Nangoi.pdf",
-      "decided_at": "2026-06-02"
+      "decided_at": "2026-06-02",
+      "paper_b_sha256": "c43a6885162532405b4ba514d982ced453bacaba2a1697e36532e4d9845a6d74"
     },
     {
       "decision": "duplicate",
       "paper_a": "2026-arXiv-Bhatia-DielectricFunction.pdf",
       "paper_b": "2026-JVacSciTechnolB-Bhatia.pdf",
       "keep": "2026-JVacSciTechnolB-Bhatia.pdf",
-      "reason": "Same paper (arXiv preprint vs J. Vac. Sci. Technol. B published version) \u2014 identical title (case difference only), same authors (Bhatia et al.), identical sample structure (2 samples: 13nm and 25nm ALD TaN). Found during Aug 17 new-batch ingestion. Kept published version per standing convention."
+      "reason": "Same paper (arXiv preprint vs J. Vac. Sci. Technol. B published version) — identical title (case difference only), same authors (Bhatia et al.), identical sample structure (2 samples: 13nm and 25nm ALD TaN). Found during Aug 17 new-batch ingestion. Kept published version per standing convention.",
+      "paper_a_sha256": "6e341e9e487a3e7d27e3dc870d335d63f1ffd11adef63f4a63b3af7f5372c531",
+      "paper_b_sha256": "f432a4160d1a2152ec629cf5f720a5e9509a7fe51a1b9db8d4db7f3773001c67"
     }
   ]
 }

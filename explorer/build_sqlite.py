@@ -620,8 +620,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"Loaded {len(records)} records")
 
     # --- Load deduplication decisions ---
+    # Matches by content hash (source_pdf_sha256) when a decision has one
+    # recorded (see backfill_dedup_hashes.py) — this is the authoritative
+    # check, since it survives the losing file being renamed after the
+    # decision was made. Filename matching is kept as a fallback for
+    # decisions that couldn't be hash-backfilled (losing file no longer on
+    # disk at backfill time, or an older decision never run through the
+    # backfill) — unchanged behavior for those, never a regression.
     dedup_path = jsonl_path.parent / "deduplication.json"
     skip_filenames = set()
+    skip_hashes = set()
     if dedup_path.exists():
         try:
             dedup = json.loads(dedup_path.read_text())
@@ -630,25 +638,47 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     keep = decision.get("keep")
                     paper_a = decision.get("paper_a")
                     paper_b = decision.get("paper_b")
+                    losing_key = None
                     if keep == paper_a:
+                        losing_key = "paper_b"
                         skip_filenames.add(paper_b)
                     elif keep == paper_b:
+                        losing_key = "paper_a"
                         skip_filenames.add(paper_a)
-            if skip_filenames:
-                print(f"Deduplication: skipping {len(skip_filenames)} duplicate(s): {skip_filenames}")
+                    if losing_key:
+                        losing_hash = decision.get(f"{losing_key}_sha256")
+                        if losing_hash:
+                            skip_hashes.add(losing_hash)
+            if skip_filenames or skip_hashes:
+                print(f"Deduplication: skipping {len(skip_filenames)} duplicate(s) by "
+                      f"name and {len(skip_hashes)} by content hash: {skip_filenames}")
         except Exception as e:
             print(f"  Warning: could not load deduplication.json: {e}")
 
+    def _is_dedup_losing(rec: dict) -> bool:
+        if rec.get("source_pdf_sha256") and rec["source_pdf_sha256"] in skip_hashes:
+            return True
+        if rec.get("filename") in skip_filenames:
+            return True
+        return False
+
     before = len(records)
-    records = [r for r in records if r.get("filename") not in skip_filenames]
+    records = [r for r in records if not _is_dedup_losing(r)]
     if before != len(records):
         print(f"  Filtered {before - len(records)} duplicate record(s)")
 
     # --- Load manual exclusions ---
+    # Matches by content hash (source_pdf_sha256) first when an entry has
+    # one recorded (see backfill_exclusion_hashes.py), then DOI, then
+    # arXiv ID, then filename as a last resort. DOI/arXiv ID already
+    # survive a rename on their own; the hash check mainly protects the
+    # handful of exclusions that have neither (no DOI, no arXiv ID) and
+    # would otherwise rely on filename alone.
     exclusions_path = jsonl_path.parent / "exclusions.json"
     excluded_dois      = set()
     excluded_arxiv_ids = set()
     excluded_filenames_excl = set()
+    excluded_hashes = set()
     if exclusions_path.exists():
         try:
             excl_data = json.loads(exclusions_path.read_text())
@@ -659,12 +689,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
                     excluded_arxiv_ids.add(entry["arxiv_id"])
                 if entry.get("filename"):
                     excluded_filenames_excl.add(_norm(entry["filename"]))
+                if entry.get("source_pdf_sha256"):
+                    excluded_hashes.add(entry["source_pdf_sha256"])
             n_excl = len(excl_data.get("exclusions", []))
             print(f"Exclusions: loaded {n_excl} manual exclusion(s) from exclusions.json")
         except Exception as e:
             print(f"  Warning: could not load exclusions.json: {e}")
 
     def _is_excluded(rec: dict) -> bool:
+        if rec.get("source_pdf_sha256") and rec["source_pdf_sha256"] in excluded_hashes:
+            return True
         if rec.get("doi") and rec["doi"] in excluded_dois:
             return True
         if rec.get("arxiv_id") and rec["arxiv_id"] in excluded_arxiv_ids:
@@ -679,11 +713,26 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     if n_excluded:
         print(f"  Excluded {n_excluded} manually excluded record(s)")
 
+    # De-duplicate repeated records — collapse by content hash when
+    # available, filename only as a fallback for legacy records with no
+    # hash. This matters: the old filename-only version silently kept only
+    # the LAST of two records whenever two DIFFERENT papers happened to
+    # share a filename (exactly the Li/Kharzeev/Xu/Chowdhury collision
+    # pattern) — a real, undetected data-loss bug once the ledger fix lets
+    # a second same-named paper actually get ingested. Keying by hash
+    # instead means two different-content records sharing a filename are
+    # correctly kept as two separate papers, while two same-content records
+    # (a genuine re-ingestion, even under a renamed file) are still
+    # correctly collapsed to one.
     seen = {}
     for r in records:
-        seen[r.get("filename")] = r
+        h = r.get("source_pdf_sha256")
+        key = h if h else r.get("filename")
+        seen[key] = r
     if len(seen) < len(records):
-        print(f"  De-duplicated {len(records) - len(seen)} repeated filename(s) — keeping latest record")
+        print(f"  De-duplicated {len(records) - len(seen)} repeated record(s) "
+              f"(matched by content hash where available, filename otherwise) "
+              f"— keeping latest")
     records = list(seen.values())
 
     # --- Connect to SQLite ---

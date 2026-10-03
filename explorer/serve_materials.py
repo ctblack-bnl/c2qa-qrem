@@ -475,6 +475,13 @@ def fetch_samples():
                s.Qi_confidence, s.T1_confidence,
                p.authors, p.title, p.doi, p.journal,
                s.sim_profile_version,
+               -- Priority 2 tier 2 (Aug 18): fabrication_group_id + paper_id, so a
+               -- clicked chart point can find its group-mates. fabrication_group_id
+               -- alone is NOT enough to match on — it's paper-local (e.g. "fab1" is
+               -- reused across different papers), so paper_id must travel with it as
+               -- a compound key. Without paper_id here, a naive match would wrongly
+               -- highlight an unrelated "fab1" from a different paper entirely.
+               s.paper_id, s.fabrication_group_id,
                {profile_single_cols}, {profile_list_cols}, {numeric_cols},
                {derived_cat_cols},
                {RAW_SOURCE_COLS}
@@ -668,8 +675,59 @@ def fetch_sample_detail(display_name: str) -> dict:
         ORDER BY item_type, description
     """, (display_name,))
     catchall = [dict(r) for r in cur.fetchall()]
+    # Priority 2 tier 2 (Aug 18): fabrication group lookup. `sample` only carries
+    # a pointer (fabrication_group_id) — the group's own evidence/members/
+    # confidence live in the separate fabrication_groups table, one row per
+    # (paper_id, group_id). member_sample_ids/excluded_candidates store bare
+    # sample_id strings (paper-local, not display_name), so resolve each to its
+    # display_name here — the frontend links members via openDetail(displayName),
+    # same as everywhere else in the UI, not raw sample_id.
+    fabrication_group = None
+    if sample.get('fabrication_group_id'):
+        cur.execute("""
+            SELECT raw_label, member_sample_ids, excluded_candidates,
+                   individual_assignment_disclosed, basis, evidence,
+                   confidence, source
+            FROM fabrication_groups
+            WHERE paper_id = ? AND group_id = ?
+            LIMIT 1
+        """, (sample['paper_id'], sample['fabrication_group_id']))
+        grow = cur.fetchone()
+        if grow:
+            fg = dict(grow)
+            member_ids   = json.loads(fg.get('member_sample_ids') or '[]')
+            excluded     = json.loads(fg.get('excluded_candidates') or '[]')
+            excluded_ids = [e.get('sample_id') for e in excluded if e.get('sample_id')]
+            lookup_ids = [i for i in (member_ids + excluded_ids) if i]
+            id_to_name = {}
+            if lookup_ids:
+                placeholders = ','.join('?' * len(lookup_ids))
+                cur.execute(f"""
+                    SELECT sample_id, display_name FROM samples
+                    WHERE paper_id = ? AND sample_id IN ({placeholders})
+                """, (sample['paper_id'], *lookup_ids))
+                id_to_name = {r['sample_id']: r['display_name'] for r in cur.fetchall()}
+            fabrication_group = {
+                'group_id':      sample['fabrication_group_id'],
+                'raw_label':     fg.get('raw_label'),
+                'basis':         fg.get('basis'),
+                'confidence':    fg.get('confidence'),
+                'evidence':      fg.get('evidence'),
+                'source':        fg.get('source'),
+                'individual_assignment_disclosed': fg.get('individual_assignment_disclosed'),
+                'members': [
+                    {'sample_id': sid, 'display_name': id_to_name.get(sid, sid)}
+                    for sid in member_ids if sid != sample.get('sample_id')
+                ],
+                'excluded_candidates': [
+                    {'sample_id': e.get('sample_id'),
+                     'display_name': id_to_name.get(e.get('sample_id'), e.get('sample_id')),
+                     'reason': e.get('reason')}
+                    for e in excluded
+                ],
+            }
     conn.close()
-    return {"sample": sample, "catchall": catchall}
+    return {"sample": sample, "catchall": catchall, "fabrication_group": fabrication_group}
 # ── HTTP Handler ──────────────────────────────────────────────────────────────
 class Handler(http.server.SimpleHTTPRequestHandler):
     _samples_cache      = None

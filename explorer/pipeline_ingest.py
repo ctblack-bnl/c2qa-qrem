@@ -291,22 +291,44 @@ def extract_json(raw: str) -> Optional[dict]:
 # Main pipeline
 # ---------------------------------------------------------------------------
 
-def load_dedup_skip_filenames(out_path: Path) -> set:
+def load_dedup_skip_info(out_path: Path) -> tuple:
     """
-    Load the set of filenames that should be skipped entirely because a
-    human has already recorded a deduplication decision for them (the
-    "losing" side of an arXiv-preprint/published-version pair).
+    Load both the filenames AND content hashes that should be skipped
+    entirely because a human has already recorded a deduplication decision
+    for them (the "losing" side of an arXiv-preprint/published-version
+    pair).
 
-    Mirrors build_sqlite.py's dedup-parsing logic exactly (same
-    deduplication.json schema: a "decisions" list, each with "decision",
-    "paper_a", "paper_b", "keep") — this is deliberately the same file
-    build_sqlite.py already reads, not a separate mechanism.
+    Returns (skip_filenames: set, skip_hashes: set).
+
+    skip_filenames: exact filename match — the original mechanism, still
+    checked first since it's free (no file read needed) and covers the
+    common case where the losing file's name hasn't changed since the
+    decision was recorded.
+
+    skip_hashes: content hash (source_pdf_sha256) of the losing file, when
+    backfill_dedup_hashes.py was able to compute one. This is the
+    authoritative check once available — it still recognizes the losing
+    file as a known duplicate even after it's been renamed (e.g. by a
+    content-hash-appending renamer), which the filename check alone cannot.
+    Older or unresolvable decisions (losing file no longer present on disk
+    at backfill time) simply have no hash and fall back to filename-only
+    protection, exactly as before this change — never a regression, only
+    ever an addition.
+
+    Mirrors build_sqlite.py's dedup-parsing logic (same deduplication.json
+    schema: a "decisions" list, each with "decision", "paper_a", "paper_b",
+    "keep", and now optionally "paper_a_sha256"/"paper_b_sha256") — this is
+    deliberately the same file build_sqlite.py already reads, not a
+    separate mechanism.
 
     Added Aug 2026 to fix a recurring annoyance: neither normal ingestion
     nor --relevance-only mode previously consulted deduplication.json at
     all, so every triage/test pass re-processed both the arXiv and
     published version of an already-deduplicated paper every time, with
     the losing copy's relevance count inflating totals for no reason.
+    Extended Oct 2026 with hash-based matching after discovering the
+    filename-only version silently stops protecting a losing duplicate the
+    moment its filename changes for any reason.
 
     Deliberately scoped to deduplication.json ONLY, not exclusions.json.
     Exclusions need to stay fully re-checkable at Pass 1 — that's exactly
@@ -318,8 +340,9 @@ def load_dedup_skip_filenames(out_path: Path) -> set:
     """
     dedup_path = out_path.parent / "deduplication.json"
     skip_filenames = set()
+    skip_hashes = set()
     if not dedup_path.exists():
-        return skip_filenames
+        return skip_filenames, skip_hashes
     try:
         dedup = json.loads(dedup_path.read_text())
         for decision in dedup.get("decisions", []):
@@ -327,13 +350,20 @@ def load_dedup_skip_filenames(out_path: Path) -> set:
                 keep = decision.get("keep")
                 paper_a = decision.get("paper_a")
                 paper_b = decision.get("paper_b")
+                losing_key = None
                 if keep == paper_a:
+                    losing_key = "paper_b"
                     skip_filenames.add(paper_b)
                 elif keep == paper_b:
+                    losing_key = "paper_a"
                     skip_filenames.add(paper_a)
+                if losing_key:
+                    losing_hash = decision.get(f"{losing_key}_sha256")
+                    if losing_hash:
+                        skip_hashes.add(losing_hash)
     except Exception as e:
         print(f"  Warning: could not load deduplication.json: {e}", flush=True)
-    return skip_filenames
+    return skip_filenames, skip_hashes
 
 
 def run_ingestion(
@@ -370,10 +400,13 @@ def run_ingestion(
     # --- Load deduplication skip list (applies in ALL modes, including
     # --relevance-only — a known-duplicate file's fate was never about
     # relevance, so re-checking it has no informational value) ---
-    dedup_skip_filenames = load_dedup_skip_filenames(out_path)
+    dedup_skip_filenames, dedup_skip_hashes = load_dedup_skip_info(out_path)
     if dedup_skip_filenames:
         print(f"Deduplication: will skip {len(dedup_skip_filenames)} "
-              f"known-duplicate file(s): {dedup_skip_filenames}", flush=True)
+              f"known-duplicate file(s) by name: {dedup_skip_filenames}", flush=True)
+    if dedup_skip_hashes:
+        print(f"Deduplication: will also skip {len(dedup_skip_hashes)} "
+              f"known-duplicate file(s) by content hash (renamed-safe)", flush=True)
 
     # --- Find all PDFs ---
     pdf_paths = find_all_pdfs(papers_dir)
@@ -401,21 +434,40 @@ def run_ingestion(
             skipped += 1
             continue
 
-        # --- Check if already processed (skipped entirely in relevance-only
-        # mode — we need to re-check papers already in the corpus, and this
-        # mode never reads or writes the ledger anyway) ---
-        if not relevance_only and is_already_processed(ledger, filename):
-            print(f"  Skipping — already in processed ledger.", flush=True)
-            skipped += 1
-            continue
-
-        # --- Load PDF ---
+        # --- Load PDF (must happen before the ledger check now — the check
+        # is hash-primary, so we need the hash before we can decide whether
+        # to skip). This does mean every file pays the base64-encode cost
+        # even when it turns out to already be processed, which it didn't
+        # before — trivial next to the Claude API calls that follow, but a
+        # real (small) behavior change worth knowing about. ---
         try:
             pdf_b64, source_pdf_sha256 = load_pdf(pdf_path)
             print(f"  PDF loaded ({len(pdf_b64) // 1024} KB base64)", flush=True)
         except Exception as e:
             print(f"  ERROR loading PDF: {e}", flush=True)
             failed += 1
+            continue
+
+        # --- Check deduplication by content hash — catches a losing-side
+        # duplicate that's been renamed since the decision was recorded,
+        # which the filename check above would silently miss. Only runs
+        # for decisions that have a hash on file (see
+        # backfill_dedup_hashes.py); older/unresolvable decisions keep
+        # relying on the filename check above alone, unchanged. ---
+        if source_pdf_sha256 in dedup_skip_hashes:
+            print(f"  Skipping — known duplicate per deduplication.json "
+                  f"(content hash match).", flush=True)
+            skipped += 1
+            continue
+
+        # --- Check if already processed (skipped entirely in relevance-only
+        # mode — we need to re-check papers already in the corpus, and this
+        # mode never reads or writes the ledger anyway) ---
+        if not relevance_only and is_already_processed(
+            ledger, filename, source_pdf_sha256=source_pdf_sha256
+        ):
+            print(f"  Skipping — already in processed ledger (content match).", flush=True)
+            skipped += 1
             continue
 
         # ---------------------------------------------------------------
@@ -483,7 +535,8 @@ def run_ingestion(
             }
             append_jsonl(out_path, record)
             record_processed(ledger, filename, outcome="failed",
-                             reason="relevance check error")
+                             reason="relevance check error",
+                             source_pdf_sha256=source_pdf_sha256)
             save_ledger(ledger, ledger_path)
             failed += 1
             continue
@@ -523,7 +576,8 @@ def run_ingestion(
             }
             append_jsonl(out_path, record)
             record_processed(ledger, filename, outcome="skipped",
-                             doi=doi, reason=skip_reason)
+                             doi=doi, reason=skip_reason,
+                             source_pdf_sha256=source_pdf_sha256)
             save_ledger(ledger, ledger_path)
             skipped += 1
             continue
@@ -612,12 +666,14 @@ def run_ingestion(
 
         if not extraction_err:
             record_processed(ledger, filename, outcome="ingested",
-                             doi=doi, record_ids=record_ids)
+                             doi=doi, record_ids=record_ids,
+                             source_pdf_sha256=source_pdf_sha256)
             success += 1
             print(f"  [{i}/{total}] Done [OK]", flush=True)
         else:
             record_processed(ledger, filename, outcome="failed",
-                             doi=doi, reason=str(extraction_err))
+                             doi=doi, reason=str(extraction_err),
+                             source_pdf_sha256=source_pdf_sha256)
             failed += 1
             print(f"  [{i}/{total}] Done [FAILED — extraction error]", flush=True)
 

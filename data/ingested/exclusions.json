@@ -6,7 +6,7 @@
       "filename": "2025-PRXQuantum-Hays.pdf",
       "excluded_at": "2026-05-18",
       "excluded_by": "manual",
-      "reason": "Theory proposal paper \u2014 no experimental materials data. T1=3e9\u00b5s and T2=80000\u00b5s are theoretical estimates from noise model, not measurements. 'Harmonium' qubit has not been fabricated. C2QA acknowledgment caused false high-relevance classification."
+      "reason": "Theory proposal paper — no experimental materials data. T1=3e9µs and T2=80000µs are theoretical estimates from noise model, not measurements. 'Harmonium' qubit has not been fabricated. C2QA acknowledgment caused false high-relevance classification."
     },
     {
       "doi": "10.48550/arXiv.2604.11743",
@@ -14,7 +14,8 @@
       "filename": "2026-arXiv-Marcenac.pdf",
       "excluded_at": "2026-05-18",
       "excluded_by": "manual",
-      "reason": "NV center / FPGA control paper \u2014 not a superconducting materials paper. T1/T2 values are NV spin coherence times, not superconducting qubit coherence. No film, Tc, RRR, or Qi data. Known ingester leakage type: non-superconducting quantum systems with C2QA acknowledgment."
+      "reason": "NV center / FPGA control paper — not a superconducting materials paper. T1/T2 values are NV spin coherence times, not superconducting qubit coherence. No film, Tc, RRR, or Qi data. Known ingester leakage type: non-superconducting quantum systems with C2QA acknowledgment.",
+      "source_pdf_sha256": "5e175599a02a08597217e11ef4f04e11247eb10d5e8fe4ab55161e18e27c656b"
     },
     {
       "doi": "10.48550/arXiv.2603.05615",
@@ -22,7 +23,8 @@
       "filename": "2026-arXiv-WangX.pdf",
       "excluded_at": "2026-05-18",
       "excluded_by": "manual",
-      "reason": "ZnO semiconductor donor spin qubit paper \u2014 not a superconducting materials paper. No Tc, RRR, Qi, or T1 data. C2QA acknowledgment covers only DFT calculations. Known ingester leakage type: non-superconducting quantum systems."
+      "reason": "ZnO semiconductor donor spin qubit paper — not a superconducting materials paper. No Tc, RRR, Qi, or T1 data. C2QA acknowledgment covers only DFT calculations. Known ingester leakage type: non-superconducting quantum systems.",
+      "source_pdf_sha256": "e3d608b6453983a7c6196c58dd6a88038cac11e02eab1160a298293ee0bebb0f"
     },
     {
       "doi": "10.1038/s41566-026-01866-7",
@@ -38,7 +40,8 @@
       "filename": "2025-arXiv-Dakkis.pdf",
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
-      "reason": "Pure theory paper \u2014 Space Curve Quantum Control applied to dual-rail erasure qubits. No experimental measurements."
+      "reason": "Pure theory paper — Space Curve Quantum Control applied to dual-rail erasure qubits. No experimental measurements.",
+      "source_pdf_sha256": "8f74921e31608d3db1c990e2dd82edf1e4261362c76132d7d505bfe471b26e40"
     },
     {
       "doi": "10.1103/PhysRevLett.134.100601",
@@ -54,7 +57,8 @@
       "filename": "2025-PhysRevB-Lambert.pdf",
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
-      "reason": "Transition metal spin defects in AlN/GaN. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+      "reason": "Transition metal spin defects in AlN/GaN. Not a superconducting system. C2QA acknowledgment caused false high-relevance.",
+      "source_pdf_sha256": "356171688edcd6ff3ba6a050cafa63068d995cf4f83a16c8722c4c3c86a46936"
     },
     {
       "doi": "10.1103/zy5b-fskh",
@@ -70,7 +74,8 @@
       "filename": "2025-arXiv-Shao.pdf",
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
-      "reason": "NV centers in diamond. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+      "reason": "NV centers in diamond. Not a superconducting system. C2QA acknowledgment caused false high-relevance.",
+      "source_pdf_sha256": "5b902a049c4a74901ab7585737499c1f15169871f071000175fff3491b7fe5cf"
     },
     {
       "doi": null,
@@ -78,7 +83,8 @@
       "filename": "2026-arXiv-Yama.pdf",
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
-      "reason": "SiV centers in diamond. Not a superconducting system. C2QA acknowledgment caused false high-relevance."
+      "reason": "SiV centers in diamond. Not a superconducting system. C2QA acknowledgment caused false high-relevance.",
+      "source_pdf_sha256": "4284e855d10e86861b8bf3699a780aea78b2aa47bb15f82aa61f021a8b2acfdd"
     },
     {
       "doi": "10.1103/hp9c-rh23",
@@ -102,7 +108,8 @@
       "filename": "2026-Small-Wehmeier.pdf",
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
-      "reason": "MoO3-hBN-Au nanocavity nanophotonics. Not a superconducting system."
+      "reason": "MoO3-hBN-Au nanocavity nanophotonics. Not a superconducting system.",
+      "source_pdf_sha256": "70531c0e56e215a478a0a5f350cf5789a16cc6a057919fbde0bd72d8c76076e8"
     },
     {
       "doi": "10.1515/nanoph-2025-0470",
@@ -118,7 +125,8 @@
       "filename": "2026-NatPhys-Yang.pdf",
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
-      "reason": "DL-OPO microring resonator \u2014 optical photonics. Not a superconducting system."
+      "reason": "DL-OPO microring resonator — optical photonics. Not a superconducting system.",
+      "source_pdf_sha256": "681a90e817b3cac8301ef0c22cdb73a5d2e86a0cb7b0d1662ec2dc4cb8f4f798"
     },
     {
       "doi": "10.1103/7rnm-rxhh",
@@ -126,7 +134,7 @@
       "filename": "2025-PRXQuantum-Maiti.pdf",
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
-      "reason": "Linear quantum coupler \u2014 theoretical device proposal. No experimental measurements."
+      "reason": "Linear quantum coupler — theoretical device proposal. No experimental measurements."
     },
     {
       "doi": "10.1103/3krb-wwfx",
@@ -134,7 +142,8 @@
       "filename": "2026-PRXQuantum-Hardy.pdf",
       "excluded_at": "2026-05-19",
       "excluded_by": "manual",
-      "reason": "Surface code resource estimate. No materials characterization or qubit measurements."
+      "reason": "Surface code resource estimate. No materials characterization or qubit measurements.",
+      "source_pdf_sha256": "4a3cfd982c057bb4605b2a34cdb1bff18b9954e08f5d1293d0f22af21b094e99"
     },
     {
       "doi": "10.1038/s41586-025-09687-4",
@@ -158,7 +167,8 @@
       "filename": "2026-PNAS-Yang.pdf",
       "excluded_at": "2026-06-02",
       "excluded_by": "manual",
-      "reason": "Publisher version replaced by arXiv version (2025-arXiv-Yang.pdf) for licensing compliance."
+      "reason": "Publisher version replaced by arXiv version (2025-arXiv-Yang.pdf) for licensing compliance.",
+      "source_pdf_sha256": "4f4888481963377d7e28d177ff4cd0e8f610805238f340ff9961222b3f9b4c9d"
     },
     {
       "doi": "10.1103/nbzp-1yn7",
@@ -190,7 +200,8 @@
       "filename": "2025-arXiv-Hays.pdf",
       "excluded_at": "2026-06-02",
       "excluded_by": "manual",
-      "reason": "Theory proposal — no experimental materials data. T2=80000µs is a theoretical estimate from noise model, not a measurement. 'Harmonium' qubit has not been fabricated. arXiv version of previously excluded 2025-PRXQuantum-Hays.pdf."
+      "reason": "Theory proposal — no experimental materials data. T2=80000µs is a theoretical estimate from noise model, not a measurement. 'Harmonium' qubit has not been fabricated. arXiv version of previously excluded 2025-PRXQuantum-Hays.pdf.",
+      "source_pdf_sha256": "525cab01f67b8aaca4f3f0727e4d8fc18d9f524ed6e34598248ed22c90f73f51"
     },
     {
       "doi": "10.48550/arXiv.2604.26909",
@@ -198,47 +209,51 @@
       "filename": "2026-arXiv-Fukumori.pdf",
       "excluded_at": "2026-06-11",
       "excluded_by": "manual",
-      "reason": "Rare-earth spin system (171Yb3+:CaWO4) — quantum memory / spin-ensemble, not superconducting materials characterization. No film, Tc, RRR, or Qi data. C2QA acknowledgment caused false high-relevance."
+      "reason": "Rare-earth spin system (171Yb3+:CaWO4) — quantum memory / spin-ensemble, not superconducting materials characterization. No film, Tc, RRR, or Qi data. C2QA acknowledgment caused false high-relevance.",
+      "source_pdf_sha256": "0bf790bd961490114c57b7ea4a815783b5a2515e0a74b9901b533095fde4af23"
     },
     {
-	  "doi": "10.1002/qute.202500763",
-	  "arxiv_id": null,
-	  "filename": "2026-AdvQuantumTech-Chattaraj.pdf",
-	  "excluded_at": "2026-06-13",
-	  "excluded_by": "manual",
-	  "reason": "Review paper — no original experimental measurements. 0 samples extracted. Reviews Niobium thin film literature for quantum circuit applications. Not a primary research paper with materials characterization data."
-	},
-	{
-	  "doi": "10.48550/arXiv.2604.27324",
-	  "arxiv_id": "arXiv:2604.27324",
-	  "filename": "2026-arXiv-Ugale.pdf",
-	  "excluded_at": "2026-06-13",
-	  "excluded_by": "manual",
-	  "reason": "ML/quantum circuits paper — generative model for discovering quantum circuits for the 3-SAT problem. No materials characterization data. C2QA acknowledgment caused false high-relevance."
-	},
-	{
-	  "doi": "10.48550/arXiv.2512.19582",
-	  "arxiv_id": "arXiv:2512.19582",
-	  "filename": "2026-arXiv-Rainaldi.pdf",
-	  "excluded_at": "2026-06-13",
-	  "excluded_by": "manual",
-	  "reason": "Quantum simulation theory paper — trigonometric continuous-variable gates and hybrid quantum simulations of the sine-Gordon model. No materials characterization data. C2QA acknowledgment caused false high-relevance."
-	},
-	{
-	  "doi": "10.1007/JHEP03(2026)125",
-	  "arxiv_id": null,
-	  "filename": "2026-JHEP-Rainaldi.pdf",
-	  "excluded_at": "2026-06-13",
-	  "excluded_by": "manual",
-	  "reason": "Quantum simulation theory paper — trigonometric continuous-variable gates and hybrid quantum simulations of the sine-Gordon model. No materials characterization data. C2QA acknowledgment caused false high-relevance. Publisher version; arXiv version also excluded."
-	},
-	{
-	  "doi": null,
-	  "arxiv_id": null,
-	  "filename": "2026-arXiv.García-Arellano.pdf",
-	  "excluded_at": "2026-07-10",
-	  "excluded_by": "manual",
-	  "reason": "Er:CrSBr flakes — CrSBr is a van der Waals antiferromagnet, not a superconductor. Extracted Tc_K (132 K) is actually the Néel/AFM transition temperature, a value-confusion error rather than a superconducting critical temperature. No superconducting materials characterization content."
-	}
+      "doi": "10.1002/qute.202500763",
+      "arxiv_id": null,
+      "filename": "2026-AdvQuantumTech-Chattaraj.pdf",
+      "excluded_at": "2026-06-13",
+      "excluded_by": "manual",
+      "reason": "Review paper — no original experimental measurements. 0 samples extracted. Reviews Niobium thin film literature for quantum circuit applications. Not a primary research paper with materials characterization data.",
+      "source_pdf_sha256": "705ef337d2ce900ea594298986d2a6024d405cebafd6f168dfff2eb9a6ce92a3"
+    },
+    {
+      "doi": "10.48550/arXiv.2604.27324",
+      "arxiv_id": "arXiv:2604.27324",
+      "filename": "2026-arXiv-Ugale.pdf",
+      "excluded_at": "2026-06-13",
+      "excluded_by": "manual",
+      "reason": "ML/quantum circuits paper — generative model for discovering quantum circuits for the 3-SAT problem. No materials characterization data. C2QA acknowledgment caused false high-relevance.",
+      "source_pdf_sha256": "33701f82adab37c5c958149b617ac97b1607d82ab3d0948f30488338c575df41"
+    },
+    {
+      "doi": "10.48550/arXiv.2512.19582",
+      "arxiv_id": "arXiv:2512.19582",
+      "filename": "2026-arXiv-Rainaldi.pdf",
+      "excluded_at": "2026-06-13",
+      "excluded_by": "manual",
+      "reason": "Quantum simulation theory paper — trigonometric continuous-variable gates and hybrid quantum simulations of the sine-Gordon model. No materials characterization data. C2QA acknowledgment caused false high-relevance.",
+      "source_pdf_sha256": "6b59a0feda6aa33d51ac2a3223ceddcb4ea3bab408e3a61d0ffdabe4afba9c16"
+    },
+    {
+      "doi": "10.1007/JHEP03(2026)125",
+      "arxiv_id": null,
+      "filename": "2026-JHEP-Rainaldi.pdf",
+      "excluded_at": "2026-06-13",
+      "excluded_by": "manual",
+      "reason": "Quantum simulation theory paper — trigonometric continuous-variable gates and hybrid quantum simulations of the sine-Gordon model. No materials characterization data. C2QA acknowledgment caused false high-relevance. Publisher version; arXiv version also excluded."
+    },
+    {
+      "doi": null,
+      "arxiv_id": null,
+      "filename": "2026-arXiv.García-Arellano.pdf",
+      "excluded_at": "2026-07-10",
+      "excluded_by": "manual",
+      "reason": "Er:CrSBr flakes — CrSBr is a van der Waals antiferromagnet, not a superconductor. Extracted Tc_K (132 K) is actually the Néel/AFM transition temperature, a value-confusion error rather than a superconducting critical temperature. No superconducting materials characterization content."
+    }
   ]
 }

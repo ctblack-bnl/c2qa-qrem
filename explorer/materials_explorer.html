@@ -452,6 +452,7 @@
   .detail-field:last-child { border-bottom: none; }
   .detail-field-name { font-family: 'DM Mono', monospace; color: var(--muted); min-width: 150px; flex-shrink: 0; font-size: 11px; }
   .detail-field-value { color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; }
+  .fg-evidence-clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .detail-catchall-item { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; margin-bottom: 6px; font-size: 12px; }
   .detail-catchall-type { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; color: var(--muted); }
   .detail-catchall-desc { color: var(--text); margin-bottom: 3px; font-weight: 500; }
@@ -985,6 +986,58 @@ let allFindings = [];
 let colorMap = {};
 let scatterChart = null;
 let stripChart = null;
+// ── Fabrication group click-highlight (Priority 2 tier 2, Aug 18) ──────────
+// Clicking a chart point highlights every other currently-plotted point
+// sharing the same fabrication origin, in addition to opening the detail
+// panel (openDetail() is called separately, unchanged). Highlight state is
+// independent of the detail panel's open/closed state — closing the panel
+// does NOT clear it, by design, so it survives on narrow screens where the
+// panel covers the chart. Clicking a different grouped point re-targets the
+// highlight; clicking the SAME group again, or a point with no group,
+// clears it.
+let highlightedGroup = null; // { paperId, groupId } or null
+function isHighlighted(sample) {
+  return !!(highlightedGroup && sample &&
+    sample.paper_id === highlightedGroup.paperId &&
+    sample.fabrication_group_id === highlightedGroup.groupId);
+}
+function toggleGroupHighlight(sample) {
+  if (!sample || !sample.fabrication_group_id) {
+    highlightedGroup = null;
+  } else if (highlightedGroup &&
+             highlightedGroup.paperId === sample.paper_id &&
+             highlightedGroup.groupId === sample.fabrication_group_id) {
+    highlightedGroup = null; // clicking the same group again clears it
+  } else {
+    highlightedGroup = { paperId: sample.paper_id, groupId: sample.fabrication_group_id };
+  }
+  // Re-render whichever chart(s) currently exist so the highlight (or its
+  // removal) shows immediately. Both are guarded since only one chart type
+  // may be built depending on which Explore sub-view is active.
+  if (stripChart)   renderStripChart();
+  if (scatterChart) renderScatterChart();
+}
+const GROUP_HIGHLIGHT_BORDER_COLOR = '#1B2030';
+const GROUP_HIGHLIGHT_BORDER_WIDTH = 4;
+/**
+ * Overrides borderColor/borderWidth for highlighted points on top of
+ * whatever a dataset already has (a single color, or per-point arrays from
+ * getDerivedPointStyles for derived fields) — normalizes both to per-point
+ * arrays first so this layers cleanly regardless of which case it's given.
+ * Non-highlighted points are left exactly as they were; this function only
+ * ever adds emphasis, never removes existing styling.
+ */
+function applyGroupHighlight(datasets) {
+  if (!highlightedGroup) return datasets;
+  datasets.forEach(ds => {
+    const n = ds.data.length;
+    const baseColor = Array.isArray(ds.borderColor) ? ds.borderColor : Array(n).fill(ds.borderColor);
+    const baseWidth = Array.isArray(ds.borderWidth) ? ds.borderWidth : Array(n).fill(ds.borderWidth ?? 1);
+    ds.borderColor = ds.data.map((pt, i) => isHighlighted(pt.sample) ? GROUP_HIGHLIGHT_BORDER_COLOR : baseColor[i]);
+    ds.borderWidth = ds.data.map((pt, i) => isHighlighted(pt.sample) ? GROUP_HIGHLIGHT_BORDER_WIDTH : baseWidth[i]);
+  });
+  return datasets;
+}
 // ── CSV Export ────────────────────────────────────────────────────────────
 function downloadCSV(rows, filename) {
   if (!rows || rows.length === 0) return;
@@ -1280,7 +1333,7 @@ async function openDetail(displayName) {
     const d = await r.json();
     if (!d.ok) return;
     _currentDetailData = { sample: d.sample, catchall: d.catchall, displayName };
-    renderDetail(d.sample, d.catchall, displayName);
+    renderDetail(d.sample, d.catchall, displayName, d.fabrication_group);
   } catch(e) {
     document.getElementById('detailBody').innerHTML = `<div style="color:var(--accent3)">Error: ${e}</div>`;
   }
@@ -1398,7 +1451,26 @@ function launchSimilar(displayName) {
   document.getElementById('search-similar').classList.add('active');
   runSimilarSearch(displayName);
 }
-function renderDetail(sample, catchall, displayName) {
+// Priority 2 tier 2 polish (Aug 18): expand/collapse the fabrication group's
+// evidence text. Only one Fabrication Group section can be present in the
+// detail panel at a time (it's per-sample, and re-rendered fresh on every
+// openDetail() call), so a single fixed element id is safe here — no need
+// for per-instance ids the way the members/excluded-candidates lists don't
+// need them either.
+function toggleFgEvidence() {
+  const el  = document.getElementById('fgEvidenceText');
+  const btn = document.getElementById('fgEvidenceToggle');
+  if (!el || !btn) return;
+  const isClamped = el.classList.contains('fg-evidence-clamped');
+  if (isClamped) {
+    el.classList.remove('fg-evidence-clamped');
+    btn.textContent = 'Show less';
+  } else {
+    el.classList.add('fg-evidence-clamped');
+    btn.textContent = 'Show more';
+  }
+}
+function renderDetail(sample, catchall, displayName, fabricationGroup) {
   const body = document.getElementById('detailBody');
   let html = '';
   html += '<div class="detail-section">';
@@ -1419,6 +1491,13 @@ function renderDetail(sample, catchall, displayName) {
     }
   });
   html += '</div>';
+  // Priority 2 tier 2 (Aug 18): Fabrication Group section — only renders when this
+  // Priority 2 tier 2 (Aug 18): Fabrication Group section is rendered further
+  // down, just before Fabrication Process — see below. Kept out of this spot
+  // (top of panel, next to Sample Description) per user feedback: group
+  // membership reads more like a fabrication-process detail than a sample-
+  // identity fact, so it belongs near its natural neighbor, not competing
+  // with Description/Reference/Measurements for the top of the panel.
   html += '<div class="detail-section">';
   html += '<div class="detail-section-label">Reference</div>';
   html += `<div class="detail-field"><span class="detail-field-name">Authors</span><span class="detail-field-value">${sample.authors || '—'}</span></div>`;
@@ -1443,6 +1522,70 @@ function renderDetail(sample, catchall, displayName) {
     html += '</div>';
   }
   // FIX #2 (today): Fabrication Process section — Block 2.5 named fields.
+  // Priority 2 tier 2 (Aug 18): Fabrication Group section — only renders when
+  // this sample has a fabrication_group_id. Surfaces not just group membership
+  // but the full reasoning behind it (evidence, confidence, excluded_candidates
+  // with their stated reasons) — the point of excluded_candidates existing at
+  // all is to make Claude's judgment calls reviewable by a human, so it needs
+  // to actually be shown somewhere, not just sit unused in the database.
+  // Placed here (just before Fabrication Process), not near Sample Description
+  // at the top — group membership reads more like a fabrication-process detail
+  // than a sample-identity fact.
+  if (fabricationGroup) {
+    const fg = fabricationGroup;
+    const confBadge = fg.confidence
+      ? `<span class="detail-field-value conf-${fg.confidence}" style="font-size:11px;margin-left:6px;">(${fg.confidence})</span>` : '';
+    html += '<div class="detail-section">';
+    html += `<div class="detail-section-label">Fabrication Group: ${fg.group_id}${confBadge}</div>`;
+    if (fg.raw_label) {
+      html += `<div class="detail-field"><span class="detail-field-name">Paper's own label</span><span class="detail-field-value">${fg.raw_label}</span></div>`;
+    }
+    html += `<div class="detail-field"><span class="detail-field-name">Basis</span><span class="detail-field-value">${fg.basis || '—'}</span></div>`;
+    if (fg.individual_assignment_disclosed === 0 || fg.individual_assignment_disclosed === false) {
+      html += `<div style="font-size:11px;color:var(--muted);margin:4px 0 8px;padding:6px 8px;background:#F1F3F7;border-radius:3px;">
+        Paper states a shared fabrication origin but does not disclose which specific
+        sample maps to which physical run — membership reflects a set-level claim,
+        not a verified per-sample assignment.
+      </div>`;
+    }
+    if (fg.members && fg.members.length > 0) {
+      html += `<div class="detail-field"><span class="detail-field-name">Other members (${fg.members.length})</span></div>`;
+      // Chips in a wrapped flex row, bounded height with internal scroll — a
+      // group can have dozens of members (Bland's UHV group has 27), and a
+      // one-link-per-line list at that size dwarfs every other section in the
+      // panel. Chips read as one compact, self-contained block instead.
+      html += '<div style="display:flex;flex-wrap:wrap;gap:4px;max-height:110px;overflow-y:auto;margin:4px 0 8px;padding:6px;background:#F1F3F7;border-radius:3px;">';
+      fg.members.forEach(m => {
+        html += `<span style="cursor:pointer;color:var(--accent);background:#fff;border:1px solid var(--border, #DDE1EA);border-radius:3px;font-size:11px;padding:2px 6px;white-space:nowrap;" onclick="openDetail('${m.display_name.replace(/'/g, "\\'")}')">${m.display_name}</span>`;
+      });
+      html += '</div>';
+    }
+    if (fg.evidence) {
+      html += `<div class="detail-field-name" style="margin-top:6px;">Evidence</div>`;
+      // Long evidence text (Bland's runs 400+ chars) was dominating the whole
+      // panel. Clamp to 3 lines by default; only show the toggle at all when
+      // the text is long enough to plausibly overflow that — a short evidence
+      // string gets no "Show more" link cluttering it for nothing.
+      const needsToggle = fg.evidence.length > 180;
+      const clampClass = needsToggle ? ' class="fg-evidence-clamped"' : '';
+      html += `<div id="fgEvidenceText"${clampClass} style="font-size:12px;color:var(--text);font-style:italic;margin:2px 0 4px;">${fg.evidence}</div>`;
+      if (needsToggle) {
+        html += `<span id="fgEvidenceToggle" onclick="toggleFgEvidence()" style="font-size:11px;color:var(--accent);cursor:pointer;">Show more</span>`;
+      }
+    }
+    if (fg.excluded_candidates && fg.excluded_candidates.length > 0) {
+      html += `<div class="detail-field-name" style="margin-top:6px;">Considered, not included</div>`;
+      html += '<div style="margin:2px 0;">';
+      fg.excluded_candidates.forEach(e => {
+        html += `<div style="font-size:12px;margin:4px 0;padding:4px 8px;background:#F1F3F7;border-radius:3px;">
+          <span style="cursor:pointer;color:var(--accent);text-decoration:line-through;text-decoration-color:var(--muted);" onclick="openDetail('${(e.display_name||'').replace(/'/g, "\\'")}')">${e.display_name || e.sample_id}</span>
+          <div style="color:var(--muted);margin-top:2px;">${e.reason || ''}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  }
   // Renders only when at least one fabrication field is populated for this
   // sample (sparse-graceful, same pattern as Measurements above). Currently
   // only a handful of ingested samples (Hedrick 2026, Olszewski 2026) have
@@ -1908,6 +2051,7 @@ function renderStripChart(samples) {
     }
     return dataset;
   }).filter(Boolean);
+  applyGroupHighlight(datasets);
   updateVariantLegend('stripVariantLegend', isDerived ? field : null, samples);
   if (stripChart) stripChart.destroy();
   const ctx = document.getElementById('stripChart').getContext('2d');
@@ -1922,6 +2066,9 @@ function renderStripChart(samples) {
           const el  = elements[0];
           const raw = stripChart.data.datasets[el.datasetIndex].data[el.index];
           if (raw && raw.displayName) openDetail(raw.displayName);
+          if (raw && raw.sample) toggleGroupHighlight(raw.sample);
+        } else {
+          toggleGroupHighlight(null);
         }
       },
       plugins: {
@@ -2011,6 +2158,7 @@ function renderScatterChart(samples) {
     }
     return dataset;
   });
+  applyGroupHighlight(datasets);
   updateVariantLegend('scatterVariantLegend', derivedAxis, samples);
   if (scatterChart) scatterChart.destroy();
   const ctx = document.getElementById('scatterChart').getContext('2d');
@@ -2025,6 +2173,9 @@ function renderScatterChart(samples) {
           const el  = elements[0];
           const raw = scatterChart.data.datasets[el.datasetIndex].data[el.index];
           if (raw && raw.label) openDetail(raw.label);
+          if (raw && raw.sample) toggleGroupHighlight(raw.sample);
+        } else {
+          toggleGroupHighlight(null);
         }
       },
       plugins: {
