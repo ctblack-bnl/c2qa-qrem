@@ -91,6 +91,24 @@
 #     - "HV" present         → "HV"
 #     - not reported/unclear → "unknown"
 #
+# Acknowledged DOE centers (October 2026 — schema v0.23, five-center expansion):
+#   Paper-level, derived deterministically from the Pass 1 funding_acknowledgments
+#   text (record["relevance_json"]["funding_acknowledgments"]) by centers.py — the
+#   same "Claude extracts text, code normalizes it" pattern as derived_material.
+#   Only the acknowledgment text is consulted, never affiliations or authors.
+#     papers.funding_acknowledgments — the raw text, kept for human audit
+#     papers.acknowledged_centers    — display string: "C2QA, QSC" | "none" | "unknown"
+#                                      ("unknown" = no Pass 1 output at all, e.g. a
+#                                      failed oversized-PDF record; "none" = Pass 1 ran
+#                                      and the paper names none of the five centers,
+#                                      or has no acknowledgment at all)
+#     paper_centers                  — bridge table, one row per (paper, center), real
+#                                      centers only; join through paper_id to filter or
+#                                      sort samples by center. "none"/"unknown" papers
+#                                      have no rows here — use the papers column for those.
+#   The build prints a breakdown and a review list of papers that matched no center but
+#   look center-like (a missing alias otherwise produces no symptom at all).
+#
 # Usage:
 #   cd ingester
 #   python3 build_sqlite.py
@@ -102,6 +120,7 @@ import argparse
 import unicodedata
 from pathlib import Path
 from derive import derive_all, get_derived_value
+from centers import centers_for_record, display_string, needs_review
 
 
 def _norm(s):
@@ -747,6 +766,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         DROP TABLE IF EXISTS samples;
         DROP TABLE IF EXISTS catchall_items;
         DROP TABLE IF EXISTS fabrication_groups;
+        DROP TABLE IF EXISTS paper_centers;
 
         CREATE TABLE papers (
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -773,7 +793,13 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             extraction_prompt_version TEXT,
             model_identifier          TEXT,
             ingestion_batch_id        TEXT,
-            source_pdf_sha256         TEXT
+            source_pdf_sha256         TEXT,
+
+            -- Acknowledged DOE centers (Oct 2026, schema v0.23). Raw Pass 1
+            -- acknowledgment text kept for audit; display string derived by
+            -- centers.py. See paper_centers for the filterable form.
+            funding_acknowledgments   TEXT,
+            acknowledged_centers      TEXT   -- "C2QA, QSC" | "none" | "unknown"
         );
 
         CREATE TABLE samples (
@@ -988,6 +1014,16 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             confidence                       TEXT,   -- high | medium | low
             source                           TEXT
         );
+
+        -- One row per (paper, acknowledged center) — real centers only, never
+        -- "none"/"unknown" (those live in papers.acknowledged_centers). Derived
+        -- by centers.py from the Pass 1 acknowledgment text.
+        CREATE TABLE paper_centers (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            paper_id    INTEGER REFERENCES papers(id),
+            filename    TEXT,
+            center      TEXT    -- C2QA | Q-NEXT | QSA | QSC | SQMS
+        );
     """)
 
     # --- Helper to extract a field value and confidence ---
@@ -1007,6 +1043,8 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     samples_inserted = 0
     catchall_inserted = 0
     fabrication_groups_inserted = 0
+    paper_centers_inserted = 0
+    center_review = []   # (filename, ack_text) matched no center but look center-like
     ambiguous_catchall_promotions = []
     profiles_found = 0
 
@@ -1020,14 +1058,24 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         num_samples = len(samples)
         authors = rec.get("authors") or ext.get("authors") or ""
 
+        # Acknowledged DOE centers (Oct 2026): derived from the Pass 1
+        # acknowledgment text only. None -> no Pass 1 output ("unknown").
+        ack_codes = centers_for_record(rec)
+        ack_display = display_string(ack_codes)
+        _rj = rec.get("relevance_json")
+        ack_text = _rj.get("funding_acknowledgments") if isinstance(_rj, dict) else None
+        if ack_text is not None and not isinstance(ack_text, str):
+            ack_text = json.dumps(ack_text, ensure_ascii=False)
+
         cur.execute("""
             INSERT INTO papers (
                 filename, processed_at, outcome, relevance, relevance_reason,
                 paper_type, doi, arxiv_id, title, authors, journal,
                 human_reviewed, human_approved, num_samples, error, extraction_json,
                 schema_version, extraction_prompt_version, model_identifier,
-                ingestion_batch_id, source_pdf_sha256
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ingestion_batch_id, source_pdf_sha256,
+                funding_acknowledgments, acknowledged_centers
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             rec.get("filename"),
             rec.get("processed_at"),
@@ -1051,9 +1099,21 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
             rec.get("model_identifier"),
             rec.get("ingestion_batch_id"),
             rec.get("source_pdf_sha256"),
+            ack_text,
+            ack_display,
         ))
         paper_id = cur.lastrowid
         papers_inserted += 1
+
+        # Paper-center bridge rows — real centers only (Oct 2026)
+        for _center in ack_codes or []:
+            cur.execute(
+                "INSERT INTO paper_centers (paper_id, filename, center) VALUES (?, ?, ?)",
+                (paper_id, rec.get("filename"), _center),
+            )
+            paper_centers_inserted += 1
+        if ack_codes == [] and needs_review(ack_text):
+            center_review.append((rec.get("filename"), ack_text))
 
         # Fabrication groups — paper-level, inserted once per paper (Aug 12 2026)
         for grp in ext.get("fabrication_groups", []) or []:
@@ -1527,6 +1587,22 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     """)
     post_fab_breakdown = cur.fetchall()
 
+    # --- Acknowledged-centers breakdown (Oct 2026) ---
+    cur.execute("""
+        SELECT acknowledged_centers, COUNT(*) AS n
+        FROM papers
+        GROUP BY acknowledged_centers
+        ORDER BY n DESC
+    """)
+    center_breakdown = cur.fetchall()
+    cur.execute("""
+        SELECT center, COUNT(*) AS n
+        FROM paper_centers
+        GROUP BY center
+        ORDER BY center
+    """)
+    center_totals = cur.fetchall()
+
     # --- Zero-populated column report (catches "declared but never wired up" bugs) ---
     zero_populated_samples = report_zero_populated_columns(
         cur, "samples",
@@ -1546,6 +1622,7 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
     print(f"  Samples inserted : {samples_inserted}")
     print(f"  Catchall items   : {catchall_inserted}")
     print(f"  Fabrication groups: {fabrication_groups_inserted}")
+    print(f"  Paper-center links: {paper_centers_inserted}")
     print(f"  Profiles found   : {profiles_found} of {samples_inserted} samples")
     print(f"  Database written : {db_path}")
 
@@ -1575,6 +1652,21 @@ def build_sqlite(jsonl_path: Path, db_path: Path) -> None:
         print(f"\n  ℹ derived_post_fab_treatment_family breakdown ({sum(r[1] for r in post_fab_breakdown)} samples with data):")
         for row in post_fab_breakdown:
             print(f"    {str(row[0]):<20} : {row[1]} sample(s)")
+
+    if center_breakdown:
+        print(f"\n  ℹ acknowledged_centers breakdown ({sum(r[1] for r in center_breakdown)} papers):")
+        for row in center_breakdown:
+            print(f"    {str(row[0]):<22} : {row[1]} paper(s)")
+    if center_totals:
+        print(f"    per-center paper counts (a multi-center paper counts once per center): "
+              + ", ".join(f"{r[0]}={r[1]}" for r in center_totals))
+
+    if center_review:
+        print(f"\n  ⚠ {len(center_review)} paper(s) matched no DOE center but look center-like — "
+              f"possible missing alias in centers.py (or a non-NQISRC center, which is correct):")
+        for fn, txt in center_review:
+            print(f"    {fn}")
+            print(f"      {(txt or '')[:300]}")
 
     if zero_populated_samples or zero_populated_papers:
         print(f"\n  ⚠ Zero-populated columns (declared in schema, no data in any row):")

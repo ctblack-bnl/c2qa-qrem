@@ -185,6 +185,19 @@
 #        5 documented cooldowns, 1 of S1's 3, 1 of S2's 2) — there was never
 #        an explicit, consistently-applied rule here before this fix. Not yet
 #        test_single-validated.
+#   v5-ack-verbatim (Oct 2026, five-center expansion) — Pass 1 (RELEVANCE_PROMPT)
+#        change, not Pass 2: funding_acknowledgments is now copied VERBATIM from
+#        the paper's acknowledgment/funding statement instead of summarized.
+#        Reason: build_sqlite.py now derives papers.acknowledged_centers and the
+#        paper_centers table from this text (centers.py, deterministic alias
+#        matching for the five DOE NQISRCs: C2QA, Q-NEXT, QSA, QSC, SQMS), and a
+#        model-written paraphrase can silently drop or reword a center name that
+#        a human auditor would then have no way to recover. Also states
+#        explicitly: never infer a center from affiliations, authors, or topic —
+#        only what the acknowledgment text itself names. No change to the Pass 2
+#        extraction schema or to the output key name, so existing records and
+#        the existing relevance_json/funding_acknowledgments path are unaffected.
+#        Not yet validated against a fresh ingestion.
 import json
 
 # =============================================================================
@@ -200,15 +213,15 @@ import json
 #                                a new entry is added to the version-history comment
 #                                block above. Does NOT change for edits that don't
 #                                touch prompt content (like this one).
-SCHEMA_VERSION = "0.19"
-EXTRACTION_PROMPT_VERSION = "v5-cooldown-samples"
+SCHEMA_VERSION = "0.23"
+EXTRACTION_PROMPT_VERSION = "v5-ack-verbatim"
 # =============================================================================
 # PROMPT 1 — RELEVANCE CHECK
 # =============================================================================
 _RELEVANCE_SCHEMA = {
     "relevance": "<high | medium | low>",
     "relevance_reason": "<one sentence explaining the relevance decision>",
-    "funding_acknowledgments": "<any center/grant funding acknowledgments found, or null>",
+    "funding_acknowledgments": "<the funding / acknowledgment text copied VERBATIM from the paper's Acknowledgments or funding statement, keeping every funding body, center name, and grant or contract number exactly as written — or null if the paper has no acknowledgment or funding statement>",
     "device_performance_without_material_context": "<true if this paper reports real experimental superconducting device performance (T1, T2, gate fidelity, readout fidelity, Qi, etc.) but relevance is low or medium specifically because no material or fabrication context is documented for that device — false otherwise, including all theory/algorithm papers and all off-domain papers (NV centers, other qubit modalities, photonics, etc.) where the low/medium relevance has nothing to do with missing material context>",
     "paper_type": "<primary | review | process_comparison | unclear>",
     "paper_type_reason": "<one sentence explaining the type decision>",
@@ -297,6 +310,24 @@ DEVICE PERFORMANCE WITHOUT MATERIAL CONTEXT — a specific, narrow flag:
     - Any other reason for low relevance unrelated to material context
   When in doubt, leave it false — this flag exists to surface a narrow,
   specific pattern for human review, not as a general "close call" flag.
+
+FUNDING ACKNOWLEDGMENTS — copy verbatim, never summarize:
+  Set funding_acknowledgments to the text of the paper's Acknowledgments
+  (or funding / financial support) statement, copied exactly as written.
+  Keep every funding body, center name, and grant or contract number
+  exactly as the paper spells them. If a long acknowledgment contains
+  purely personal thanks (colleagues, discussions, facility staff) you
+  may omit those sentences, but never reword, abbreviate, expand, or
+  reorder what you keep.
+  The five DOE National Quantum Information Science Research Centers are
+  C2QA, Q-NEXT, QSA, QSC, and SQMS (also written out in full, e.g.
+  "Co-design Center for Quantum Advantage"). If the acknowledgment names
+  any of them, in any spelling, that wording MUST appear in your copy,
+  and if it names several, ALL of them must appear.
+  Do NOT infer a center from author affiliations, the topic of the paper,
+  or the host institution, and do NOT add a center the acknowledgment
+  does not itself name. If the paper has no acknowledgment or funding
+  statement at all, return null.
 ---
 PAPER TYPE DEFINITIONS
 ---
