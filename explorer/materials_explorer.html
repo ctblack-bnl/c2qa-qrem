@@ -852,7 +852,8 @@
       </div>
     </div>
     <div class="status-bar">
-      <div>Samples shown: <span id="statusCount">—</span></div>
+      <div>Matching filters: <span id="statusCount">—</span></div>
+      <div>Plotted: <span id="statusPlotted">—</span></div>
       <div>Total in corpus: <span id="statusTotal">—</span></div>
       <div id="statusHover" style="margin-left:auto;"></div>
     </div>
@@ -2213,6 +2214,18 @@ function onFilterChange() {
   renderRankedList(filtered);
   document.getElementById('statusCount').textContent = filtered.length;
 }
+// ── Status bar: how many samples the active chart actually plots ──────────
+const plottedCounts = { strip: 0, scatter: 0 };
+function setPlotted(which, datasets) {
+  plottedCounts[which] = datasets.reduce((n, d) => n + d.data.length, 0);
+  refreshPlotted();
+}
+function refreshPlotted() {
+  const el = document.getElementById('statusPlotted');
+  if (!el) return;
+  const scatterActive = document.getElementById('explore-scatter').classList.contains('active');
+  el.textContent = scatterActive ? plottedCounts.scatter : plottedCounts.strip;
+}
 // ── Label truncation ──────────────────────────────────────────────────────
 function trunc(str, maxLen=22) {
   if (!str) return str;
@@ -2342,6 +2355,7 @@ function renderStripChart(samples) {
     }
   });
   document.getElementById('statusCount').textContent = samples.length;
+  setPlotted('strip', datasets);
 }
 // ── Scatter Chart ─────────────────────────────────────────────────────────
 function renderScatterChart(samples) {
@@ -2442,6 +2456,7 @@ function renderScatterChart(samples) {
       }
     }
   });
+  setPlotted('scatter', datasets);
 }
 // ── Table ─────────────────────────────────────────────────────────────────
 function renderTable(samples) {
