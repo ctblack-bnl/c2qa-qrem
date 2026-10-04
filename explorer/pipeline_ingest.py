@@ -84,7 +84,7 @@ def call_relevance_check(client: Any, deployment: str, pdf_b64: str) -> dict:
     """
     response = client.chat.completions.create(
         model=deployment,
-        max_tokens=1000,
+        max_tokens=4000,
         messages=[
             {
                 "role": "user",
