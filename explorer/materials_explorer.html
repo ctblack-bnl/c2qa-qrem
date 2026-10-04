@@ -852,9 +852,9 @@
       </div>
     </div>
     <div class="status-bar">
-      <div>Matching filters: <span id="statusCount">—</span></div>
-      <div>Plotted: <span id="statusPlotted">—</span></div>
-      <div>Total in corpus: <span id="statusTotal">—</span></div>
+      <div>Matching filters: <span id="statusCount">—</span> <span id="statusCountPapers" style="color:var(--muted)"></span></div>
+      <div>Plotted: <span id="statusPlotted">—</span> <span id="statusPlottedPapers" style="color:var(--muted)"></span></div>
+      <div>Total in corpus: <span id="statusTotal">—</span> <span id="statusTotalPapers" style="color:var(--muted)"></span></div>
       <div id="statusHover" style="margin-left:auto;"></div>
     </div>
   </main>
@@ -2216,15 +2216,27 @@ function onFilterChange() {
 }
 // ── Status bar: how many samples the active chart actually plots ──────────
 const plottedCounts = { strip: 0, scatter: 0 };
+const plottedPapers = { strip: 0, scatter: 0 };
+function countPapers(samples) {
+  const ids = new Set();
+  samples.forEach(s => ids.add(s.paper_id != null ? s.paper_id : (s.filename || s.title || s.doi || s.authors)));
+  return ids.size;
+}
+function papersLabel(n) { return `(${n} paper${n === 1 ? '' : 's'})`; }
 function setPlotted(which, datasets) {
-  plottedCounts[which] = datasets.reduce((n, d) => n + d.data.length, 0);
+  const pts = datasets.flatMap(d => d.data);
+  plottedCounts[which] = pts.length;
+  plottedPapers[which] = countPapers(pts.map(pt => pt.sample).filter(Boolean));
   refreshPlotted();
 }
 function refreshPlotted() {
   const el = document.getElementById('statusPlotted');
   if (!el) return;
-  const scatterActive = document.getElementById('explore-scatter').classList.contains('active');
-  el.textContent = scatterActive ? plottedCounts.scatter : plottedCounts.strip;
+  const which = document.getElementById('explore-scatter').classList.contains('active') ? 'scatter' : 'strip';
+  el.textContent = plottedCounts[which];
+  document.getElementById('statusPlottedPapers').textContent = papersLabel(plottedPapers[which]);
+  document.getElementById('statusCountPapers').textContent = papersLabel(countPapers(getFilteredSamples()));
+  document.getElementById('statusTotalPapers').textContent = papersLabel(countPapers(allSamples));
 }
 // ── Label truncation ──────────────────────────────────────────────────────
 function trunc(str, maxLen=22) {
