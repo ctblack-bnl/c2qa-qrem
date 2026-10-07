@@ -198,6 +198,22 @@
 #        extraction schema or to the output key name, so existing records and
 #        the existing relevance_json/funding_acknowledgments path are unaffected.
 #        Not yet validated against a fresh ingestion.
+#   v6-process-comparison-devices (Oct 2026) — Pass 2 change, process_comparison
+#        branch of build_extraction_prompt only. That branch previously said only
+#        "one sample entry per row in the comparison table" and had no per-device
+#        rule (the primary branch did), so a paper labeled process_comparison that
+#        also lists individual qubits in a table (main or supplementary) had its
+#        devices collapsed into per-condition averages or one representative device.
+#        Surfaced by Bal 2024 (arXiv:2304.13257): condition-level samples only, with
+#        Table S1 qubits averaged per capping group (and one baseline qubit dropped)
+#        and Table S2 (11 qubits, geometries A/B/C) absent as samples. Fix: the
+#        comparison table defines the process conditions; each individual
+#        qubit/resonator is its own sample; condition-level samples only where no
+#        per-device data exist; devices linked through fabrication_groups.
+#        Validated via test_single on Bal: every qubit in Tables S1/S2 extracted,
+#        and each T1/frequency matched the tables row by row; the two silicon
+#        conditions (no per-device table) correctly stayed condition-level. Other
+#        process_comparison papers not yet re-checked.
 import json
 
 # =============================================================================
@@ -214,7 +230,7 @@ import json
 #                                block above. Does NOT change for edits that don't
 #                                touch prompt content (like this one).
 SCHEMA_VERSION = "0.23"
-EXTRACTION_PROMPT_VERSION = "v5-ack-verbatim"
+EXTRACTION_PROMPT_VERSION = "v6-process-comparison-devices"
 # =============================================================================
 # PROMPT 1 — RELEVANCE CHECK
 # =============================================================================
@@ -550,7 +566,23 @@ def build_extraction_prompt(relevance: str, paper_type: str) -> str:
             "more distinct fabrication batches (e.g. a two-wafer comparison) — after "
             "listing every sample, apply the FABRICATION GROUPING guidance below; expect "
             "multiple fabrication_groups entries, one per compared process/batch, not one "
-            "group for the whole paper. Omit review_outputs from your response entirely."
+            "group for the whole paper. "
+            "IMPORTANT: the comparison table defines the process conditions. If the "
+            "paper (main text OR supplementary tables) also reports measurements on "
+            "multiple individual qubits or resonators within those conditions, extract "
+            "EACH individual qubit or resonator as its own sample record with its own "
+            "measured T1, T2, qubit frequency, Qi and Q values, exactly as for a primary "
+            "research paper. Never replace per-device rows with a per-condition average "
+            "or a single representative device. Where a table lists per-device rows (for "
+            "example columns such as Qubit Frequency and Average T1 for each device), "
+            "create one sample per device row, with a unique descriptive sample_id built "
+            "from the condition, geometry and qubit frequency or index. Carry each "
+            "device's process condition (film, capping or encapsulation layer, substrate, "
+            "surface oxide) into its own sample record, and link devices that share a "
+            "condition through fabrication_groups. Record a condition-level sample (one "
+            "per comparison-table row, with sample_id reflecting its table position) only "
+            "for conditions that have no per-device data. "
+            "Omit review_outputs from your response entirely."
         ),
     }.get(paper_type, "Extract all samples found.")
     relevance_instruction = (
